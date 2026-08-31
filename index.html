@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hamvara — practical software for small business</title>
+<meta name="description" content="Ready-made and custom software for small businesses: inventory control, sales, accounts, and live video. Installed on your own machines.">
+<meta name="author" content="Mohammad Bagher Yahya Mazdarani">
+
+<!--
+  ════════════════════════════════════════════════════════════
+  Hamvara — hamvara.com
+  Copyright (c) 2026 Mohammad Bagher Yahya Mazdarani.
+
+  TO EDIT:
+  1) Text in all three languages: the STRINGS object at the
+     bottom of this file. Every visible word lives there.
+  2) Contact details: the STRINGS keys starting with "chan".
+  3) Colours and fonts: the :root variables below.
+  4) Products: the <article class="prod"> blocks + their
+     STRINGS keys (p1*, p2*, p3*).
+  ════════════════════════════════════════════════════════════
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Lalezar&family=Vazirmatn:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+/* Palette taken from the Hamvara MRP Industrial application.
+   To fine-tune, change only these eight values. */
+:root{
+  --ink:#1E2B3A;        /* sidebar / dark panels */
+  --ink-2:#5A6B7C;      /* secondary text */
+  --paper:#F1F0EA;      /* content background */
+  --card:#FFFFFF;       /* cards */
+  --rule:#D6D5CD;       /* hairlines */
+  --pine:#1F4E79;       /* accent: card top rules, links, buttons */
+  --pine-dark:#163A5A;  /* accent, pressed */
+  --mark:#DFC85A;       /* highlight bar, as in "Action Required" */
+  --display:'Bricolage Grotesque', 'Vazirmatn', sans-serif;
+  --body:'Vazirmatn', 'Segoe UI', Tahoma, sans-serif;
+  --mono:'IBM Plex Mono', monospace;
+  --maxw:1120px;
+}
+html[lang="fa"]{ --display:'Lalezar', Tahoma, sans-serif; }
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  font-family:var(--body);
+  color:var(--ink);
+  background-color:var(--paper);
+  /* Faint grid. Delete these three lines for a completely flat background. */
+  background-image:
+    linear-gradient(to left, rgba(30,43,58,.055) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(30,43,58,.055) 1px, transparent 1px);
+  background-size:28px 28px;
+  line-height:1.8;
+  font-size:16px;
+  -webkit-font-smoothing:antialiased;
+}
+html[lang="fa"] body{line-height:1.85}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 20px}
+a{color:inherit}
+h1,h2,h3{line-height:1.3;margin:0}
+html[lang="fa"] h1,html[lang="fa"] h2,html[lang="fa"] h3{line-height:1.4}
+p{margin:0}
+
+/* ── top bar ─────────────────────────────── */
+.topbar{
+  position:sticky;top:0;z-index:40;
+  background:rgba(241,240,234,.92);
+  backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--rule);
+}
+.topbar-in{display:flex;align-items:center;gap:16px;height:64px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-size:24px;font-weight:700;letter-spacing:-.2px;text-decoration:none}
+html[lang="fa"] .brand{font-weight:400;font-size:27px;letter-spacing:.3px}
+.brand-mark{
+  width:26px;height:26px;border:2px solid var(--pine);flex:none;
+  display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;
+}
+.brand-mark i{border-inline-start:1px solid var(--pine);border-top:1px solid var(--pine)}
+.brand-mark i:first-child{border:0;background:var(--mark)}
+.nav{display:flex;gap:22px;margin-inline-start:auto;font-size:15px}
+.nav a{text-decoration:none;color:var(--ink-2);padding:4px 0;border-bottom:2px solid transparent}
+.nav a:hover{color:var(--ink);border-bottom-color:var(--mark)}
+.btn{
+  display:inline-block;font-family:var(--body);font-weight:700;font-size:15px;
+  padding:11px 20px;border:0;border-radius:2px;cursor:pointer;text-decoration:none;
+  background:var(--pine);color:#fff;transition:background .15s ease;
+}
+.btn:hover{background:var(--pine-dark)}
+.btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
+.btn-ghost:hover{background:var(--ink);color:var(--paper)}
+.topbar .btn{padding:9px 16px}
+
+.lang{
+  font-family:var(--mono);font-size:12px;letter-spacing:.4px;
+  background:transparent;color:var(--ink-2);
+  border:1px solid var(--rule);border-radius:2px;
+  padding:7px 8px;cursor:pointer;
+}
+.lang:hover{border-color:var(--pine);color:var(--ink)}
+
+/* ── hero ────────────────────────────────── */
+.hero{padding:64px 0 24px}
+.hero-grid{display:grid;grid-template-columns:1fr 1.05fr;gap:52px;align-items:center}
+.eyebrow{
+  font-family:var(--mono);font-size:12px;letter-spacing:1px;color:var(--pine);
+  text-transform:uppercase;margin-bottom:18px;display:inline-block;
+  border-bottom:1px solid var(--rule);padding-bottom:6px;
+}
+.hero h1{font-family:var(--display);font-size:clamp(33px,5vw,55px);font-weight:700;letter-spacing:-.5px}
+html[lang="fa"] .hero h1{font-weight:400;letter-spacing:.2px}
+.hero h1 mark{background:linear-gradient(transparent 62%, var(--mark) 62%);color:inherit;padding:0 2px}
+.hero p.lead{margin-top:20px;font-size:18px;color:var(--ink-2);max-width:48ch}
+.hero-cta{display:flex;gap:12px;margin-top:30px;flex-wrap:wrap}
+
+/* ── signature: the product sheet ────────── */
+.sheet{background:var(--card);border:1px solid var(--rule);box-shadow:0 18px 40px -28px rgba(30,43,58,.45)}
+.formula-bar{display:flex;align-items:center;border-bottom:1px solid var(--rule);background:#F7F6F1}
+.cellref{
+  font-family:var(--mono);font-size:13px;padding:9px 12px;min-width:66px;text-align:center;
+  border-inline-end:1px solid var(--rule);color:var(--ink-2);
+}
+.fx{font-family:var(--mono);font-size:13px;padding:9px 10px;color:var(--pine);border-inline-end:1px solid var(--rule)}
+.formula{font-family:var(--mono);font-size:13px;padding:9px 12px;color:var(--ink);direction:ltr;text-align:left;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.sheet table{width:100%;border-collapse:collapse;font-size:14.5px}
+.sheet th,.sheet td{border:1px solid var(--rule);padding:11px 12px;text-align:start}
+.sheet thead th{background:#EFEEE8;font-weight:500;color:var(--ink-2);font-size:13px}
+.sheet .colhead th{font-family:var(--mono);font-size:11px;color:#8D8C84;padding:4px 12px;background:#F7F6F1}
+.rownum{
+  font-family:var(--mono);font-size:11px;color:#8D8C84;background:#F7F6F1;
+  width:34px;text-align:center;padding:11px 0;
+}
+.sheet tbody tr{cursor:pointer}
+.sheet tbody tr:hover td{background:#F7F6F1}
+.sheet tbody tr.on td{background:rgba(223,200,90,.34)}
+.sheet tbody tr.on td:first-child{background:var(--mark);color:var(--ink)}
+.sheet tbody tr:focus-visible{outline:2px solid var(--pine);outline-offset:-2px}
+.sheet td.num{font-family:var(--mono);direction:ltr;text-align:left}
+.sheet-foot{
+  display:flex;gap:6px;padding:6px;border-top:1px solid var(--rule);background:#F7F6F1;
+  font-family:var(--mono);font-size:11px;color:#8D8C84;
+}
+.sheet-foot span{padding:3px 10px;border:1px solid var(--rule);background:#fff}
+
+/* ── sections ────────────────────────────── */
+section{padding:70px 0}
+.sec-head{margin-bottom:38px;max-width:62ch}
+.sec-head h2{font-family:var(--display);font-size:clamp(25px,3.3vw,36px);font-weight:700;letter-spacing:-.3px}
+html[lang="fa"] .sec-head h2{font-weight:400;letter-spacing:0}
+.sec-head p{margin-top:10px;color:var(--ink-2)}
+
+.prods{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:20px}
+.prod{background:var(--card);border:1px solid var(--rule);padding:26px;display:flex;flex-direction:column}
+.prod:hover{border-color:var(--pine)}
+.prod-code{font-family:var(--mono);font-size:11.5px;color:var(--pine);letter-spacing:.6px}
+.prod h3{font-family:var(--display);font-size:24px;font-weight:700;margin-top:6px;letter-spacing:-.2px}
+html[lang="fa"] .prod h3{font-weight:400;font-size:26px;letter-spacing:0}
+.prod .what{color:var(--ink-2);margin-top:8px;font-size:15px}
+.prod ul{list-style:none;padding:0;margin:18px 0 0;font-size:14.5px}
+.prod li{padding:7px 0;border-top:1px dashed var(--rule);color:var(--ink-2)}
+.prod-foot{margin-top:auto;padding-top:22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.prod-price{font-family:var(--mono);font-size:13.5px;color:var(--ink-2)}
+
+.steps{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--rule);background:var(--card)}
+.step{padding:24px 22px;border-inline-start:1px solid var(--rule)}
+.step:first-child{border-inline-start:0}
+.step-n{font-family:var(--mono);font-size:12px;color:var(--pine)}
+.step h3{font-size:17px;margin-top:8px}
+.step p{font-size:14.5px;color:var(--ink-2);margin-top:6px}
+
+.contact{background:var(--ink);color:#EEF1F4;margin-top:20px}
+.contact .sec-head h2{color:#fff}
+.contact .sec-head p{color:#A6B4C2}
+.contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px}
+.chan{display:block;padding:16px 0;border-top:1px solid #33445A;text-decoration:none}
+.chan:hover .chan-v{color:var(--mark)}
+.chan-k{font-family:var(--mono);font-size:11.5px;color:#8FA0B2;letter-spacing:.5px}
+.chan-v{font-size:18px;direction:ltr;display:block;margin-top:2px;text-align:left}
+html[dir="rtl"] .chan-v{text-align:right}
+.note{font-size:14.5px;color:#A6B4C2;margin-top:22px}
+
+footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:var(--ink-2)}
+.foot-in{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+
+@media (max-width:880px){
+  .hero-grid{grid-template-columns:1fr;gap:34px}
+  .steps{grid-template-columns:1fr}
+  .step{border-inline-start:0;border-top:1px solid var(--rule)}
+  .step:first-child{border-top:0}
+  .contact-grid{grid-template-columns:1fr;gap:24px}
+  .nav{display:none}
+  .topbar .btn{margin-inline-start:auto}
+  .hero{padding-top:40px}
+  section{padding:52px 0}
+  .sheet th,.sheet td{padding:9px 8px;font-size:13.5px}
+  .hide-sm{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{transition:none!important;animation:none!important}
+}
+:focus-visible{outline:2px solid var(--pine);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <a class="brand" href="#top"><span class="brand-mark"><i></i><i></i><i></i><i></i></span><span data-t="brand">Hamvara</span></a>
+    <nav class="nav">
+      <a href="#products" data-t="navProducts">Products</a>
+      <a href="#how" data-t="navHow">How we work</a>
+      <a href="#contact" data-t="navContact">Contact</a>
+    </nav>
+    <select class="lang" id="lang" aria-label="Language"></select>
+    <a class="btn" href="#contact" data-t="ctaDemo">Request a demo</a>
+  </div>
+</header>
+
+<main id="top">
+
+  <section class="hero wrap">
+    <div class="hero-grid">
+      <div>
+        <span class="eyebrow" data-t="eyebrow">Software workshop · Istanbul</span>
+        <h1 data-t-html="heroTitle">Practical software for the work you still do <mark>by hand</mark></h1>
+        <p class="lead" data-t="heroLead"></p>
+        <div class="hero-cta">
+          <a class="btn" href="#products" data-t="ctaProducts">See the products</a>
+          <a class="btn btn-ghost" href="#contact" data-t="ctaTalk">Talk to me</a>
+        </div>
+      </div>
+
+      <div class="sheet" id="sheet">
+        <div class="formula-bar">
+          <span class="cellref" id="cellref">A2</span>
+          <span class="fx">fx</span>
+          <span class="formula" id="formula">=INDEX(Products,1,1)</span>
+        </div>
+        <table>
+          <thead>
+            <tr class="colhead"><th></th><th>A</th><th>B</th><th class="hide-sm">C</th></tr>
+            <tr>
+              <th></th>
+              <th data-t="colProduct">Product</th>
+              <th data-t="colDoes">What it does</th>
+              <th class="hide-sm" data-t="colStatus">Status</th>
+            </tr>
+          </thead>
+          <tbody id="sheetBody">
+            <tr tabindex="0" data-row="1" class="on">
+              <td class="rownum">2</td>
+              <td>LensCast</td>
+              <td data-t="r1b">Phone as a wireless camera</td>
+              <td class="hide-sm" data-t="r1c">In testing</td>
+            </tr>
+            <tr tabindex="0" data-row="2">
+              <td class="rownum">3</td>
+              <td>Hamvara MRP</td>
+              <td data-t="r2b">Stock and warehouse control</td>
+              <td class="hide-sm" data-t="r2c">Available</td>
+            </tr>
+            <tr tabindex="0" data-row="3">
+              <td class="rownum">4</td>
+              <td data-t="r3a">Custom build</td>
+              <td data-t="r3b">Built around your process</td>
+              <td class="hide-sm" data-t="r3c">By estimate</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="sheet-foot">
+          <span data-t="sheetTab">Products</span>
+          <span>+</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="products" class="wrap">
+    <div class="sec-head">
+      <h2 data-t="productsTitle">Products</h2>
+      <p data-t="productsLead"></p>
+    </div>
+
+    <div class="prods">
+      <article class="prod">
+        <span class="prod-code">LNS-01</span>
+        <h3>LensCast</h3>
+        <p class="what" data-t="p1What"></p>
+        <ul>
+          <li data-t="p1f1"></li>
+          <li data-t="p1f2"></li>
+          <li data-t="p1f3"></li>
+        </ul>
+        <div class="prod-foot">
+          <a class="btn" href="#contact" data-t="ctaDemo">Request a demo</a>
+          <span class="prod-price" data-t="p1Price"></span>
+        </div>
+      </article>
+
+      <article class="prod">
+        <span class="prod-code">MRP-01</span>
+        <h3>Hamvara MRP</h3>
+        <p class="what" data-t="p2What"></p>
+        <ul>
+          <li data-t="p2f1"></li>
+          <li data-t="p2f2"></li>
+          <li data-t="p2f3"></li>
+        </ul>
+        <div class="prod-foot">
+          <a class="btn" href="#contact" data-t="ctaDemo">Request a demo</a>
+          <span class="prod-price" data-t="p2Price"></span>
+        </div>
+      </article>
+
+      <article class="prod">
+        <span class="prod-code">CUS-01</span>
+        <h3 data-t="p3Name">Custom build</h3>
+        <p class="what" data-t="p3What"></p>
+        <ul>
+          <li data-t="p3f1"></li>
+          <li data-t="p3f2"></li>
+          <li data-t="p3f3"></li>
+        </ul>
+        <div class="prod-foot">
+          <a class="btn" href="#contact" data-t="ctaTalk">Talk to me</a>
+          <span class="prod-price" data-t="p3Price"></span>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section id="how" class="wrap">
+    <div class="sec-head">
+      <h2 data-t="howTitle">From first message to installed</h2>
+      <p data-t="howLead"></p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <span class="step-n">01</span>
+        <h3 data-t="s1Title"></h3>
+        <p data-t="s1Body"></p>
+      </div>
+      <div class="step">
+        <span class="step-n">02</span>
+        <h3 data-t="s2Title"></h3>
+        <p data-t="s2Body"></p>
+      </div>
+      <div class="step">
+        <span class="step-n">03</span>
+        <h3 data-t="s3Title"></h3>
+        <p data-t="s3Body"></p>
+      </div>
+      <div class="step">
+        <span class="step-n">04</span>
+        <h3 data-t="s4Title"></h3>
+        <p data-t="s4Body"></p>
+      </div>
+    </div>
+  </section>
+
+  <section id="contact" class="contact">
+    <div class="wrap">
+      <div class="contact-grid">
+        <div>
+          <div class="sec-head">
+            <h2 data-t="contactTitle">Request a demo</h2>
+            <p data-t="contactLead"></p>
+          </div>
+          <p class="note" data-t="contactNote"></p>
+        </div>
+        <div>
+          <a class="chan" href="mailto:yahya.mazdarani@outlook.com">
+            <span class="chan-k" data-t="chanEmailK">EMAIL</span>
+            <span class="chan-v">yahya.mazdarani@outlook.com</span>
+          </a>
+          <a class="chan" href="https://wa.me/900000000000">
+            <span class="chan-k" data-t="chanWaK">WHATSAPP</span>
+            <span class="chan-v">+90 000 000 00 00</span>
+          </a>
+          <a class="chan" href="https://github.com/mazdaran">
+            <span class="chan-k" data-t="chanGhK">GITHUB</span>
+            <span class="chan-v">github.com/mazdaran</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap foot-in">
+    <span>© <span id="year">2026</span> Mohammad Bagher Yahya Mazdarani</span>
+    <span data-t="footPlace">Istanbul, Türkiye</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  var STRINGS = {
+
+    /* ══ ENGLISH ═══════════════════════════════════════════ */
+    en: {
+      _name: 'EN', _dir: 'ltr',
+      brand: 'Hamvara',
+      navProducts: 'Products', navHow: 'How we work', navContact: 'Contact',
+      ctaDemo: 'Request a demo', ctaProducts: 'See the products', ctaTalk: 'Talk to me',
+
+      eyebrow: 'Software workshop · Istanbul',
+      heroTitle: 'Practical software for the work you still do <mark>by hand</mark>',
+      heroLead: 'Ready-made tools and custom builds for small businesses. Stock, sales, accounts, live video. Installed on your own machines, with the source in your hands.',
+
+      colProduct: 'Product', colDoes: 'What it does', colStatus: 'Status',
+      r1b: 'Phone as a wireless camera', r1c: 'In testing',
+      r2b: 'Stock and warehouse control', r2c: 'Available',
+      r3a: 'Custom build', r3b: 'Built around your process', r3c: 'By estimate',
+      sheetTab: 'Products',
+
+      productsTitle: 'Products',
+      productsLead: 'Each one started as a real problem in a real workshop, not as an idea on paper.',
+
+      p1What: 'Turns any phone into a wireless camera for your computer, and sends it live. Nothing to install on the phone — it runs in the browser.',
+      p1f1: 'Pair by scanning a QR code',
+      p1f2: 'Works as a source in any streaming software',
+      p1f3: 'English, Persian and Turkish',
+      p1Price: 'In testing — ask for early access',
+
+      p2What: 'Stock and warehouse control for workshops carrying hundreds of item codes. Built on Excel and Access, so your team already knows how to use it.',
+      p2f1: 'Handles 500+ item codes',
+      p2f2: 'Dashboard, stock levels, movement history',
+      p2f3: 'Runs offline on your own machines',
+      p2Price: 'Price on estimate',
+
+      p3Name: 'Custom build',
+      p3What: 'If the work you repeat every week does not fit any product above, it gets built for your process instead of the other way round.',
+      p3f1: 'Fixed scope agreed before we start',
+      p3f2: 'Training for whoever will use it',
+      p3f3: 'Support after delivery',
+      p3Price: 'Price after estimate',
+
+      howTitle: 'From first message to installed',
+      howLead: 'Four steps, no surprises in the middle.',
+      s1Title: 'Talk', s1Body: 'You describe the work you repeat by hand. Usually one call is enough.',
+      s2Title: 'Estimate', s2Body: 'You get the scope, the time and the price in writing before anything starts.',
+      s3Title: 'Build and install', s3Body: 'It gets built, installed on your machines, and tested with your real data.',
+      s4Title: 'Support', s4Body: 'Training for your team, and help when something needs changing.',
+
+      contactTitle: 'Request a demo',
+      contactLead: 'Tell me what you are doing by hand right now. I will tell you honestly whether software is worth it.',
+      contactNote: 'Usually a reply the same day. English, Persian and Turkish.',
+      chanEmailK: 'EMAIL', chanWaK: 'WHATSAPP', chanGhK: 'GITHUB',
+      footPlace: 'Istanbul, Türkiye',
+    },
+
+    /* ══ فارسی ═════════════════════════════════════════════ */
+    fa: {
+      _name: 'FA', _dir: 'rtl',
+      brand: 'هموارا',
+      navProducts: 'محصولات', navHow: 'مراحل کار', navContact: 'تماس',
+      ctaDemo: 'درخواست دمو', ctaProducts: 'دیدن محصولات', ctaTalk: 'صحبت کنیم',
+
+      eyebrow: 'کارگاه نرم‌افزار · استانبول',
+      heroTitle: 'نرم‌افزار برای کاری که هنوز <mark>دستی</mark> انجام می‌دهید',
+      heroLead: 'برنامه‌های آماده و سفارشی برای کسب‌وکارهای کوچک. انبار، فروش، حساب‌ها و تصویر زنده. نصب روی سیستم خودتان، با کد در اختیار شما.',
+
+      colProduct: 'محصول', colDoes: 'چه کار می‌کند', colStatus: 'وضعیت',
+      r1b: 'گوشی به‌جای دوربین بی‌سیم', r1c: 'در حال تست',
+      r2b: 'کنترل انبار و موجودی', r2c: 'آماده',
+      r3a: 'ساخت سفارشی', r3b: 'ساخته‌شده روی فرآیند شما', r3c: 'با برآورد',
+      sheetTab: 'محصولات',
+
+      productsTitle: 'محصولات',
+      productsLead: 'هرکدام از یک مشکل واقعی در یک کارگاه واقعی شروع شده، نه از ایده‌ای روی کاغذ.',
+
+      p1What: 'هر گوشی را به دوربین بی‌سیم کامپیوتر تبدیل می‌کند و تصویر را زنده می‌فرستد. روی گوشی چیزی نصب نمی‌شود؛ داخل مرورگر اجرا می‌شود.',
+      p1f1: 'اتصال با اسکن کد QR',
+      p1f2: 'به‌عنوان منبع در هر نرم‌افزار پخش',
+      p1f3: 'انگلیسی، فارسی و ترکی',
+      p1Price: 'در حال تست — برای دسترسی زودهنگام بپرسید',
+
+      p2What: 'کنترل انبار برای کارگاه‌هایی با صدها کد کالا. روی اکسل و اکسس ساخته شده، پس تیم شما از قبل بلد است با آن کار کند.',
+      p2f1: 'بیش از ۵۰۰ کد کالا',
+      p2f2: 'داشبورد، موجودی، تاریخچهٔ حرکت کالا',
+      p2f3: 'بدون اینترنت، روی سیستم خودتان',
+      p2Price: 'قیمت با برآورد',
+
+      p3Name: 'ساخت سفارشی',
+      p3What: 'اگر کاری که هر هفته تکرار می‌کنید با هیچ‌کدام از محصولات بالا جور نیست، نرم‌افزار روی فرآیند شما ساخته می‌شود، نه برعکس.',
+      p3f1: 'دامنهٔ کار پیش از شروع توافق می‌شود',
+      p3f2: 'آموزش برای کسی که استفاده می‌کند',
+      p3f3: 'پشتیبانی پس از تحویل',
+      p3Price: 'قیمت پس از برآورد',
+
+      howTitle: 'از اولین پیام تا نصب',
+      howLead: 'چهار مرحله، بدون غافلگیری در میانهٔ راه.',
+      s1Title: 'گفت‌وگو', s1Body: 'کاری را که دستی تکرار می‌کنید توضیح می‌دهید. معمولاً یک تماس کافی است.',
+      s2Title: 'برآورد', s2Body: 'دامنهٔ کار، زمان و قیمت را کتبی می‌گیرید، پیش از آنکه چیزی شروع شود.',
+      s3Title: 'ساخت و نصب', s3Body: 'ساخته می‌شود، روی سیستم شما نصب و با داده‌های واقعی خودتان تست می‌شود.',
+      s4Title: 'پشتیبانی', s4Body: 'آموزش تیم، و کمک هر وقت چیزی نیاز به تغییر داشت.',
+
+      contactTitle: 'درخواست دمو',
+      contactLead: 'بگویید همین حالا چه کاری را دستی انجام می‌دهید. صادقانه می‌گویم که نرم‌افزار به آن می‌ارزد یا نه.',
+      contactNote: 'معمولاً همان روز جواب می‌دهم. انگلیسی، فارسی و ترکی.',
+      chanEmailK: 'ایمیل', chanWaK: 'واتساپ', chanGhK: 'گیت‌هاب',
+      footPlace: 'استانبول، ترکیه',
+    },
+
+    /* ══ TÜRKÇE ════════════════════════════════════════════ */
+    tr: {
+      _name: 'TR', _dir: 'ltr',
+      brand: 'Hamvara',
+      navProducts: 'Ürünler', navHow: 'Nasıl çalışıyoruz', navContact: 'İletişim',
+      ctaDemo: 'Demo isteyin', ctaProducts: 'Ürünleri görün', ctaTalk: 'Konuşalım',
+
+      eyebrow: 'Yazılım atölyesi · İstanbul',
+      heroTitle: 'Hâlâ <mark>elle</mark> yaptığınız işler için pratik yazılım',
+      heroLead: 'Küçük işletmeler için hazır ve özel yazılımlar. Stok, satış, hesaplar, canlı görüntü. Kendi bilgisayarlarınıza kurulur, kaynak sizde kalır.',
+
+      colProduct: 'Ürün', colDoes: 'Ne yapar', colStatus: 'Durum',
+      r1b: 'Telefon kablosuz kamera olarak', r1c: 'Test aşamasında',
+      r2b: 'Stok ve depo kontrolü', r2c: 'Hazır',
+      r3a: 'Özel yapım', r3b: 'Sizin sürecinize göre', r3c: 'Teklif ile',
+      sheetTab: 'Ürünler',
+
+      productsTitle: 'Ürünler',
+      productsLead: 'Her biri kâğıt üzerinde bir fikir olarak değil, gerçek bir atölyedeki gerçek bir sorundan doğdu.',
+
+      p1What: 'Her telefonu bilgisayarınız için kablosuz kameraya çevirir ve görüntüyü canlı gönderir. Telefona hiçbir şey kurmanız gerekmez; tarayıcıda çalışır.',
+      p1f1: 'QR kod okutarak bağlanır',
+      p1f2: 'Her yayın yazılımında kaynak olarak kullanılır',
+      p1f3: 'İngilizce, Farsça ve Türkçe',
+      p1Price: 'Test aşamasında — erken erişim için yazın',
+
+      p2What: 'Yüzlerce ürün kodu taşıyan atölyeler için stok ve depo kontrolü. Excel ve Access üzerine kurulu, yani ekibiniz kullanmayı zaten biliyor.',
+      p2f1: '500+ ürün kodu',
+      p2f2: 'Panel, stok seviyeleri, hareket geçmişi',
+      p2f3: 'İnternetsiz, kendi bilgisayarlarınızda',
+      p2Price: 'Fiyat teklif ile',
+
+      p3Name: 'Özel yapım',
+      p3What: 'Her hafta tekrarladığınız iş yukarıdaki ürünlere uymuyorsa, yazılım sizin sürecinize göre yapılır; tersi değil.',
+      p3f1: 'Kapsam başlamadan önce yazılı olarak belirlenir',
+      p3f2: 'Kullanacak kişiye eğitim',
+      p3f3: 'Teslimden sonra destek',
+      p3Price: 'Fiyat teklif sonrası',
+
+      howTitle: 'İlk mesajdan kuruluma',
+      howLead: 'Dört adım, arada sürpriz yok.',
+      s1Title: 'Konuşma', s1Body: 'Elle tekrarladığınız işi anlatırsınız. Genelde tek bir görüşme yeter.',
+      s2Title: 'Teklif', s2Body: 'Kapsamı, süreyi ve fiyatı yazılı alırsınız; hiçbir şey başlamadan önce.',
+      s3Title: 'Yapım ve kurulum', s3Body: 'Yazılır, bilgisayarlarınıza kurulur ve kendi gerçek verilerinizle test edilir.',
+      s4Title: 'Destek', s4Body: 'Ekibinize eğitim ve bir şeyin değişmesi gerektiğinde yardım.',
+
+      contactTitle: 'Demo isteyin',
+      contactLead: 'Şu anda elle ne yaptığınızı anlatın. Yazılıma değip değmeyeceğini dürüstçe söyleyeyim.',
+      contactNote: 'Genellikle aynı gün yanıt. İngilizce, Farsça ve Türkçe.',
+      chanEmailK: 'E-POSTA', chanWaK: 'WHATSAPP', chanGhK: 'GITHUB',
+      footPlace: 'İstanbul, Türkiye',
+    },
+  };
+
+  var STORAGE_KEY = 'hamvara.lang';
+  var current = 'en';
+
+  function detect() {
+    try {
+      var saved = localStorage.getItem(STORAGE_KEY);
+      if (saved && STRINGS[saved]) return saved;
+    } catch (e) {}
+    var pref = (navigator.languages || [navigator.language || 'en']).join(',').toLowerCase();
+    if (/(^|,)fa/.test(pref)) return 'fa';
+    if (/(^|,)tr/.test(pref)) return 'tr';
+    return 'en';
+  }
+
+  function t(key) {
+    var pack = STRINGS[current] || STRINGS.en;
+    return pack[key] !== undefined ? pack[key] : (STRINGS.en[key] || '');
+  }
+
+  function apply() {
+    document.querySelectorAll('[data-t]').forEach(function (node) {
+      node.textContent = t(node.getAttribute('data-t'));
+    });
+    document.querySelectorAll('[data-t-html]').forEach(function (node) {
+      node.innerHTML = t(node.getAttribute('data-t-html'));
+    });
+
+    var pack = STRINGS[current] || STRINGS.en;
+    document.documentElement.lang = current;
+    document.documentElement.dir = pack._dir;
+    document.title = pack.brand + ' — ' + t('heroLead').split('.')[0];
+    updateFormula();
+  }
+
+  function setLang(code) {
+    if (!STRINGS[code]) return;
+    current = code;
+    try { localStorage.setItem(STORAGE_KEY, code); } catch (e) {}
+    apply();
+  }
+
+  var picker = document.getElementById('lang');
+  Object.keys(STRINGS).forEach(function (code) {
+    var option = document.createElement('option');
+    option.value = code;
+    option.textContent = STRINGS[code]._name;
+    picker.appendChild(option);
+  });
+  picker.addEventListener('change', function () { setLang(picker.value); });
+
+  /* ── the sheet ─────────────────────────── */
+  var rows = Array.prototype.slice.call(document.querySelectorAll('#sheetBody tr'));
+  var cellref = document.getElementById('cellref');
+  var formula = document.getElementById('formula');
+  var activeRow = 1;
+
+  function updateFormula() {
+    cellref.textContent = 'A' + (activeRow + 1);
+    formula.textContent = '=INDEX(' + t('sheetTab') + ',' + activeRow + ',1)';
+  }
+
+  function select(row) {
+    rows.forEach(function (r) { r.classList.remove('on'); });
+    row.classList.add('on');
+    activeRow = Number(row.getAttribute('data-row'));
+    updateFormula();
+  }
+
+  rows.forEach(function (row) {
+    row.addEventListener('click', function () { select(row); });
+    row.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        select(row);
+      }
+    });
+  });
+
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  current = detect();
+  picker.value = current;
+  apply();
+})();
+</script>
+</body>
+</html>
