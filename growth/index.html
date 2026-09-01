@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=IBM+Plex+Mono:wght@400;600&family=Vazirmatn:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./google-live.css">
 </head>
 <body>
   <header class="topbar">
@@ -63,6 +64,15 @@
     <section id="integrations" class="view">
       <div class="section-head"><div><span class="eyebrow">DATA CONNECTIONS</span><h2>اتصال داده‌های واقعی</h2><p>اتصال‌ها به‌ترتیب ارزش و وابستگی فنی فعال می‌شوند. انتشار محتوا همیشه نیازمند تأیید انسان است.</p></div><button id="refreshConnections" class="secondary">به‌روزرسانی وضعیت</button></div>
       <div id="integrationList" class="integration-list"></div>
+      <section id="googleLive" class="google-live panel" hidden>
+        <div class="panel-head"><div><span class="eyebrow">GOOGLE LIVE DATA · LAST 28 DAYS</span><h3>نمای زنده Google Analytics و Search Console</h3></div><button id="refreshGoogleData" class="secondary">دریافت آمار تازه</button></div>
+        <div class="connection-selectors">
+          <label>سایت Search Console<select id="scSiteSelect"></select></label>
+          <label>ویژگی Google Analytics<select id="gaPropertySelect"></select></label>
+        </div>
+        <p id="googleDataStatus" class="live-status">در حال دریافت اطلاعات گوگل…</p>
+        <div id="googleMetricGrid" class="live-metric-grid"></div>
+      </section>
       <div class="notice info"><b>امنیت:</b> توکن‌ها فقط در بک‌اند رمزگذاری و ذخیره می‌شوند؛ هیچ کلیدی در مرورگر یا GitHub قرار نمی‌گیرد.</div>
     </section>
 
