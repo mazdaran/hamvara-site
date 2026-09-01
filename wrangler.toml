@@ -1,0 +1,9 @@
+name = "hamvara-growth-api"
+main = "worker/src/index.js"
+compatibility_date = "2026-08-01"
+
+[vars]
+ALLOWED_ORIGINS = "https://hamvara.com,http://localhost:8080"
+META_GRAPH_VERSION = "v23.0"
+
+# D1 and OAuth secrets are added after the first workers.dev deployment.
