@@ -119,9 +119,10 @@ async function testIntegration(provider,env){
 async function googleOverview(url,env){
   if(!env.DB)throw httpError(503,'Database binding is not configured.');
   const token=await providerAccessToken('google',env),headers={Authorization:`Bearer ${token}`,Accept:'application/json'};
-  const [sitesResult,accountsResult]=await Promise.all([
-    googleJson('https://www.googleapis.com/webmasters/v3/sites',{headers}),
-    googleJson('https://analyticsadmin.googleapis.com/v1beta/accountSummaries?pageSize=200',{headers})
+  let sitesResult={},accountsResult={},siteListError=null,accountListError=null;
+  await Promise.all([
+    googleJson('https://www.googleapis.com/webmasters/v3/sites',{headers}).then(value=>{sitesResult=value;}).catch(error=>{siteListError=error.message;}),
+    googleJson('https://analyticsadmin.googleapis.com/v1beta/accountSummaries?pageSize=200',{headers}).then(value=>{accountsResult=value;}).catch(error=>{accountListError=error.message;})
   ]);
   const sites=(sitesResult.siteEntry||[]).map(x=>({siteUrl:x.siteUrl,permissionLevel:x.permissionLevel}));
   const properties=(accountsResult.accountSummaries||[]).flatMap(account=>(account.propertySummaries||[]).map(property=>({name:property.property,displayName:property.displayName,account:account.displayName})));
@@ -129,8 +130,8 @@ async function googleOverview(url,env){
   const selectedSite=sites.find(x=>x.siteUrl===requestedSite)||sites.find(x=>x.siteUrl.toLowerCase().includes('hamvara.com'))||sites[0]||null;
   const selectedProperty=properties.find(x=>x.name===requestedProperty)||properties.find(x=>String(x.displayName||'').toLowerCase().includes('hamvara'))||properties[0]||null;
   const endDate=isoDate(-1),startDate=isoDate(-28);
-  let searchConsole={sites,selectedSite,totals:null,error:null};
-  let analytics={properties,selectedProperty,totals:null,error:null};
+  let searchConsole={sites,selectedSite,totals:null,error:siteListError};
+  let analytics={properties,selectedProperty,totals:null,error:accountListError};
   if(selectedSite){
     try{
       const report=await googleJson(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(selectedSite.siteUrl)}/searchAnalytics/query`,{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({startDate,endDate,dimensions:['date'],rowLimit:1000})});
