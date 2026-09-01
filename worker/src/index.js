@@ -65,6 +65,7 @@ function normalizePageSpeed(raw, requestedUrl, strategy) {
   const score=id=>Math.round((cats[id]?.score||0)*100);
   const metric=id=>({id,label:audits[id]?.title||id,value:audits[id]?.displayValue||'—',score:audits[id]?.score});
   const findings=Object.values(audits).filter(a=>a&&a.score!==null&&a.score<.9&&a.details?.type==='opportunity').sort((a,b)=>(b.details?.overallSavingsMs||0)-(a.details?.overallSavingsMs||0)).slice(0,8).map(a=>({id:a.id,title:a.title,description:stripMarkdownLinks(a.description||''),score:a.score,savingsMs:Math.round(a.details?.overallSavingsMs||0)}));
+  if(!findings.length) Object.values(audits).filter(a=>a&&a.score!==null&&a.score<.9&&a.title).sort((a,b)=>(a.score??1)-(b.score??1)).slice(0,8).forEach(a=>findings.push({id:a.id,title:a.title,description:stripMarkdownLinks(a.description||''),score:a.score,savingsMs:Math.round(a.details?.overallSavingsMs||0)}));
   return {source:'Google PageSpeed Insights / Lighthouse',url:lr.finalUrl||requestedUrl,requestedUrl,strategy,fetchedAt:raw.analysisUTCTimestamp||new Date().toISOString(),scores:{performance:score('performance'),accessibility:score('accessibility'),'best-practices':score('best-practices'),seo:score('seo')},vitals:[metric('largest-contentful-paint'),metric('interaction-to-next-paint'),metric('cumulative-layout-shift'),metric('first-contentful-paint'),metric('speed-index'),metric('total-blocking-time')],findings};
 }
 
