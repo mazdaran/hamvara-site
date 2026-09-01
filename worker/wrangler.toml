@@ -1,0 +1,9 @@
+name = "hamvara-growth-api"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+[vars]
+ALLOWED_ORIGINS = "https://hamvara.com,http://localhost:8080"
+META_GRAPH_VERSION = "v23.0"
+
+# The D1 binding is added after the first safe workers.dev deployment.

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Hamvara Growth: تحلیل واقعی وب‌سایت و مرکز اتصال داده‌های بازاریابی.">
+  <title>Hamvara Growth — تحلیل رشد</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=IBM+Plex+Mono:wght@400;600&family=Vazirmatn:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="brand-mark"><i></i><i></i><i></i><i></i></span><span>Hamvara</span></a>
+    <span class="product-name">Growth</span>
+    <nav aria-label="ناوبری اصلی">
+      <button class="nav-button active" data-view="audit">تحلیل سایت</button>
+      <button class="nav-button" data-view="integrations">اتصال‌ها</button>
+      <button class="nav-button" data-view="history">تاریخچه</button>
+    </nav>
+    <a class="home-link" href="/">بازگشت به هموارا</a>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <span class="eyebrow">HAMVARA GROWTH · LIVE AUDIT</span>
+        <h1>تصمیم بازاریابی را با <mark>داده‌ی واقعی</mark> شروع کنید.</h1>
+        <p>آدرس سایت را وارد کنید. عملکرد، سئو، دسترس‌پذیری و استانداردهای فنی با Lighthouse سنجیده می‌شوند و نتیجه به کارهای اولویت‌دار تبدیل می‌شود.</p>
+      </div>
+      <div class="system-state"><span id="apiDot" class="dot"></span><div><b id="apiLabel">در حال بررسی سرویس</b><small id="apiDetail">اتصال امن به موتور تحلیل</small></div></div>
+    </section>
+
+    <section id="audit" class="view active">
+      <article class="panel audit-form-panel">
+        <form id="auditForm">
+          <label for="siteUrl">آدرس وب‌سایت</label>
+          <div class="url-row">
+            <input id="siteUrl" name="url" type="url" inputmode="url" placeholder="https://example.com" value="https://hamvara.com" required>
+            <select id="strategy" name="strategy" aria-label="نوع دستگاه"><option value="mobile">موبایل</option><option value="desktop">دسکتاپ</option></select>
+            <button class="primary" type="submit">شروع تحلیل واقعی</button>
+          </div>
+          <p class="form-help">اولین تحلیل ممکن است ۳۰ تا ۶۰ ثانیه طول بکشد. نتیجه از Google PageSpeed Insights دریافت می‌شود.</p>
+        </form>
+      </article>
+
+      <div id="loading" class="loading" hidden><span class="spinner"></span><div><b>در حال اجرای Lighthouse…</b><small id="loadingText">صفحه بارگیری و شاخص‌ها اندازه‌گیری می‌شوند.</small></div></div>
+      <div id="errorBox" class="notice error" role="alert" hidden></div>
+      <section id="results" hidden aria-live="polite">
+        <div class="result-head">
+          <div><span class="eyebrow">نتیجه تحلیل</span><h2 id="resultTitle">—</h2><p id="resultMeta">—</p></div>
+          <button id="exportReport" class="secondary">دانلود گزارش JSON</button>
+        </div>
+        <div id="scoreGrid" class="score-grid"></div>
+        <div class="two-col">
+          <article class="panel"><div class="panel-head"><div><span class="eyebrow">CORE WEB VITALS</span><h3>شاخص‌های کلیدی</h3></div></div><div id="vitals" class="vitals"></div></article>
+          <article class="panel"><div class="panel-head"><div><span class="eyebrow">PRIORITY QUEUE</span><h3>کارهایی که باید اول انجام شوند</h3></div></div><div id="findings" class="findings"></div></article>
+        </div>
+      </section>
+    </section>
+
+    <section id="integrations" class="view">
+      <div class="section-head"><div><span class="eyebrow">DATA CONNECTIONS</span><h2>اتصال داده‌های واقعی</h2><p>اتصال‌ها به‌ترتیب ارزش و وابستگی فنی فعال می‌شوند. انتشار محتوا همیشه نیازمند تأیید انسان است.</p></div><button id="refreshConnections" class="secondary">به‌روزرسانی وضعیت</button></div>
+      <div id="integrationList" class="integration-list"></div>
+      <div class="notice info"><b>امنیت:</b> توکن‌ها فقط در بک‌اند رمزگذاری و ذخیره می‌شوند؛ هیچ کلیدی در مرورگر یا GitHub قرار نمی‌گیرد.</div>
+    </section>
+
+    <section id="history" class="view">
+      <div class="section-head"><div><span class="eyebrow">LOCAL HISTORY</span><h2>تاریخچه تحلیل‌ها</h2><p>تا زمان فعال‌شدن حساب کاربری، پنج تحلیل آخر فقط روی همین مرورگر نگه‌داری می‌شوند.</p></div><button id="clearHistory" class="secondary danger">پاک‌کردن تاریخچه</button></div>
+      <div id="historyList" class="history-list"></div>
+    </section>
+  </main>
+
+  <footer><span>© 2026 Hamvara</span><span>Growth v1 · Human approval required</span></footer>
+  <script src="./config.js"></script>
+  <script src="./app.js" defer></script>
+</body>
+</html>
