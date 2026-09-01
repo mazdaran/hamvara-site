@@ -17,7 +17,12 @@
   $('#auditForm').addEventListener('submit',runAudit);
   $('#exportReport').addEventListener('click',exportReport);
   $('#refreshConnections').addEventListener('click',loadIntegrations);
+  $('#refreshGoogleData').addEventListener('click',loadGoogleOverview);
+  $('#scSiteSelect').addEventListener('change',loadGoogleOverview);
+  $('#gaPropertySelect').addEventListener('change',loadGoogleOverview);
   $('#clearHistory').addEventListener('click',()=>{localStorage.removeItem(HISTORY_KEY);renderHistory();});
+  const connectedProvider=new URLSearchParams(location.search).get('connected');
+  if(connectedProvider){showView('integrations');history.replaceState({},'',location.pathname+location.hash);}
   checkApi(); renderHistory(); loadIntegrations();
 
   function showView(id){
@@ -86,7 +91,43 @@
     if(apiBase){try{const res=await fetch(apiBase+'/api/integrations');if(res.ok)statuses=(await res.json()).integrations||{};}catch(e){}}
     $('#integrationList').innerHTML=integrations.map((x,i)=>{const connected=Boolean(statuses[x.id]?.connected);return `<article class="integration"><span class="order">0${i+1}</span><div><h3>${x.name}</h3><p>${x.description}</p></div><div><span class="status ${connected?'connected':''}">${connected?'CONNECTED':'NOT CONNECTED'}</span><button class="secondary" data-connect="${x.provider}" ${!apiBase?'disabled':''}>${connected?'اتصال مجدد':'اتصال'}</button></div></article>`}).join('');
     document.querySelectorAll('[data-connect]').forEach(btn=>btn.addEventListener('click',()=>{window.location.href=apiBase+'/api/oauth/'+btn.dataset.connect+'/start?return_to='+encodeURIComponent(location.href);}));
+    const googleConnected=Boolean(statuses['google-search-console']?.connected||statuses['google-analytics']?.connected);
+    $('#googleLive').hidden=!googleConnected;
+    if(googleConnected)loadGoogleOverview();
   }
+
+  async function loadGoogleOverview(){
+    if(!apiBase||$('#googleLive').hidden)return;
+    $('#googleDataStatus').textContent='در حال دریافت آمار ۲۸ روز اخیر از گوگل…';
+    $('#refreshGoogleData').disabled=true;
+    try{
+      const endpoint=new URL(apiBase+'/api/google/overview');
+      if($('#scSiteSelect').value)endpoint.searchParams.set('site',$('#scSiteSelect').value);
+      if($('#gaPropertySelect').value)endpoint.searchParams.set('property',$('#gaPropertySelect').value);
+      const res=await fetch(endpoint,{headers:{Accept:'application/json'}}),data=await res.json();
+      if(!res.ok)throw new Error(data.error||'دریافت اطلاعات گوگل انجام نشد.');
+      fillSelect($('#scSiteSelect'),data.searchConsole.sites,'siteUrl','siteUrl',data.searchConsole.selectedSite?.siteUrl,'سایتی در Search Console پیدا نشد');
+      fillSelect($('#gaPropertySelect'),data.analytics.properties,'name','displayName',data.analytics.selectedProperty?.name,'ویژگی GA4 پیدا نشد');
+      const sc=data.searchConsole.totals,ga=data.analytics.totals;
+      const metrics=[
+        ['کلیک جست‌وجوی گوگل',sc?.clicks,'Search Console'],['نمایش در نتایج',sc?.impressions,'Search Console'],['نرخ کلیک',sc?formatPercent(sc.ctr):'—','Search Console'],['میانگین جایگاه',sc?formatDecimal(sc.position):'—','Search Console'],
+        ['کاربران فعال',ga?.activeUsers,'Google Analytics'],['کاربران جدید',ga?.newUsers,'Google Analytics'],['نشست‌ها',ga?.sessions,'Google Analytics'],['بازدید صفحات',ga?.pageViews,'Google Analytics'],['تعداد رویدادها',ga?.eventCount,'Google Analytics']
+      ];
+      $('#googleMetricGrid').innerHTML=metrics.map(([label,value,source])=>`<article class="live-metric"><small>${source}</small><b>${formatMetric(value)}</b><span>${label}</span></article>`).join('');
+      const errors=[data.searchConsole.error&&`Search Console: ${data.searchConsole.error}`,data.analytics.error&&`Analytics: ${data.analytics.error}`].filter(Boolean);
+      $('#googleDataStatus').textContent=errors.length?`اتصال برقرار است، اما ${errors.join(' | ')}`:`به‌روز شد: ${new Date(data.generatedAt).toLocaleString('fa-IR')} · بازه ۲۸ روز اخیر`;
+    }catch(error){$('#googleDataStatus').textContent=error.message||'دریافت اطلاعات گوگل انجام نشد.';$('#googleMetricGrid').innerHTML='';}
+    finally{$('#refreshGoogleData').disabled=false;}
+  }
+
+  function fillSelect(select,items,valueKey,labelKey,selected,emptyLabel){
+    const previous=selected||select.value;
+    select.innerHTML=items.length?items.map(item=>`<option value="${escapeHtml(item[valueKey])}" ${item[valueKey]===previous?'selected':''}>${escapeHtml(item[labelKey]||item[valueKey])}</option>`).join(''):`<option value="">${emptyLabel}</option>`;
+    select.disabled=!items.length;
+  }
+  function formatMetric(value){return typeof value==='number'?value.toLocaleString('fa-IR'):value??'—';}
+  function formatPercent(value){return `${(Number(value||0)*100).toLocaleString('fa-IR',{maximumFractionDigits:1})}٪`;}
+  function formatDecimal(value){return Number(value||0).toLocaleString('fa-IR',{maximumFractionDigits:1});}
 
   function exportReport(){if(!lastReport)return;const blob=new Blob([JSON.stringify(lastReport,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='hamvara-growth-audit-'+new URL(lastReport.url).hostname+'.json';a.click();URL.revokeObjectURL(a.href);}
   function showError(message){$('#errorBox').textContent=message;$('#errorBox').hidden=false;}
