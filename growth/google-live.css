@@ -1,0 +1,68 @@
+.google-live {
+  margin-top: 18px;
+}
+
+.connection-selectors {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 18px 20px 0;
+}
+
+.connection-selectors label {
+  font-weight: 700;
+}
+
+.connection-selectors select {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid var(--rule);
+  background: #fafaf7;
+  padding: 10px;
+  color: var(--ink);
+}
+
+.live-status {
+  margin: 14px 20px;
+  color: var(--ink2);
+  font-size: 14px;
+}
+
+.live-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--rule);
+  border-top: 1px solid var(--rule);
+}
+
+.live-metric {
+  background: #fff;
+  padding: 17px 20px;
+}
+
+.live-metric small,
+.live-metric span {
+  display: block;
+  color: var(--ink2);
+}
+
+.live-metric b {
+  display: block;
+  margin: 4px 0;
+  font: 700 28px var(--display);
+  direction: ltr;
+  text-align: right;
+}
+
+.live-metric span {
+  font-size: 13px;
+}
+
+@media (max-width: 780px) {
+  .connection-selectors,
+  .live-metric-grid {
+    grid-template-columns: 1fr;
+  }
+}
