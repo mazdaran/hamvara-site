@@ -1,3 +1,3 @@
 window.HAMVARA_GROWTH_CONFIG = {
-  apiBase: ""
+  apiBase: "https://hamvara-growth-api.yahya-mazdarani.workers.dev"
 };
