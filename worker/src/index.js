@@ -30,7 +30,7 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     try {
       let response;
-      if (url.pathname === '/health') response = json({ ok: true, service: 'hamvara-growth-api', time: new Date().toISOString() });
+      if (url.pathname === '/health') response = json({ ok: true, service: 'hamvara-growth-api', pageSpeedApiKeyConfigured: Boolean(env.PAGESPEED_API_KEY), time: new Date().toISOString() });
       else if (url.pathname === '/api/audit' && request.method === 'POST') response = await audit(request, env);
       else if (url.pathname === '/api/integrations' && request.method === 'GET') response = await integrationStatuses(env);
       else if (/^\/api\/integrations\/(google|meta|linkedin|wordpress)\/test$/.test(url.pathname) && request.method === 'GET') response = await testIntegration(url.pathname.split('/')[3], env);
