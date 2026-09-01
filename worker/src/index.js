@@ -33,6 +33,7 @@ export default {
       if (url.pathname === '/health') response = json({ ok: true, service: 'hamvara-growth-api', pageSpeedApiKeyConfigured: Boolean(env.PAGESPEED_API_KEY), oauthConfigured: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.OAUTH_STATE_SECRET && env.TOKEN_ENCRYPTION_KEY), databaseConfigured: Boolean(env.DB), time: new Date().toISOString() });
       else if (url.pathname === '/api/audit' && request.method === 'POST') response = await audit(request, env);
       else if (url.pathname === '/api/integrations' && request.method === 'GET') response = await integrationStatuses(env);
+      else if (url.pathname === '/api/google/overview' && request.method === 'GET') response = await googleOverview(url, env);
       else if (/^\/api\/integrations\/(google|meta|linkedin|wordpress)\/test$/.test(url.pathname) && request.method === 'GET') response = await testIntegration(url.pathname.split('/')[3], env);
       else if (/^\/api\/oauth\/(google|meta|linkedin|wordpress)\/start$/.test(url.pathname)) response = await oauthStart(request, env);
       else if (/^\/api\/oauth\/(google|meta|linkedin|wordpress)\/callback$/.test(url.pathname)) response = await oauthCallback(request, env);
@@ -106,8 +107,7 @@ async function oauthCallback(request, env) {
 
 async function testIntegration(provider,env){
   if(!env.DB)throw httpError(503,'Database binding is not configured.');
-  const row=await env.DB.prepare('SELECT access_token_ciphertext FROM oauth_connections WHERE workspace_id=? AND provider=?').bind('hamvara',provider).first(); if(!row)throw httpError(404,'Integration is not connected.');
-  const token=await decrypt(row.access_token_ciphertext,env.TOKEN_ENCRYPTION_KEY); let endpoint,headers={Authorization:`Bearer ${token}`,Accept:'application/json'};
+  const token=await providerAccessToken(provider,env); let endpoint,headers={Authorization:`Bearer ${token}`,Accept:'application/json'};
   if(provider==='google')endpoint='https://openidconnect.googleapis.com/v1/userinfo';
   if(provider==='linkedin')endpoint='https://api.linkedin.com/v2/userinfo';
   if(provider==='wordpress')endpoint='https://public-api.wordpress.com/rest/v1.1/me';
@@ -115,6 +115,62 @@ async function testIntegration(provider,env){
   const response=await fetch(endpoint,{headers});const body=await response.json();if(!response.ok)throw httpError(response.status,body.error?.message||'Provider rejected the token.');
   return json({ok:true,provider,account:{id:body.id||body.ID||body.sub||null,name:body.name||body.display_name||body.email||null}});
 }
+
+async function googleOverview(url,env){
+  if(!env.DB)throw httpError(503,'Database binding is not configured.');
+  const token=await providerAccessToken('google',env),headers={Authorization:`Bearer ${token}`,Accept:'application/json'};
+  const [sitesResult,accountsResult]=await Promise.all([
+    googleJson('https://www.googleapis.com/webmasters/v3/sites',{headers}),
+    googleJson('https://analyticsadmin.googleapis.com/v1beta/accountSummaries?pageSize=200',{headers})
+  ]);
+  const sites=(sitesResult.siteEntry||[]).map(x=>({siteUrl:x.siteUrl,permissionLevel:x.permissionLevel}));
+  const properties=(accountsResult.accountSummaries||[]).flatMap(account=>(account.propertySummaries||[]).map(property=>({name:property.property,displayName:property.displayName,account:account.displayName})));
+  const requestedSite=url.searchParams.get('site'),requestedProperty=url.searchParams.get('property');
+  const selectedSite=sites.find(x=>x.siteUrl===requestedSite)||sites.find(x=>x.siteUrl.toLowerCase().includes('hamvara.com'))||sites[0]||null;
+  const selectedProperty=properties.find(x=>x.name===requestedProperty)||properties.find(x=>String(x.displayName||'').toLowerCase().includes('hamvara'))||properties[0]||null;
+  const endDate=isoDate(-1),startDate=isoDate(-28);
+  let searchConsole={sites,selectedSite,totals:null,error:null};
+  let analytics={properties,selectedProperty,totals:null,error:null};
+  if(selectedSite){
+    try{
+      const report=await googleJson(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(selectedSite.siteUrl)}/searchAnalytics/query`,{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({startDate,endDate,dimensions:['date'],rowLimit:1000})});
+      const rows=report.rows||[],impressions=rows.reduce((n,x)=>n+Number(x.impressions||0),0),clicks=rows.reduce((n,x)=>n+Number(x.clicks||0),0);
+      searchConsole.totals={clicks,impressions,ctr:impressions?clicks/impressions:0,position:impressions?rows.reduce((n,x)=>n+Number(x.position||0)*Number(x.impressions||0),0)/impressions:0,startDate,endDate};
+    }catch(error){searchConsole.error=error.message;}
+  }
+  if(selectedProperty){
+    try{
+      const report=await googleJson(`https://analyticsdata.googleapis.com/v1beta/${selectedProperty.name}:runReport`,{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({dateRanges:[{startDate:'28daysAgo',endDate:'yesterday'}],metrics:['activeUsers','newUsers','sessions','screenPageViews','eventCount'].map(name=>({name}))})});
+      const values=report.rows?.[0]?.metricValues||[];
+      analytics.totals={activeUsers:Number(values[0]?.value||0),newUsers:Number(values[1]?.value||0),sessions:Number(values[2]?.value||0),pageViews:Number(values[3]?.value||0),eventCount:Number(values[4]?.value||0),startDate,endDate};
+    }catch(error){analytics.error=error.message;}
+  }
+  return json({generatedAt:new Date().toISOString(),searchConsole,analytics});
+}
+
+async function providerAccessToken(provider,env){
+  requireEnv(env,['TOKEN_ENCRYPTION_KEY']);
+  const row=await env.DB.prepare('SELECT access_token_ciphertext,refresh_token_ciphertext,expires_at FROM oauth_connections WHERE workspace_id=? AND provider=?').bind('hamvara',provider).first();
+  if(!row)throw httpError(404,'Integration is not connected.');
+  const expiresAt=row.expires_at?Date.parse(row.expires_at):0;
+  if(provider!=='google'||!expiresAt||expiresAt>Date.now()+60000)return decrypt(row.access_token_ciphertext,env.TOKEN_ENCRYPTION_KEY);
+  if(!row.refresh_token_ciphertext)throw httpError(401,'Google access expired. Reconnect the integration.');
+  requireEnv(env,['GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET']);
+  const refreshToken=await decrypt(row.refresh_token_ciphertext,env.TOKEN_ENCRYPTION_KEY);
+  const tokenResponse=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json'},body:new URLSearchParams({client_id:env.GOOGLE_CLIENT_ID,client_secret:env.GOOGLE_CLIENT_SECRET,refresh_token:refreshToken,grant_type:'refresh_token'})});
+  const token=await tokenResponse.json();if(!tokenResponse.ok||!token.access_token)throw httpError(401,token.error_description||token.error||'Google token refresh failed.');
+  const access=await encrypt(token.access_token,env.TOKEN_ENCRYPTION_KEY),newExpiresAt=new Date(Date.now()+Number(token.expires_in||3600)*1000).toISOString();
+  await env.DB.prepare("UPDATE oauth_connections SET access_token_ciphertext=?,expires_at=?,updated_at=datetime('now') WHERE workspace_id=? AND provider=?").bind(access,newExpiresAt,'hamvara',provider).run();
+  return token.access_token;
+}
+
+async function googleJson(endpoint,options){
+  const response=await fetch(endpoint,options),body=await response.json();
+  if(!response.ok)throw httpError(response.status,body.error?.message||'Google API request failed.');
+  return body;
+}
+
+function isoDate(offsetDays){const date=new Date();date.setUTCDate(date.getUTCDate()+offsetDays);return date.toISOString().slice(0,10);}
 
 function providerConfig(provider,env){
   if(provider!=='meta')return PROVIDERS[provider];
