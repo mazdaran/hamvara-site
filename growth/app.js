@@ -17,7 +17,7 @@
   $('#auditForm').addEventListener('submit',runAudit);
   $('#exportReport').addEventListener('click',exportReport);
   $('#refreshConnections').addEventListener('click',loadIntegrations);
-  $('#refreshGoogleData').addEventListener('click',loadGoogleOverview);
+  $('#refreshGoogleData').addEventListener('click',()=>{trackEvent('google_data_refresh');loadGoogleOverview();});
   $('#scSiteSelect').addEventListener('change',loadGoogleOverview);
   $('#gaPropertySelect').addEventListener('change',loadGoogleOverview);
   $('#clearHistory').addEventListener('click',()=>{localStorage.removeItem(HISTORY_KEY);renderHistory();});
@@ -37,11 +37,13 @@
     catch(e){setApiState('warn','سرویس تحلیل در دسترس نیست','تحلیل مستقیم PageSpeed به‌عنوان مسیر جایگزین استفاده می‌شود.');}
   }
   function setApiState(tone,label,detail){$('#apiDot').className='dot '+tone;$('#apiLabel').textContent=label;$('#apiDetail').textContent=detail;}
+  function trackEvent(name,parameters){if(typeof window.gtag==='function')window.gtag('event',name,parameters||{});}
 
   async function runAudit(event){
     event.preventDefault(); hideError(); $('#results').hidden=true; $('#loading').hidden=false;
     const url=normalizeUrl($('#siteUrl').value); const strategy=$('#strategy').value;
     if(!url){showError('آدرس معتبر با http یا https وارد کنید.');$('#loading').hidden=true;return;}
+    trackEvent('audit_started',{strategy,site_host:new URL(url).hostname});
     try{
       let report;
       if(apiBase){
@@ -49,7 +51,8 @@
         const body=await res.json(); if(!res.ok)throw new Error(body.error||'تحلیل انجام نشد.'); report=body;
       }else{report=await directPageSpeed(url,strategy);}
       lastReport=report; renderReport(report); saveHistory(report); renderHistory();
-    }catch(error){showError(error.message||'سرویس تحلیل پاسخ نداد. چند دقیقه بعد دوباره امتحان کنید.');}
+      trackEvent('audit_completed',{strategy,site_host:new URL(report.url).hostname,performance_score:report.scores.performance,seo_score:report.scores.seo});
+    }catch(error){trackEvent('audit_failed',{strategy,site_host:new URL(url).hostname});showError(error.message||'سرویس تحلیل پاسخ نداد. چند دقیقه بعد دوباره امتحان کنید.');}
     finally{$('#loading').hidden=true;}
   }
 
@@ -90,7 +93,7 @@
     let statuses={};
     if(apiBase){try{const res=await fetch(apiBase+'/api/integrations');if(res.ok)statuses=(await res.json()).integrations||{};}catch(e){}}
     $('#integrationList').innerHTML=integrations.map((x,i)=>{const connected=Boolean(statuses[x.id]?.connected);return `<article class="integration"><span class="order">0${i+1}</span><div><h3>${x.name}</h3><p>${x.description}</p></div><div><span class="status ${connected?'connected':''}">${connected?'CONNECTED':'NOT CONNECTED'}</span><button class="secondary" data-connect="${x.provider}" ${!apiBase?'disabled':''}>${connected?'اتصال مجدد':'اتصال'}</button></div></article>`}).join('');
-    document.querySelectorAll('[data-connect]').forEach(btn=>btn.addEventListener('click',()=>{window.location.href=apiBase+'/api/oauth/'+btn.dataset.connect+'/start?return_to='+encodeURIComponent(location.href);}));
+    document.querySelectorAll('[data-connect]').forEach(btn=>btn.addEventListener('click',()=>{trackEvent('integration_connect_start',{provider:btn.dataset.connect});window.location.href=apiBase+'/api/oauth/'+btn.dataset.connect+'/start?return_to='+encodeURIComponent(location.href);}));
     const googleConnected=Boolean(statuses['google-search-console']?.connected||statuses['google-analytics']?.connected);
     $('#googleLive').hidden=!googleConnected;
     if(googleConnected)loadGoogleOverview();
@@ -129,7 +132,7 @@
   function formatPercent(value){return `${(Number(value||0)*100).toLocaleString('fa-IR',{maximumFractionDigits:1})}٪`;}
   function formatDecimal(value){return Number(value||0).toLocaleString('fa-IR',{maximumFractionDigits:1});}
 
-  function exportReport(){if(!lastReport)return;const blob=new Blob([JSON.stringify(lastReport,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='hamvara-growth-audit-'+new URL(lastReport.url).hostname+'.json';a.click();URL.revokeObjectURL(a.href);}
+  function exportReport(){if(!lastReport)return;trackEvent('audit_report_download',{site_host:new URL(lastReport.url).hostname});const blob=new Blob([JSON.stringify(lastReport,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='hamvara-growth-audit-'+new URL(lastReport.url).hostname+'.json';a.click();URL.revokeObjectURL(a.href);}
   function showError(message){$('#errorBox').textContent=message;$('#errorBox').hidden=false;}
   function hideError(){$('#errorBox').hidden=true;}
   function escapeHtml(value){return String(value??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
