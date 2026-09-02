@@ -653,6 +653,10 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
     apply();
   }
 
+  function trackEvent(name, parameters) {
+    if (typeof window.gtag === 'function') window.gtag('event', name, parameters || {});
+  }
+
   var picker = document.getElementById('lang');
   Object.keys(STRINGS).forEach(function (code) {
     var option = document.createElement('option');
@@ -660,7 +664,25 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
     option.textContent = STRINGS[code]._name;
     picker.appendChild(option);
   });
-  picker.addEventListener('change', function () { setLang(picker.value); });
+  picker.addEventListener('change', function () {
+    setLang(picker.value);
+    trackEvent('language_change', { language: picker.value });
+  });
+
+  document.addEventListener('click', function (event) {
+    var link = event.target.closest('a');
+    if (!link) return;
+    var href = link.getAttribute('href') || '';
+    if (href.indexOf('mailto:') === 0) {
+      trackEvent('generate_lead', { method: 'email' });
+    } else if (href.indexOf('wa.me/') !== -1) {
+      trackEvent('generate_lead', { method: 'whatsapp' });
+    } else if (href === '/growth/') {
+      trackEvent('select_content', { content_type: 'product', item_id: 'hamvara_growth' });
+    } else if (href === '#contact') {
+      trackEvent('contact_intent', { placement: link.getAttribute('data-t') || 'contact_link' });
+    }
+  });
 
   /* ── the sheet ─────────────────────────── */
   var rows = Array.prototype.slice.call(document.querySelectorAll('#sheetBody tr'));
