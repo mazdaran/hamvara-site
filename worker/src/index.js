@@ -66,7 +66,7 @@ async function analyzeSkuColumns(request, env) {
     'Column headers: ' + JSON.stringify(headers),
     'Sample rows: ' + JSON.stringify(sampleRows)
   ].join('\n');
-  const model = '@cf/meta/llama-3.1-8b-instruct';
+  const model = '@cf/meta/llama-3.1-8b-instruct-fast';
   const result = await env.AI.run(model, {
     messages: [
       { role: 'system', content: 'You are a precise inventory-data mapping engine. Output valid JSON only.' },
