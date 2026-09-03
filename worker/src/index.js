@@ -30,8 +30,9 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     try {
       let response;
-      if (url.pathname === '/health') response = json({ ok: true, service: 'hamvara-growth-api', pageSpeedApiKeyConfigured: Boolean(env.PAGESPEED_API_KEY), oauthConfigured: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.OAUTH_STATE_SECRET && env.TOKEN_ENCRYPTION_KEY), databaseConfigured: Boolean(env.DB), time: new Date().toISOString() });
+      if (url.pathname === '/health') response = json({ ok: true, service: 'hamvara-growth-api', pageSpeedApiKeyConfigured: Boolean(env.PAGESPEED_API_KEY), oauthConfigured: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.OAUTH_STATE_SECRET && env.TOKEN_ENCRYPTION_KEY), databaseConfigured: Boolean(env.DB), aiConfigured: Boolean(env.AI), time: new Date().toISOString() });
       else if (url.pathname === '/api/audit' && request.method === 'POST') response = await audit(request, env);
+      else if (url.pathname === '/api/sku-bridge/analyze' && request.method === 'POST') response = await analyzeSkuColumns(request, env);
       else if (url.pathname === '/api/integrations' && request.method === 'GET') response = await integrationStatuses(env);
       else if (url.pathname === '/api/google/overview' && request.method === 'GET') response = await googleOverview(url, env);
       else if (/^\/api\/integrations\/(google|meta|linkedin|wordpress)\/test$/.test(url.pathname) && request.method === 'GET') response = await testIntegration(url.pathname.split('/')[3], env);
@@ -46,6 +47,71 @@ export default {
     }
   }
 };
+
+
+async function analyzeSkuColumns(request, env) {
+  if (!env.AI) throw httpError(503, 'Workers AI binding is not configured.');
+  const body = await request.json();
+  const headers = Array.isArray(body.headers) ? body.headers.slice(0, 50).map(value => cleanCell(value, 120)) : [];
+  const sampleRows = Array.isArray(body.sampleRows) ? body.sampleRows.slice(0, 20).map(row => Array.isArray(row) ? row.slice(0, 50).map(value => cleanCell(value, 160)) : []) : [];
+  if (!headers.length) throw httpError(400, 'At least one column header is required.');
+  if (headers.some(header => !header)) throw httpError(400, 'Column headers cannot be empty.');
+  const fields = ['sku','description','barcode','uom','price','currency','stock','warehouse','min','max','category','supplier'];
+  const prompt = [
+    'You map spreadsheet columns to inventory fields.',
+    'Return strict JSON only, with this shape: {"mappings":[{"sourceIndex":0,"sourceHeader":"...","targetField":"sku","confidence":0.97,"reason":"..."}],"unmapped":[0]}.',
+    'targetField must be one of: ' + fields.join(', ') + '.',
+    'Use each targetField at most once. Confidence must be between 0 and 1.',
+    'Do not infer a mapping when evidence is weak; put its sourceIndex in unmapped.',
+    'Column headers: ' + JSON.stringify(headers),
+    'Sample rows: ' + JSON.stringify(sampleRows)
+  ].join('\n');
+  const model = '@cf/meta/llama-3.1-8b-instruct';
+  const result = await env.AI.run(model, {
+    messages: [
+      { role: 'system', content: 'You are a precise inventory-data mapping engine. Output valid JSON only.' },
+      { role: 'user', content: prompt }
+    ],
+    temperature: 0.1,
+    max_tokens: 1200
+  });
+  const text = typeof result === 'string' ? result : (result.response || result.result?.response || '');
+  let parsed;
+  try { parsed = JSON.parse(extractJson(text)); }
+  catch { throw httpError(502, 'AI returned an invalid mapping response.'); }
+  const used = new Set();
+  const mappings = (Array.isArray(parsed.mappings) ? parsed.mappings : []).map(item => {
+    const sourceIndex = Number(item.sourceIndex);
+    const targetField = String(item.targetField || '');
+    if (!Number.isInteger(sourceIndex) || sourceIndex < 0 || sourceIndex >= headers.length || !fields.includes(targetField) || used.has(targetField)) return null;
+    used.add(targetField);
+    return {
+      sourceIndex,
+      sourceHeader: headers[sourceIndex],
+      targetField,
+      confidence: Math.max(0, Math.min(1, Number(item.confidence) || 0)),
+      reason: cleanCell(item.reason, 180)
+    };
+  }).filter(Boolean);
+  return json({
+    source: 'Cloudflare Workers AI',
+    model,
+    analyzedAt: new Date().toISOString(),
+    mappings,
+    unmapped: headers.map((_, index) => index).filter(index => !mappings.some(item => item.sourceIndex === index)),
+    requiresHumanApproval: true
+  });
+}
+
+function cleanCell(value, limit) {
+  return String(value ?? '').replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, limit);
+}
+function extractJson(value) {
+  const text = String(value || '').trim().replace(/^\x60\x60\x60(?:json)?/i, '').replace(/\x60\x60\x60$/,'').trim();
+  const start = text.indexOf('{'), end = text.lastIndexOf('}');
+  if (start < 0 || end <= start) throw new Error('No JSON object.');
+  return text.slice(start, end + 1);
+}
 
 async function audit(request, env) {
   const body = await request.json();
