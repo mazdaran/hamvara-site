@@ -18,7 +18,7 @@
   width: 100%;
   margin-top: 6px;
   border: 1px solid var(--rule);
-  background: #fafaf7;
+  background: var(--surface);
   padding: 10px;
   color: var(--ink);
 }
@@ -38,7 +38,7 @@
 }
 
 .live-metric {
-  background: #fff;
+  background: var(--card);
   padding: 17px 20px;
 }
 
