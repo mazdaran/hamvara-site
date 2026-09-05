@@ -1,3 +1,5 @@
+import { handleMrpRequest } from './mrp.js';
+
 const PROVIDERS = {
   google: {
     authorization: 'https://accounts.google.com/o/oauth2/v2/auth',
@@ -38,6 +40,7 @@ export default {
       else if (/^\/api\/integrations\/(google|meta|linkedin|wordpress)\/test$/.test(url.pathname) && request.method === 'GET') response = await testIntegration(url.pathname.split('/')[3], env);
       else if (/^\/api\/oauth\/(google|meta|linkedin|wordpress)\/start$/.test(url.pathname)) response = await oauthStart(request, env);
       else if (/^\/api\/oauth\/(google|meta|linkedin|wordpress)\/callback$/.test(url.pathname)) response = await oauthCallback(request, env);
+      else if (url.pathname.startsWith('/api/mrp/')) response = await handleMrpRequest(request, env, url);
       else response = json({ error: 'Not found' }, 404);
       const headers = new Headers(response.headers); Object.entries(cors).forEach(([k,v]) => headers.set(k,v));
       return new Response(response.body, { status: response.status, headers });
@@ -246,7 +249,7 @@ function providerConfig(provider,env){
 function status(row){return{connected:Boolean(row),updatedAt:row?.updated_at||null};}
 function validHttpUrl(value){try{const url=new URL(String(value||''));return /^https?:$/.test(url.protocol)?url:null}catch{return null}}
 function safeReturnTo(value,env){const fallback='https://hamvara.com/growth/';try{const url=new URL(value||fallback);const allowed=(env.ALLOWED_ORIGINS||'https://hamvara.com,http://localhost:8080').split(',').map(x=>x.trim());return allowed.includes(url.origin)?url.toString():fallback}catch{return fallback}}
-function corsHeaders(origin,env){const allowed=(env.ALLOWED_ORIGINS||'https://hamvara.com,http://localhost:8080').split(',').map(x=>x.trim());return{'Access-Control-Allow-Origin':allowed.includes(origin)?origin:allowed[0],'Access-Control-Allow-Headers':'Content-Type, Authorization','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Vary':'Origin'};}
+function corsHeaders(origin,env){const allowed=(env.ALLOWED_ORIGINS||'https://hamvara.com,http://localhost:8080').split(',').map(x=>x.trim());return{'Access-Control-Allow-Origin':allowed.includes(origin)?origin:allowed[0],'Access-Control-Allow-Headers':'Content-Type, Authorization, X-Hamvara-Workspace, X-Hamvara-User, X-Hamvara-Key','Access-Control-Allow-Methods':'GET, POST, PUT, OPTIONS','Vary':'Origin'};}
 function stripMarkdownLinks(text){return text.replace(/\[([^\]]+)\]\([^\)]+\)/g,'$1').replace(/\s+/g,' ').trim();}
 function requireEnv(env,names){const missing=names.filter(x=>!env[x]);if(missing.length)throw httpError(503,`Missing server configuration: ${missing.join(', ')}`);}
 function httpError(status,message){const error=new Error(message);error.status=status;return error;}
