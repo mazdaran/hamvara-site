@@ -440,6 +440,10 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
             <span class="chan-k" data-t="chanWaK">WHATSAPP</span>
             <span class="chan-v">+90 552 628 10 04</span>
           </a>
+          <a class="chan" href="https://www.instagram.com/hamvaramrp/" target="_blank" rel="noopener noreferrer">
+            <span class="chan-k" data-t="chanInstagramK">INSTAGRAM</span>
+            <span class="chan-v">@hamvaramrp</span>
+          </a>
         </div>
       </div>
     </div>
@@ -524,7 +528,7 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
       contactTitle: 'Request a demo',
       contactLead: 'Tell me what you are doing by hand right now. I will tell you honestly whether software is worth it.',
       contactNote: 'Usually a reply the same day. English, Persian and Turkish.',
-      chanEmailK: 'EMAIL', chanPhoneK: 'PHONE', chanWaK: 'WHATSAPP',
+      chanEmailK: 'EMAIL', chanPhoneK: 'PHONE', chanWaK: 'WHATSAPP', chanInstagramK: 'INSTAGRAM',
       footPlace: 'Istanbul, Türkiye',
     },
 
@@ -592,7 +596,7 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
       contactTitle: 'درخواست دمو',
       contactLead: 'بگویید همین حالا چه کاری را دستی انجام می‌دهید. صادقانه می‌گویم که نرم‌افزار به آن می‌ارزد یا نه.',
       contactNote: 'معمولاً همان روز جواب می‌دهم. انگلیسی، فارسی و ترکی.',
-      chanEmailK: 'ایمیل', chanPhoneK: 'تلفن', chanWaK: 'واتساپ',
+      chanEmailK: 'ایمیل', chanPhoneK: 'تلفن', chanWaK: 'واتساپ', chanInstagramK: 'اینستاگرام',
       footPlace: 'استانبول، ترکیه',
     },
 
@@ -660,7 +664,7 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
       contactTitle: 'Demo isteyin',
       contactLead: 'Şu anda elle ne yaptığınızı anlatın. Yazılıma değip değmeyeceğini dürüstçe söyleyeyim.',
       contactNote: 'Genellikle aynı gün yanıt. İngilizce, Farsça ve Türkçe.',
-      chanEmailK: 'E-POSTA', chanPhoneK: 'TELEFON', chanWaK: 'WHATSAPP',
+      chanEmailK: 'E-POSTA', chanPhoneK: 'TELEFON', chanWaK: 'WHATSAPP', chanInstagramK: 'INSTAGRAM',
       footPlace: 'İstanbul, Türkiye',
     },
   };
@@ -730,6 +734,8 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
       trackEvent('generate_lead', { method: 'email' });
     } else if (href.indexOf('wa.me/') !== -1) {
       trackEvent('generate_lead', { method: 'whatsapp' });
+    } else if (href.indexOf('instagram.com/hamvaramrp') !== -1) {
+      trackEvent('social_click', { platform: 'instagram' });
     } else if (href === '/sku-bridge/') {
       trackEvent('select_content', { content_type: 'product', item_id: 'sku_bridge' });
     } else if (href === '/growth/') {
