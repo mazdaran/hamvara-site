@@ -38,14 +38,14 @@
 /* Palette taken from the Hamvara MRP Industrial application.
    To fine-tune, change only these eight values. */
 :root{
-  --ink:#1E2B3A;        /* sidebar / dark panels */
-  --ink-2:#5A6B7C;      /* secondary text */
-  --paper:#F1F0EA;      /* content background */
-  --card:#FFFFFF;       /* cards */
-  --rule:#D6D5CD;       /* hairlines */
-  --pine:#1F4E79;       /* accent: card top rules, links, buttons */
-  --pine-dark:#163A5A;  /* accent, pressed */
-  --mark:#DFC85A;       /* highlight bar, as in "Action Required" */
+  --ink:#EAF2F8;
+  --ink-2:#AAB8C6;
+  --paper:#07182E;
+  --card:#172A3D;
+  --rule:#526477;
+  --pine:#20C7D5;
+  --pine-dark:#109AA8;
+  --mark:#52DCE5;
   --display:'Bricolage Grotesque', 'Vazirmatn', sans-serif;
   --body:'Vazirmatn', 'Segoe UI', Tahoma, sans-serif;
   --mono:'IBM Plex Mono', monospace;
@@ -62,8 +62,8 @@ body{
   background-color:var(--paper);
   /* Faint grid. Delete these three lines for a completely flat background. */
   background-image:
-    linear-gradient(to left, rgba(30,43,58,.055) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(30,43,58,.055) 1px, transparent 1px);
+    linear-gradient(to left, rgba(82,220,229,.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(82,220,229,.045) 1px, transparent 1px);
   background-size:28px 28px;
   line-height:1.8;
   font-size:16px;
@@ -79,7 +79,7 @@ p{margin:0}
 /* ── top bar ─────────────────────────────── */
 .topbar{
   position:sticky;top:0;z-index:40;
-  background:rgba(241,240,234,.92);
+  background:rgba(7,24,46,.94);
   backdrop-filter:blur(6px);
   border-bottom:1px solid var(--rule);
 }
@@ -98,7 +98,7 @@ html[lang="fa"] .brand{font-weight:400;font-size:27px;letter-spacing:.3px}
 .btn{
   display:inline-block;font-family:var(--body);font-weight:700;font-size:15px;
   padding:11px 20px;border:0;border-radius:2px;cursor:pointer;text-decoration:none;
-  background:var(--pine);color:#fff;transition:background .15s ease;
+  background:var(--pine);color:#041523;transition:background .15s ease;
 }
 .btn:hover{background:var(--pine-dark)}
 .btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
@@ -128,8 +128,8 @@ html[lang="fa"] .hero h1{font-weight:400;letter-spacing:.2px}
 .hero-cta{display:flex;gap:12px;margin-top:30px;flex-wrap:wrap}
 
 /* ── signature: the product sheet ────────── */
-.sheet{background:var(--card);border:1px solid var(--rule);box-shadow:0 18px 40px -28px rgba(30,43,58,.45)}
-.formula-bar{display:flex;align-items:center;border-bottom:1px solid var(--rule);background:#F7F6F1}
+.sheet{background:var(--card);border:1px solid var(--rule);box-shadow:0 18px 40px -28px rgba(0,0,0,.8)}
+.formula-bar{display:flex;align-items:center;border-bottom:1px solid var(--rule);background:#102338}
 .cellref{
   font-family:var(--mono);font-size:13px;padding:9px 12px;min-width:66px;text-align:center;
   border-inline-end:1px solid var(--rule);color:var(--ink-2);
@@ -138,23 +138,23 @@ html[lang="fa"] .hero h1{font-weight:400;letter-spacing:.2px}
 .formula{font-family:var(--mono);font-size:13px;padding:9px 12px;color:var(--ink);direction:ltr;text-align:left;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .sheet table{width:100%;border-collapse:collapse;font-size:14.5px}
 .sheet th,.sheet td{border:1px solid var(--rule);padding:11px 12px;text-align:start}
-.sheet thead th{background:#EFEEE8;font-weight:500;color:var(--ink-2);font-size:13px}
-.sheet .colhead th{font-family:var(--mono);font-size:11px;color:#8D8C84;padding:4px 12px;background:#F7F6F1}
+.sheet thead th{background:#22384C;font-weight:500;color:var(--ink-2);font-size:13px}
+.sheet .colhead th{font-family:var(--mono);font-size:11px;color:var(--ink-2);padding:4px 12px;background:#102338}
 .rownum{
-  font-family:var(--mono);font-size:11px;color:#8D8C84;background:#F7F6F1;
+  font-family:var(--mono);font-size:11px;color:var(--ink-2);background:#102338;
   width:34px;text-align:center;padding:11px 0;
 }
 .sheet tbody tr{cursor:pointer}
-.sheet tbody tr:hover td{background:#F7F6F1}
-.sheet tbody tr.on td{background:rgba(223,200,90,.34)}
-.sheet tbody tr.on td:first-child{background:var(--mark);color:var(--ink)}
+.sheet tbody tr:hover td{background:#20364A}
+.sheet tbody tr.on td{background:rgba(32,199,213,.18)}
+.sheet tbody tr.on td:first-child{background:var(--mark);color:#041523}
 .sheet tbody tr:focus-visible{outline:2px solid var(--pine);outline-offset:-2px}
 .sheet td.num{font-family:var(--mono);direction:ltr;text-align:left}
 .sheet-foot{
-  display:flex;gap:6px;padding:6px;border-top:1px solid var(--rule);background:#F7F6F1;
-  font-family:var(--mono);font-size:11px;color:#8D8C84;
+  display:flex;gap:6px;padding:6px;border-top:1px solid var(--rule);background:#102338;
+  font-family:var(--mono);font-size:11px;color:var(--ink-2);
 }
-.sheet-foot span{padding:3px 10px;border:1px solid var(--rule);background:#fff}
+.sheet-foot span{padding:3px 10px;border:1px solid var(--rule);background:var(--card)}
 
 /* ── sections ────────────────────────────── */
 section{padding:70px 0}
@@ -182,11 +182,11 @@ html[lang="fa"] .prod h3{font-weight:400;font-size:26px;letter-spacing:0}
 .step h3{font-size:17px;margin-top:8px}
 .step p{font-size:14.5px;color:var(--ink-2);margin-top:6px}
 
-.contact{background:var(--ink);color:#EEF1F4;margin-top:20px}
+.contact{background:#040F20;color:#EEF1F4;margin-top:20px}
 .contact .sec-head h2{color:#fff}
 .contact .sec-head p{color:#A6B4C2}
 .contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px}
-.chan{display:block;padding:16px 0;border-top:1px solid #33445A;text-decoration:none}
+.chan{display:block;padding:16px 0;border-top:1px solid #526477;text-decoration:none}
 .chan:hover .chan-v{color:var(--mark)}
 .chan-k{font-family:var(--mono);font-size:11.5px;color:#8FA0B2;letter-spacing:.5px}
 .chan-v{font-size:18px;direction:ltr;display:block;margin-top:2px;text-align:left}
@@ -222,6 +222,7 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
   <div class="wrap topbar-in">
     <a class="brand" href="#top"><span class="brand-mark"><i></i><i></i><i></i><i></i></span><span data-t="brand">Hamvara</span></a>
     <nav class="nav">
+      <a href="#top" data-t="navHome">Home</a>
       <a href="#products" data-t="navProducts">Products</a>
       <a href="#how" data-t="navHow">How we work</a>
       <a href="#contact" data-t="navContact">Contact</a>
@@ -257,7 +258,6 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
             <tr>
               <th></th>
               <th data-t="colProduct">Product</th>
-              <th data-t="colDoes">What it does</th>
               <th class="hide-sm" data-t="colStatus">Status</th>
             </tr>
           </thead>
@@ -424,9 +424,13 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
             <span class="chan-k" data-t="chanEmailK">EMAIL</span>
             <span class="chan-v">yahya.mazdarani@outlook.com</span>
           </a>
-          <a class="chan" href="https://wa.me/900000000000">
+          <a class="chan" href="tel:+905526281004">
+            <span class="chan-k" data-t="chanPhoneK">PHONE</span>
+            <span class="chan-v">+90 552 628 10 04</span>
+          </a>
+          <a class="chan" href="https://wa.me/905526281004" rel="noopener">
             <span class="chan-k" data-t="chanWaK">WHATSAPP</span>
-            <span class="chan-v">+90 000 000 00 00</span>
+            <span class="chan-v">+90 552 628 10 04</span>
           </a>
           <a class="chan" href="https://github.com/mazdaran">
             <span class="chan-k" data-t="chanGhK">GITHUB</span>
@@ -456,7 +460,7 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
     en: {
       _name: 'EN', _dir: 'ltr',
       brand: 'Hamvara',
-      navProducts: 'Products', navHow: 'How we work', navContact: 'Contact',
+      navHome: 'Home', navProducts: 'Products', navHow: 'How we work', navContact: 'Contact',
       ctaDemo: 'Request a demo', ctaProducts: 'See the products', ctaTalk: 'Talk to me',
 
       eyebrow: 'Software workshop · Istanbul',
@@ -516,7 +520,7 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
       contactTitle: 'Request a demo',
       contactLead: 'Tell me what you are doing by hand right now. I will tell you honestly whether software is worth it.',
       contactNote: 'Usually a reply the same day. English, Persian and Turkish.',
-      chanEmailK: 'EMAIL', chanWaK: 'WHATSAPP', chanGhK: 'GITHUB',
+      chanEmailK: 'EMAIL', chanPhoneK: 'PHONE', chanWaK: 'WHATSAPP', chanGhK: 'GITHUB',
       footPlace: 'Istanbul, Türkiye',
     },
 
@@ -524,7 +528,7 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
     fa: {
       _name: 'FA', _dir: 'rtl',
       brand: 'هموارا',
-      navProducts: 'محصولات', navHow: 'مراحل کار', navContact: 'تماس',
+      navHome: 'خانه', navProducts: 'محصولات', navHow: 'مراحل کار', navContact: 'تماس',
       ctaDemo: 'درخواست دمو', ctaProducts: 'دیدن محصولات', ctaTalk: 'صحبت کنیم',
 
       eyebrow: 'کارگاه نرم‌افزار · استانبول',
@@ -584,7 +588,7 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
       contactTitle: 'درخواست دمو',
       contactLead: 'بگویید همین حالا چه کاری را دستی انجام می‌دهید. صادقانه می‌گویم که نرم‌افزار به آن می‌ارزد یا نه.',
       contactNote: 'معمولاً همان روز جواب می‌دهم. انگلیسی، فارسی و ترکی.',
-      chanEmailK: 'ایمیل', chanWaK: 'واتساپ', chanGhK: 'گیت‌هاب',
+      chanEmailK: 'ایمیل', chanPhoneK: 'تلفن', chanWaK: 'واتساپ', chanGhK: 'گیت‌هاب',
       footPlace: 'استانبول، ترکیه',
     },
 
@@ -592,7 +596,7 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
     tr: {
       _name: 'TR', _dir: 'ltr',
       brand: 'Hamvara',
-      navProducts: 'Ürünler', navHow: 'Nasıl çalışıyoruz', navContact: 'İletişim',
+      navHome: 'Ana sayfa', navProducts: 'Ürünler', navHow: 'Nasıl çalışıyoruz', navContact: 'İletişim',
       ctaDemo: 'Demo isteyin', ctaProducts: 'Ürünleri görün', ctaTalk: 'Konuşalım',
 
       eyebrow: 'Yazılım atölyesi · İstanbul',
@@ -652,7 +656,7 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
       contactTitle: 'Demo isteyin',
       contactLead: 'Şu anda elle ne yaptığınızı anlatın. Yazılıma değip değmeyeceğini dürüstçe söyleyeyim.',
       contactNote: 'Genellikle aynı gün yanıt. İngilizce, Farsça ve Türkçe.',
-      chanEmailK: 'E-POSTA', chanWaK: 'WHATSAPP', chanGhK: 'GITHUB',
+      chanEmailK: 'E-POSTA', chanPhoneK: 'TELEFON', chanWaK: 'WHATSAPP', chanGhK: 'GITHUB',
       footPlace: 'İstanbul, Türkiye',
     },
   };
