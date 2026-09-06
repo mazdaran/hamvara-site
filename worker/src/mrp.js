@@ -7,6 +7,11 @@ export async function handleMrpRequest(request, env, url) {
     return provisionWorkspace(request, env);
   }
 
+  const rotateMatch = /^\/api\/mrp\/workspaces\/([a-z0-9-]+)\/rotate-key$/.exec(url.pathname);
+  if (rotateMatch && request.method === 'POST') {
+    return rotateWorkspaceAccessKey(request, env, rotateMatch[1]);
+  }
+
   const actor = await authenticate(request, env);
   if (url.pathname === '/api/mrp/session' && request.method === 'GET') {
     return json({ ok: true, workspace: actor.workspace, user: actor.user });
@@ -21,9 +26,7 @@ export async function handleMrpRequest(request, env, url) {
 }
 
 async function provisionWorkspace(request, env) {
-  if (!env.MRP_ADMIN_TOKEN) throw httpError(503, 'MRP provisioning is not configured.');
-  const supplied = bearerToken(request.headers.get('Authorization'));
-  if (!supplied || !constantTimeEqual(supplied, env.MRP_ADMIN_TOKEN)) throw httpError(401, 'Invalid administrator token.');
+  requireAdministrator(request, env);
 
   const body = await request.json();
   const slug = normalizeSlug(body.workspace);
@@ -52,6 +55,50 @@ async function provisionWorkspace(request, env) {
     accessKey,
     warning: 'Store this access key securely. It is shown only once.'
   }, 201);
+}
+
+async function rotateWorkspaceAccessKey(request, env, pathSlug) {
+  requireAdministrator(request, env);
+
+  let body;
+  try { body = await request.json(); }
+  catch { throw httpError(400, 'Invalid JSON payload.'); }
+  const slug = normalizeSlug(pathSlug);
+  const username = normalizeUsername(body.username || 'owner');
+  if (!slug || !username) throw httpError(400, 'A valid workspace and username are required.');
+
+  const actor = await env.DB.prepare(`
+    SELECT w.id AS workspace_id, w.slug, w.name, u.id AS user_id, u.username, u.role
+    FROM mrp_workspaces w
+    JOIN mrp_users u ON u.workspace_id = w.id
+    WHERE w.slug = ? AND u.username = ? AND w.active = 1 AND u.active = 1
+  `).bind(slug, username).first();
+  if (!actor) throw httpError(404, 'Active workspace user not found.');
+
+  const accessKey = generateAccessKey();
+  const keyHash = await sha256(accessKey);
+  const result = await env.DB.prepare(`
+    UPDATE mrp_users
+    SET access_key_hash = ?, updated_at = datetime('now')
+    WHERE id = ? AND workspace_id = ? AND active = 1
+  `).bind(keyHash, actor.user_id, actor.workspace_id).run();
+  if (!result.meta?.changes) throw httpError(409, 'Workspace access key was not changed.');
+
+  await env.DB.prepare("INSERT INTO mrp_audit_log (workspace_id, user_id, action, details_json, created_at) VALUES (?, ?, 'access_key.rotated', ?, datetime('now'))")
+    .bind(actor.workspace_id, actor.user_id, JSON.stringify({ username: actor.username })).run();
+
+  return json({
+    workspace: { slug: actor.slug, name: actor.name },
+    user: { username: actor.username, role: actor.role },
+    accessKey,
+    warning: 'The previous access key is now invalid. Store this new key securely; it is shown only once.'
+  });
+}
+
+function requireAdministrator(request, env) {
+  if (!env.MRP_ADMIN_TOKEN) throw httpError(503, 'MRP administration is not configured.');
+  const supplied = bearerToken(request.headers.get('Authorization'));
+  if (!supplied || !constantTimeEqual(supplied, env.MRP_ADMIN_TOKEN)) throw httpError(401, 'Invalid administrator token.');
 }
 
 async function authenticate(request, env) {
@@ -132,3 +179,4 @@ function base64url(bytes) { let binary = ''; bytes.forEach(byte => { binary += S
 function constantTimeEqual(a, b) { a = String(a || ''); b = String(b || ''); if (a.length !== b.length) return false; let diff = 0; for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i); return diff === 0; }
 function httpError(status, message) { const error = new Error(message); error.status = status; return error; }
 function json(body, status = 200) { return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } }); }
+
