@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Hamvara LabelGuard",
+  "version": "0.2.0",
+  "identifier": "com.hamvara.labelguard",
+  "build": {"frontendDist": "../dist"},
+  "app": {"windows": [{"title": "Hamvara LabelGuard", "width": 1440, "height": 960, "minWidth": 960, "minHeight": 700}], "security": {"csp": null}},
+  "bundle": {"active": true, "targets": ["nsis"], "icon": ["icons/icon.ico"], "shortDescription": "AI-assisted cosmetic label preflight", "publisher": "Hamvara"}
+}

@@ -1,19 +1,5 @@
-# Hamvara website
+# Hamvara LabelGuard Desktop
 
-Static multilingual website served from GitHub Pages at `hamvara.com`.
+Windows test application for cosmetic label preflight. It supports camera/image selection, client-side OCR, barcode detection and a 17-rule US cosmetics label checklist.
 
-## Hamvara Growth
-
-- Frontend: `/growth/`
-- Secure API: `/worker/`
-- Live URL analysis: Google PageSpeed Insights / Lighthouse
-- Planned production API hostname: `api.hamvara.com`
-
-The Growth frontend can run immediately in direct PageSpeed mode. OAuth integrations require the Worker, D1 database, provider applications and server-side secrets described in `worker/README.md`.
-
-## Hamvara MRP SaaS
-
-- Frontend: `/mrp/`
-- Tenant-isolated API: `/api/mrp/`
-- Persistent state: Cloudflare D1 with revision control and audit log
-- Workspace access: hashed per-user Access Keys
+The GitHub Actions workflow builds an NSIS Windows EXE and publishes it under Releases as a pre-release.
