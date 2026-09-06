@@ -1,0 +1,21 @@
+name = "hamvara-growth-api"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+[vars]
+ALLOWED_ORIGINS = "https://hamvara.com,http://localhost:8080"
+META_GRAPH_VERSION = "v23.0"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "hamvara-growth"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+# Set these with `wrangler secret put NAME`:
+# PAGESPEED_API_KEY (recommended, optional for low-volume tests)
+# OAUTH_STATE_SECRET
+# TOKEN_ENCRYPTION_KEY (32 random bytes encoded as base64url)
+# GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET
+# META_APP_ID / META_APP_SECRET
+# LINKEDIN_CLIENT_ID / LINKEDIN_CLIENT_SECRET
+# WORDPRESS_CLIENT_ID / WORDPRESS_CLIENT_SECRET

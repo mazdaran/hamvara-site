@@ -1,0 +1,17 @@
+name = "hamvara-growth-api"
+main = "worker/src/index.js"
+compatibility_date = "2026-08-01"
+
+[vars]
+ALLOWED_ORIGINS = "https://hamvara.com,http://localhost:8080"
+META_GRAPH_VERSION = "v23.0"
+
+[ai]
+binding = "AI"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "hamvara-growth-production"
+database_id = "bc036eef-2f9d-46cf-a468-cd9a0fb42a87"
+
+# OAuth credentials and encryption keys are configured as runtime secrets.
