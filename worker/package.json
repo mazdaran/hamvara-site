@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check src/index.js && node --check src/mrp.js",
+    "check": "node --check src/index.js && node --check src/mrp.js && npm test",
+    "test": "node --test test/*.test.mjs",
     "dev": "wrangler dev --config ../wrangler.toml",
     "predeploy": "node scripts/verify-deploy-config.mjs",
     "deploy": "wrangler deploy --config ../wrangler.toml",
