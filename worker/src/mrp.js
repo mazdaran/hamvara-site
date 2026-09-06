@@ -7,7 +7,11 @@ export async function handleMrpRequest(request, env, url) {
     return provisionWorkspace(request, env);
   }
 
-  const rotateMatch = /^\/api\/mrp\/workspaces\/([a-z0-9-]+)\/rotate-key$/.exec(url.pathname);
+  if (url.pathname === '/api/mrp/rotate-key' && request.method === 'POST') {
+    return rotateWorkspaceAccessKey(request, env);
+  }
+
+  const rotateMatch = /^\/api\/mrp\/workspaces\/([a-z0-9-]+)\/rotate-key\/?$/.exec(url.pathname);
   if (rotateMatch && request.method === 'POST') {
     return rotateWorkspaceAccessKey(request, env, rotateMatch[1]);
   }
@@ -63,7 +67,7 @@ async function rotateWorkspaceAccessKey(request, env, pathSlug) {
   let body;
   try { body = await request.json(); }
   catch { throw httpError(400, 'Invalid JSON payload.'); }
-  const slug = normalizeSlug(pathSlug);
+  const slug = normalizeSlug(pathSlug || body.workspace);
   const username = normalizeUsername(body.username || 'owner');
   if (!slug || !username) throw httpError(400, 'A valid workspace and username are required.');
 
@@ -179,4 +183,3 @@ function base64url(bytes) { let binary = ''; bytes.forEach(byte => { binary += S
 function constantTimeEqual(a, b) { a = String(a || ''); b = String(b || ''); if (a.length !== b.length) return false; let diff = 0; for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i); return diff === 0; }
 function httpError(status, message) { const error = new Error(message); error.status = status; return error; }
 function json(body, status = 200) { return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } }); }
-

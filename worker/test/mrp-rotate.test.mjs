@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { handleMrpRequest } from '../src/mrp.js';
 
-function request(token, body = { username: 'owner' }) {
-  return new Request('https://example.test/api/mrp/workspaces/hamvara/rotate-key', {
+function request(token, body = { username: 'owner' }, path = '/api/mrp/workspaces/hamvara/rotate-key') {
+  return new Request(`https://example.test${path}`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -87,4 +87,22 @@ test('rotates the hash and writes an audit event while returning the key once', 
   const audit = DB.calls.find(call => call.sql.includes("'access_key.rotated'"));
   assert.ok(audit);
   assert.deepEqual(audit.values.slice(0, 2), ['workspace-id', 'user-id']);
+});
+
+test('supports the short rotation endpoint with workspace in the JSON body', async () => {
+  const DB = database({
+    workspace_id: 'workspace-id',
+    slug: 'hamvara',
+    name: 'Hamvara',
+    user_id: 'user-id',
+    username: 'owner',
+    role: 'CEO'
+  });
+  const req = request(
+    'correct-token',
+    { workspace: 'hamvara', username: 'owner' },
+    '/api/mrp/rotate-key'
+  );
+  const response = await handleMrpRequest(req, { DB, MRP_ADMIN_TOKEN: 'correct-token' }, new URL(req.url));
+  assert.equal(response.status, 200);
 });
