@@ -1,0 +1,38 @@
+name: Build LabelGuard Windows EXE
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "labelguard-desktop/**"
+      - ".github/workflows/build-labelguard-windows.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: labelguard-desktop/src-tauri -> target
+      - run: npm install
+        working-directory: labelguard-desktop
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: labelguard-desktop
+          tagName: labelguard-v__VERSION__
+          releaseName: Hamvara LabelGuard v__VERSION__ TEST
+          releaseBody: Windows test release with camera/image upload, OCR, barcode detection and 17 US cosmetic label checks.
+          releaseDraft: false
+          prerelease: true
+          args: --bundles nsis

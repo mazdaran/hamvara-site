@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Hamvara LabelGuard</title>
+  <meta name="description" content="Preflight cosmetic labels for the US market with a transparent rules engine.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#"><span class="mark" aria-hidden="true"></span><strong>Hamvara</strong><span>/ LabelGuard</span></a>
+    <div class="head-actions"><span class="beta">Camera + OCR v0.2</span><button id="langBtn" class="ghost">FA</button></div>
+  </header>
+
+  <main>
+    <section class="intro">
+      <div><p class="eyebrow">US COSMETICS · LABEL PREFLIGHT</p><h1>Scan the package. Check the label.</h1><p>Photograph the front, back and sides of a cosmetic package. LabelGuard reads the text, detects a barcode and checks identity, quantity, ingredients, claims and warnings.</p></div>
+      <div class="notice"><b>Preliminary screening only</b><span>Not FDA approval or legal advice. High-risk results require qualified review.</span></div>
+    </section>
+
+    <section class="workspace">
+      <form id="checker" class="input-panel">
+        <div class="section-head"><div><span class="step">1</span><h2>Product & label</h2></div><button type="button" id="sampleBtn" class="ghost">Load risky sample</button></div>
+        <div class="grid two">
+          <label>Product type<select id="productType"><option value="serum">Facial serum</option><option value="cream">Cream / lotion</option><option value="hair">Hair product</option><option value="aerosol">Aerosol</option><option value="eye">Eye-area cosmetic</option><option value="tanning">Tanning product</option><option value="other">Other cosmetic</option></select></label>
+          <label>Package structure<select id="packageType"><option value="single">Single retail container</option><option value="outer">Inner + outer package</option></select></label>
+        </div>
+        <section class="capture-card">
+          <div class="capture-title"><div><b>Label images</b><span>Take clear, close photos of every printed panel.</span></div><span class="local-pill">Processed on this device</span></div>
+          <div class="capture-actions">
+            <label class="capture-button camera">Open camera<input id="cameraInput" type="file" accept="image/*" capture="environment"></label>
+            <label class="capture-button">Choose images<input id="imageInput" type="file" accept="image/*" multiple></label>
+            <button type="button" id="clearImages" class="ghost" disabled>Clear</button>
+          </div>
+          <div id="imageGuide" class="image-guide"><span>1 · Front</span><span>2 · Back</span><span>3 · Ingredients</span><span>4 · Barcode</span></div>
+          <div id="previews" class="previews" hidden></div>
+          <div id="scanStatus" class="scan-status" aria-live="polite">No images selected.</div>
+          <button type="button" id="readImages" class="ocr-button" disabled><span class="scan-icon">◎</span><span><b>Read images & barcode</b><small>OCR English + Turkish</small></span></button>
+          <div id="ocrProgress" class="ocr-progress" hidden><div><span id="ocrBar"></span></div><p id="ocrMessage">Preparing OCR…</p></div>
+          <div id="barcodeResult" class="barcode-result" hidden><span>Detected barcode</span><strong id="barcodeValue"></strong></div>
+        </section>
+        <label>Extracted label text <span class="label-help">Review and correct OCR text before analysis.</span><textarea id="labelText" rows="11" placeholder="Text extracted from photos appears here. You can also paste label text manually…"></textarea></label>
+        <div class="grid two compact">
+          <label class="check"><input id="readable" type="checkbox" checked><span>Required text is readable and has sufficient contrast</span></label>
+          <label class="check"><input id="outerVisible" type="checkbox" checked><span>Required information appears on the retail outer package</span></label>
+        </div>
+        <button class="primary" type="submit">Run label preflight <span>→</span></button>
+      </form>
+
+      <aside class="result-panel" aria-live="polite">
+        <div class="section-head"><div><span class="step">2</span><h2>Readiness report</h2></div><button id="printBtn" type="button" class="ghost" disabled>Print report</button></div>
+        <div id="empty" class="empty"><div class="radar"></div><h3>No analysis yet</h3><p>Take label photos, let OCR extract the text, confirm it, then run the preflight.</p></div>
+        <div id="report" hidden>
+          <div class="score-row"><div class="score"><strong id="score">0</strong><span>/100</span></div><div><p class="eyebrow">READINESS SCORE</p><h3 id="verdict">Review required</h3></div></div>
+          <div id="counts" class="counts"></div>
+          <div class="filter-row" id="filters"></div>
+          <div id="results" class="results"></div>
+          <div class="report-note"><b>Human approval required</b><p>Confirm regulatory classification, ingredient permissibility, claim substantiation, MoCRA duties and product-specific warnings before sale.</p></div>
+        </div>
+      </aside>
+    </section>
+  </main>
+  <footer>Sources: FDA Cosmetics Labeling Guide · MoCRA · 21 CFR Parts 701 & 740 <span>Checked September 2026</span></footer>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
