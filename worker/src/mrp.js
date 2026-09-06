@@ -79,7 +79,11 @@ async function rotateWorkspaceAccessKey(request, env, pathSlug) {
   `).bind(slug, username).first();
   if (!actor) throw httpError(404, 'Active workspace user not found.');
 
-  const accessKey = generateAccessKey();
+  const requestedAccessKey = String(body.newAccessKey || '');
+  if (requestedAccessKey && !isValidAccessKey(requestedAccessKey)) {
+    throw httpError(400, 'newAccessKey must contain 32 to 128 printable non-space characters.');
+  }
+  const accessKey = requestedAccessKey || generateAccessKey();
   const keyHash = await sha256(accessKey);
   const result = await env.DB.prepare(`
     UPDATE mrp_users
@@ -91,12 +95,16 @@ async function rotateWorkspaceAccessKey(request, env, pathSlug) {
   await env.DB.prepare("INSERT INTO mrp_audit_log (workspace_id, user_id, action, details_json, created_at) VALUES (?, ?, 'access_key.rotated', ?, datetime('now'))")
     .bind(actor.workspace_id, actor.user_id, JSON.stringify({ username: actor.username })).run();
 
-  return json({
+  const response = {
     workspace: { slug: actor.slug, name: actor.name },
     user: { username: actor.username, role: actor.role },
-    accessKey,
-    warning: 'The previous access key is now invalid. Store this new key securely; it is shown only once.'
-  });
+    ok: true,
+    warning: requestedAccessKey
+      ? 'The previous access key is now invalid. The supplied key is active.'
+      : 'The previous access key is now invalid. Store this new key securely; it is shown only once.'
+  };
+  if (!requestedAccessKey) response.accessKey = accessKey;
+  return json(response);
 }
 
 function requireAdministrator(request, env) {
@@ -177,6 +185,7 @@ function normalizeRole(value) {
 }
 function clean(value, limit) { return String(value || '').replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, limit); }
 function bearerToken(value) { const match = /^Bearer\s+(.+)$/i.exec(String(value || '')); return match?.[1] || ''; }
+function isValidAccessKey(value) { return /^[\x21-\x7E]{32,128}$/.test(value); }
 function generateAccessKey() { const bytes = crypto.getRandomValues(new Uint8Array(24)); return base64url(bytes); }
 async function sha256(value) { const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)); return base64url(new Uint8Array(digest)); }
 function base64url(bytes) { let binary = ''; bytes.forEach(byte => { binary += String.fromCharCode(byte); }); return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
