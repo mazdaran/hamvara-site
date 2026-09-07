@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {queueReceiptForApproval,applyReceiptQcDecision,applyManagerReceiptDecision} from '../../mrp/receipt-workflow.js';
+import {queueReceiptForApproval,applyReceiptQcDecision,applyManagerReceiptDecision,calculateAvailableStock} from '../../mrp/receipt-workflow.js';
 
 function sampleState(){return{receipts:[],qualityInspections:[],stock:{'RM-1':{'WH-RM':5,'WH-QA':0}}}}
 
@@ -9,6 +9,7 @@ test('receipt stays in quarantine until QC and manager approve',()=>{
   const {receipt,inspection}=queueReceiptForApproval(state,{id:'r1',inspectionId:'q1',inspectionNo:'IQC-1',reference:'GR-1',date:'2026-09-07',sku:'RM-1',qty:10,targetWarehouse:'WH-RM'});
   assert.equal(state.stock['RM-1']['WH-QA'],10);
   assert.equal(state.stock['RM-1']['WH-RM'],5);
+  assert.equal(calculateAvailableStock(state.stock['RM-1'],[{code:'WH-RM'},{code:'WH-QA'}]),5);
   inspection.result='ACCEPTED';
   applyReceiptQcDecision(state,'q1');
   assert.equal(receipt.status,'PENDING_MANAGER');
@@ -17,6 +18,7 @@ test('receipt stays in quarantine until QC and manager approve',()=>{
   assert.equal(receipt.status,'POSTED');
   assert.equal(state.stock['RM-1']['WH-QA'],0);
   assert.equal(state.stock['RM-1']['WH-RM'],15);
+  assert.equal(calculateAvailableStock(state.stock['RM-1'],[{code:'WH-RM'},{code:'WH-QA'}]),15);
 });
 
 test('rejected receipt remains quarantined and creates an NCR hold',()=>{

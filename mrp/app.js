@@ -1,6 +1,6 @@
 import {downloadWorkbook,readWorkbookFile} from './excel.js';
 import {normalizeNumericText,parseLocalizedNumber} from './numbers.js';
-import {queueReceiptForApproval,applyReceiptQcDecision,applyManagerReceiptDecision} from './receipt-workflow.js';
+import {queueReceiptForApproval,applyReceiptQcDecision,applyManagerReceiptDecision,calculateAvailableStock} from './receipt-workflow.js';
 const $=s=>document.querySelector(s), esc=v=>String(v??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 const invoke=window.__TAURI__?.core?.invoke;
 const cloud=window.HAMVARA_MRP_CLOUD;
@@ -25,7 +25,7 @@ async function save(){
   try{if(cloud?.enabled)await cloud.save(state);else if(invoke)await invoke('save_state',{payload});else localStorage.setItem('hamvara_state',payload);$('#saveState').textContent=I18N[lang()].saved;$('#saveState').className='badge ok'}catch(e){$('#saveState').textContent='Save failed';$('#saveState').className='badge danger';toast(tx('Save error: ','Kayıt hatası: ')+e)}
 }
 function toast(t){const x=$('#toast');x.textContent=t;x.classList.add('show');setTimeout(()=>x.classList.remove('show'),2500)}
-function totalStock(code){const s=state.stock[code]||{};return state.warehouses.reduce((a,w)=>a+(+s[w.code]||0),0)-(+s.reserved||0)}
+function totalStock(code){return calculateAvailableStock(state.stock[code],state.warehouses)}
 function sku(code){return state.skus.find(x=>x.code===code)}
 function product(code){return state.products.find(x=>x.code===code)}
 function n(v,d=2){return (+v||0).toLocaleString('tr-TR',{maximumFractionDigits:d})}

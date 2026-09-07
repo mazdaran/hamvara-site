@@ -4,6 +4,13 @@ function requireReceipt(state,receiptId){
   return receipt;
 }
 
+export function calculateAvailableStock(stockRecord,warehouses){
+  const stock=stockRecord||{};
+  return warehouses
+    .filter(warehouse=>warehouse.code!=='WH-QA')
+    .reduce((total,warehouse)=>total+Number(stock[warehouse.code]||0),0)-Number(stock.reserved||0);
+}
+
 export function queueReceiptForApproval(state,data){
   const qty=Number(data.qty);
   if(!data.sku||!Number.isFinite(qty)||qty<=0)throw new Error('Valid SKU and quantity are required.');
