@@ -7,7 +7,7 @@ function requireReceipt(state,receiptId){
 export function calculateAvailableStock(stockRecord,warehouses){
   const stock=stockRecord||{};
   return warehouses
-    .filter(warehouse=>warehouse.code!=='WH-QA')
+    .filter(warehouse=>!['WH-QA','WH-SF'].includes(warehouse.code))
     .reduce((total,warehouse)=>total+Number(stock[warehouse.code]||0),0)-Number(stock.reserved||0);
 }
 

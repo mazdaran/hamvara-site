@@ -26,6 +26,7 @@
   <button data-page="orders" data-i18n="orders">Orders</button>
   <button data-page="requirements" data-i18n="requirements">Requirements</button>
   <div class="nav-label nav-section" data-label-en="PROCESS CONTROL" data-label-tr="SÜREÇ KONTROLÜ">PROCESS CONTROL</div>
+  <button data-page="production" data-label-en="Production Execution" data-label-tr="Üretim Yürütme">Production Execution</button>
   <button data-page="procurement" data-label-en="Procurement & Suppliers" data-label-tr="Satın Alma ve Tedarikçiler">Procurement & Suppliers</button>
   <button data-page="quality" data-label-en="Quality & NCR" data-label-tr="Kalite ve Uygunsuzluk">Quality & NCR</button>
   <button data-page="sales" data-label-en="Sales Orders" data-label-tr="Satış Siparişleri">Sales Orders</button>
@@ -60,6 +61,12 @@
 <section id="bom" class="page"><div class="page-head"><h2 data-i18n="productBom">Product BOM</h2><div class="import-actions"><select id="bomProduct"></select><button id="addBomItem" type="button" data-i18n="addItem">+ Add Item</button><button data-template="bom" data-i18n="downloadTemplate">Download Template</button><label class="button light"><span data-i18n="importExcel">Import Excel</span><input data-import="bom" type="file" accept=".xlsx" hidden></label></div></div><div id="bomInfo" class="summary"></div><div class="table-wrap"><table id="bomTable"></table></div><button id="saveBom" class="primary" data-i18n="saveBom">Save BOM</button></section>
 <section id="orders" class="page"><div class="page-head"><h2 data-i18n="productionOrders">Production & Customer Orders</h2><div class="import-actions"><button id="addOrder" data-i18n="newOrderLine">+ New Order Line</button><button data-template="orders" data-i18n="downloadTemplate">Download Template</button><label class="button light"><span data-i18n="importExcel">Import Excel</span><input data-import="orders" type="file" accept=".xlsx" hidden></label></div></div><div class="hint" data-i18n="sameOrderHint">Use the same order number for multiple products.</div><div class="table-wrap"><table id="orderTable"></table></div></section>
 <section id="requirements" class="page"><div class="page-head"><h2 data-i18n="materialRequirements">Material Requirements & Shortages</h2><button id="exportRequirements" data-i18n="exportCsv">Export CSV</button></div><div id="orderSummary" class="cards"></div><div class="table-wrap"><table id="requirementTable"></table></div></section>
+<section id="production" class="page">
+  <div class="page-head"><div><h2>Production Execution</h2><small>Work order → material reservation → shop-floor issue → finished-goods receipt</small></div><div class="production-create"><select id="productionOrderSelect"></select><button id="createProductionJob" class="primary compact">+ Work Order</button></div></div>
+  <div id="productionKpis" class="kpis process-kpis"></div>
+  <div class="hint">Release reserves the BOM materials. Issue moves them to Shop Floor. Completion consumes the issued materials and posts the good quantity to Product warehouse.</div>
+  <div class="table-wrap"><table id="productionTable"></table></div>
+</section>
 <section id="procurement" class="page">
   <div class="page-head"><div><h2>Procurement & Approved Suppliers</h2><small>PR → approved supplier → PO → quarantine receipt → three-way match</small></div><div><button id="addSupplier">+ Supplier</button><button id="addPr">+ Purchase Request</button><button id="addPo" class="primary compact">+ Purchase Order</button></div></div>
   <div id="procurementKpis" class="kpis process-kpis"></div>
