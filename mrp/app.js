@@ -1,6 +1,7 @@
 import {downloadWorkbook,readWorkbookFile} from './excel.js';
 import {normalizeNumericText,parseLocalizedNumber} from './numbers.js';
 import {queueReceiptForApproval,applyReceiptQcDecision,applyManagerReceiptDecision,calculateAvailableStock} from './receipt-workflow.js';
+import {sortOrdersForAllocation} from './order-priority.js';
 const $=s=>document.querySelector(s), esc=v=>String(v??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 const invoke=window.__TAURI__?.core?.invoke;
 const cloud=window.HAMVARA_MRP_CLOUD;
@@ -67,7 +68,7 @@ function refreshLists(){
 }
 function compute(){
   const remaining=Object.fromEntries(state.skus.map(x=>[x.code,totalStock(x.code)])),details=[],summaries=[];
-  for(const o of state.orders){let ok=0,missing=0,incomplete=0,defined=0,first='';const lines=state.boms[o.productCode]||[];
+  for(const o of sortOrdersForAllocation(state.orders)){let ok=0,missing=0,incomplete=0,defined=0,first='';const lines=state.boms[o.productCode]||[];
     for(const l of lines){if(!l.sku)continue;defined++;const qty=Number(l.qty),need=Number(o.qty||0)*(Number.isFinite(qty)?qty:0),available=remaining[l.sku]||0;let status='SUFFICIENT',shortage=0;
       if(!Number.isFinite(qty)){status='ENTER FACTOR';incomplete++;first||=l.sku}
       else if(available<need){status='SHORTAGE';shortage=need-available;missing++;first||=l.sku;remaining[l.sku]=0}
