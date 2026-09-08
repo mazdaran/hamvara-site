@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {ensureBomProfile,addBomVariable,calculateBomCost,validateBomRevision,saveBomRevision,bomSnapshot,activateBomRevision} from '../../mrp/bom-workflow.js';
+import {ensureBomProfile,createBomDraft,addBomVariable,calculateBomCost,validateBomRevision,saveBomRevision,bomSnapshot,activateBomRevision} from '../../mrp/bom-workflow.js';
 
 function sampleState(){return{products:[{code:'P1',name:'Product'}],skus:[{code:'RM1',name:'Material',type:'RAW_MATERIAL',unit:'KG',cost:4},{code:'PK1',name:'Carton',type:'PACKAGING',unit:'ADET',cost:1}],warehouses:[{code:'WH-RM'},{code:'WH-PK'}],boms:{P1:[{sku:'RM1',qty:2,warehouse:'WH-RM',wastePercent:10},{sku:'PK1',qty:1,warehouse:'WH-PK',wastePercent:0}]},bomProfiles:{},bomHistory:{}}}
 
@@ -13,3 +13,7 @@ test('a saved BOM version can be reactivated with its materials and costs',()=>{
 test('BOM rejects invalid rows, duplicate components and future revisions',()=>{const state=sampleState(),profile=ensureBomProfile(state,'P1');profile.effectiveDate='2026-10-01';state.boms.P1.push({sku:'RM1',qty:0,warehouse:'WH-RM'});const errors=validateBomRevision(state,'P1');assert.ok(errors.some(error=>error.includes('duplicate')));assert.ok(errors.some(error=>error.includes('greater than zero')));state.boms.P1.pop();saveBomRevision(state,'P1',{at:'2026-09-08T00:00:00Z'});assert.throws(()=>bomSnapshot(state,'P1','2026-09-08'),/not effective/)});
 
 test('BOM profile enforces twenty process variables in addition to materials',()=>{const state=sampleState();state.boms.P1=Array.from({length:30},(_,i)=>({sku:`RM${i}`,qty:1}));for(let i=0;i<20;i++)addBomVariable(state,'P1');assert.throws(()=>addBomVariable(state,'P1'),/at most 20/);assert.equal(state.boms.P1.length,30)});
+
+test('guided BOM setup creates a product, profile and editable first material row',()=>{const state={products:[],boms:{},bomProfiles:{},bomHistory:{}};const result=createBomDraft(state,{code:' P2 ',name:'New Product',unit:'KG',productionLeadTimeHours:12,version:'1.0',effectiveDate:'2026-09-08'});assert.equal(result.product.code,'P2');assert.equal(result.product.productionLeadTimeHours,12);assert.equal(result.profile.effectiveDate,'2026-09-08');assert.deepEqual(state.boms.P2,[{sku:'',name:'',warehouse:'WH-RM',qty:null,wastePercent:0}])});
+
+test('guided BOM setup reuses an eligible product and blocks products with a BOM',()=>{const state=sampleState();state.products.push({code:'P2',name:'Draft Product',unit:'ADET'});createBomDraft(state,{existingProductCode:'P2',productionLeadTimeHours:6});assert.equal(state.boms.P2.length,1);assert.throws(()=>createBomDraft(state,{existingProductCode:'P1'}),/already has a BOM/)});

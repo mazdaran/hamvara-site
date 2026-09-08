@@ -2,11 +2,11 @@
 <html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Hamvara MRP Industrial</title><link rel="stylesheet" href="styles.css?v=0.6.9">
+  <title>Hamvara MRP Industrial</title><link rel="stylesheet" href="styles.css?v=0.6.10">
 </head>
 <body>
 <header class="topbar">
-  <div><h1>HAMVARA <span class="brand-sub">MRP INDUSTRIAL</span></h1><span id="version">Version 0.6.9</span></div>
+  <div><h1>HAMVARA <span class="brand-sub">MRP INDUSTRIAL</span></h1><span id="version">Version 0.6.10</span></div>
   <div class="top-actions">
     <span id="saveState" class="badge ok" data-i18n="saved">Saved</span>
     <button id="backupBtn" data-i18n="backup">Backup</button>
@@ -82,7 +82,7 @@
   <div class="table-wrap receipt-history"><table id="receiptTable"></table></div>
 </section>
 <section id="bom" class="page">
-  <div class="page-head"><h2 data-i18n="productBom">Product BOM</h2><div class="import-actions"><select id="bomProduct"></select><button id="addBomItem" type="button">+ Material</button><button data-template="bom" data-i18n="downloadTemplate">Download Template</button><label class="button light"><span data-i18n="importExcel">Import Excel</span><input data-import="bom" type="file" accept=".xlsx" hidden></label></div></div>
+  <div class="page-head"><h2 data-i18n="productBom">Product BOM</h2><div class="import-actions"><select id="bomProduct"></select><button id="newProductBom" type="button" class="primary compact">+ New Product BOM</button><button id="addBomItem" type="button">+ Material</button><button data-template="bom" data-i18n="downloadTemplate">Download Template</button><label class="button light"><span data-i18n="importExcel">Import Excel</span><input data-import="bom" type="file" accept=".xlsx" hidden></label></div></div>
   <div id="bomInfo" class="summary"></div>
   <div class="panel bom-profile"><h2>BOM Version, Product Configuration & Conversion Cost</h2><div class="form-grid">
     <label><span>Version</span><input id="bomVersion" placeholder="1.0"></label><label><span>Effective date</span><input id="bomEffectiveDate" type="date"></label><label><span>Model</span><input id="bomModel"></label><label><span>Design</span><input id="bomDesign"></label><label><span>Packaging type</span><input id="bomPackageType"></label>
@@ -154,12 +154,21 @@
 <label><span>Device / Workstation Name</span><input id="deviceName" placeholder="e.g. SHOP-FLOOR-01"></label>
 <label><span>Barcode Standard</span><select id="barcodeStandard"><option value="EAN_13">EAN-13</option><option value="UPC_A">UPC-A</option></select></label>
 <p class="section-hint">Retail labels require a valid numeric GTIN. Enter 12 digits for EAN-13 or 11 digits for UPC-A and Hamvara will calculate the check digit; a supplied check digit is validated.</p>
-<p><span data-i18n="appVersion">App Version</span>: <b>0.6.9</b></p><p><span data-i18n="publisher">Publisher</span>: <b>Hamvara</b></p><p>Copyright: <b>© 2026 Hamvara. All rights reserved.</b></p>
+<p><span data-i18n="appVersion">App Version</span>: <b>0.6.10</b></p><p><span data-i18n="publisher">Publisher</span>: <b>Hamvara</b></p><p>Copyright: <b>© 2026 Hamvara. All rights reserved.</b></p>
 <p><span data-i18n="dataSchema">Data Schema</span>: <b id="schemaVersion"></b></p>
 <p data-i18n="dataLocation">Operational data is stored in the Data folder beside the EXE.</p>
 <div id="automaticBackupStatus" class="summary">Automatic full backup: twice daily at 06:00 and 18:00 UTC.</div>
 <button id="saveSettings" class="primary" data-i18n="saveSettings">Save Settings</button></div></section>
 </main></div>
+<div id="newBomModal" class="modal" hidden><form id="newBomForm" class="modal-card new-bom-card"><div class="page-head"><div><h2>Create Product BOM</h2><small>Create a product here or select an existing product that has no BOM.</small></div><button id="closeNewBom" type="button" aria-label="Close">×</button></div><div class="form-grid">
+  <label class="wide"><span>Start with</span><select id="newBomExisting"><option value="">Create a new product</option></select></label>
+  <label><span>Product code *</span><input id="newBomCode" required autocomplete="off" placeholder="e.g. PROD-001"></label>
+  <label><span>Product name *</span><input id="newBomName" required autocomplete="off" placeholder="Product name"></label>
+  <label><span>Unit</span><select id="newBomUnit"><option value="ADET">Piece (ADET)</option><option value="KG">Kilogram (KG)</option><option value="G">Gram (G)</option><option value="L">Liter (L)</option><option value="ML">Milliliter (ML)</option><option value="M">Meter (M)</option><option value="M2">Square Meter (M2)</option><option value="M3">Cubic Meter (M3)</option><option value="PAKET">Pack (PAKET)</option><option value="RULO">Roll (RULO)</option><option value="KUTU">Box (KUTU)</option></select></label>
+  <label><span>Production lead time (hours)</span><input id="newBomLeadTime" type="number" min="0" step="0.1" value="8"></label>
+  <label><span>First BOM version</span><input id="newBomVersion" value="1.0" required></label>
+  <label><span>Effective date</span><input id="newBomEffectiveDate" type="date" required></label>
+</div><p class="section-hint">After creation, the BOM opens automatically with its first material row ready for entry.</p><div class="modal-actions"><button id="cancelNewBom" type="button">Cancel</button><button type="submit" class="primary">Create &amp; Open BOM</button></div></form></div>
 <div id="importReview" class="modal" hidden><div class="modal-card"><div class="page-head"><div><h2>Import Validation</h2><small id="importSummary"></small></div><button id="closeImportReview">×</button></div><div class="table-wrap import-review"><table id="importReviewTable"></table></div><div class="modal-actions import-pagination"><span id="importPageStatus"></span><button id="importPrev">Previous</button><button id="importNext">Next</button><button id="cancelImport">Cancel</button><button id="postImport" class="primary">Post READY Rows</button></div></div></div>
 <datalist id="skuOptions"></datalist><datalist id="productOptions"></datalist><div id="toast"></div>
-<script src="config.js?v=0.6.9"></script><script src="cloud.js?v=0.6.9"></script><script type="module" src="app.js?v=0.6.9"></script></body></html>
+<script src="config.js?v=0.6.10"></script><script src="cloud.js?v=0.6.10"></script><script type="module" src="app.js?v=0.6.10"></script></body></html>

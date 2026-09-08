@@ -9,6 +9,30 @@ export function ensureBomProfile(state,productCode){
   state.bomProfiles[productCode]=profile;state.bomHistory[productCode]??=[];return profile;
 }
 
+export function createBomDraft(state,{existingProductCode='',code='',name='',unit='ADET',productionLeadTimeHours=8,version='1.0',effectiveDate=new Date().toISOString().slice(0,10)}={}){
+  state.products??=[];state.boms??={};state.bomProfiles??={};state.bomHistory??={};
+  const selectedCode=String(existingProductCode||'').trim(),productCode=String(selectedCode||code).trim(),productName=String(name||'').trim();
+  if(!productCode)throw new Error('Product code is required.');
+  let product=state.products.find(item=>item.code===productCode);
+  if(selectedCode&&!product)throw new Error('Selected product was not found.');
+  if(!selectedCode&&product)throw new Error(`Product code ${productCode} already exists. Select it from the existing-product list.`);
+  const hasMaterials=(state.boms[productCode]||[]).some(line=>String(line.sku||'').trim()),hasHistory=(state.bomHistory[productCode]||[]).length>0;
+  if(product&&(hasMaterials||hasHistory))throw new Error(`Product ${productCode} already has a BOM. Select it from the product list.`);
+  if(!product){
+    if(!productName)throw new Error('Product name is required.');
+    product={code:productCode,name:productName,unit:String(unit||'ADET'),productionLeadTimeHours:Math.max(0,number(productionLeadTimeHours))||8,active:true,notes:''};
+    state.products.unshift(product);
+  }else{
+    if(productName)product.name=productName;
+    product.unit=String(unit||product.unit||'ADET');
+    product.productionLeadTimeHours=Math.max(0,number(productionLeadTimeHours))||number(product.productionLeadTimeHours)||8;
+  }
+  const profile=ensureBomProfile(state,productCode);profile.version=String(version||'1.0').trim()||'1.0';profile.effectiveDate=effectiveDate||new Date().toISOString().slice(0,10);
+  state.boms[productCode]??=[];
+  if(!state.boms[productCode].length)state.boms[productCode].push({sku:'',name:'',warehouse:'WH-RM',qty:null,wastePercent:0});
+  return{product,profile};
+}
+
 export function addBomVariable(state,productCode){
   const profile=ensureBomProfile(state,productCode);if(profile.variables.length>=20)throw new Error('A BOM can contain at most 20 process variables.');
   profile.variables.push({name:'',value:'',unit:'',category:'PROCESS',required:true});return profile.variables.at(-1);
