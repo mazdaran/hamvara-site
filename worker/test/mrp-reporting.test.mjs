@@ -5,6 +5,7 @@ import {buildBusinessReport} from '../../mrp/reporting.js';
 import {readOpeningStockRow,resolveOpeningWarehouse,resolveOpeningUnit} from '../../mrp/opening-stock-import.js';
 import {IMPORT_SCHEMAS,detectImportEntity,suggestMapping,canonicalizeRow,validateCanonicalRow,analyzeCanonicalRows} from '../../mrp/universal-import.js';
 import {readTabularFile} from '../../mrp/excel.js';
+import {PERSIAN_I18N,translateUiText} from '../../mrp/i18n.js';
 
 const state={
   warehouses:[{code:'WH-RM',name:'Raw Materials'},{code:'WH-SF',name:'Shop Floor'}],
@@ -53,6 +54,15 @@ test('dashboard keeps import controls in their dedicated pages',async()=>{
   assert.doesNotMatch(dashboard,/inventoryOnboarding|Import Initial Inventory Excel|data-import/);
   assert.match(html,/data-page="importCenter"/);
   assert.match(html,/data-import="openingStock"/);
+});
+
+test('interface exposes English, Turkish and Persian with RTL-ready translations',async()=>{
+  const html=await readFile(new URL('../../mrp/index.html',import.meta.url),'utf8');
+  assert.match(html,/<option value="fa">فارسی<\/option>/);
+  assert.equal(PERSIAN_I18N.dashboard,'داشبورد');
+  assert.equal(translateUiText('Production Execution','fa'),'اجرای تولید');
+  assert.equal(translateUiText('Production Execution','tr'),'Üretim Yürütme');
+  assert.equal(translateUiText('APPROVED','fa'),'تأییدشده');
 });
 
 test('customer SKU workbook headers map to item master fields',()=>{
