@@ -2,11 +2,11 @@
 <html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Hamvara MRP Industrial</title><link rel="stylesheet" href="styles.css?v=0.6.11">
+  <title>Hamvara MRP Industrial</title><link rel="stylesheet" href="styles.css?v=0.6.12">
 </head>
 <body>
 <header class="topbar">
-  <div><h1>HAMVARA <span class="brand-sub">MRP INDUSTRIAL</span></h1><span id="version">Version 0.6.11</span></div>
+  <div><h1>HAMVARA <span class="brand-sub">MRP INDUSTRIAL</span></h1><span id="version">Version 0.6.12</span></div>
   <div class="top-actions">
     <span id="saveState" class="badge ok" data-i18n="saved">Saved</span>
     <button id="backupBtn" data-i18n="backup">Backup</button>
@@ -25,15 +25,15 @@
   <button data-page="bom" data-i18n="productBom">Product BOM</button>
   <button data-page="orders" data-i18n="orders">Orders</button>
   <button data-page="requirements" data-i18n="requirements">Requirements</button>
-  <button data-page="reports" data-label-en="Reports & Analytics" data-label-tr="Raporlar ve Analizler">Reports & Analytics</button>
-  <button data-page="importCenter" data-label-en="Universal Import" data-label-tr="Evrensel İçe Aktarma">Universal Import</button>
-  <div class="nav-label nav-section" data-label-en="PROCESS CONTROL" data-label-tr="SÜREÇ KONTROLÜ">PROCESS CONTROL</div>
-  <button data-page="production" data-label-en="Production Execution" data-label-tr="Üretim Yürütme">Production Execution</button>
-  <button data-page="documents" data-label-en="Documents, Labels & Scan" data-label-tr="Belgeler, Etiketler ve Tarama">Documents, Labels & Scan</button>
-  <button data-page="procurement" data-label-en="Procurement & Suppliers" data-label-tr="Satın Alma ve Tedarikçiler">Procurement & Suppliers</button>
-  <button data-page="quality" data-label-en="Quality & NCR" data-label-tr="Kalite ve Uygunsuzluk">Quality & NCR</button>
-  <button data-page="sales" data-label-en="Sales Orders" data-label-tr="Satış Siparişleri">Sales Orders</button>
-  <button data-page="shipping" data-label-en="Finance & Shipping" data-label-tr="Finans ve Sevkiyat">Finance & Shipping</button>
+  <button data-page="reports" data-i18n="reportsAnalytics">Reports & Analytics</button>
+  <button data-page="importCenter" data-i18n="universalImport">Universal Import</button>
+  <div class="nav-label nav-section" data-i18n="processControl">PROCESS CONTROL</div>
+  <button data-page="production" data-i18n="productionExecution">Production Execution</button>
+  <button data-page="documents" data-i18n="documentsLabelsScan">Documents, Labels & Scan</button>
+  <button data-page="procurement" data-i18n="procurementSuppliers">Procurement & Suppliers</button>
+  <button data-page="quality" data-i18n="qualityNcr">Quality & NCR</button>
+  <button data-page="sales" data-i18n="salesOrders">Sales Orders</button>
+  <button data-page="shipping" data-i18n="financeShipping">Finance & Shipping</button>
   <button data-page="exchange" data-i18n="exchange">Hamvara Exchange</button>
   <button data-page="settings" data-i18n="settings">Settings</button>
 </nav>
@@ -154,7 +154,7 @@
 <label><span>Device / Workstation Name</span><input id="deviceName" placeholder="e.g. SHOP-FLOOR-01"></label>
 <label><span>Barcode Standard</span><select id="barcodeStandard"><option value="EAN_13">EAN-13</option><option value="UPC_A">UPC-A</option></select></label>
 <p class="section-hint">Retail labels require a valid numeric GTIN. Enter 12 digits for EAN-13 or 11 digits for UPC-A and Hamvara will calculate the check digit; a supplied check digit is validated.</p>
-<p><span data-i18n="appVersion">App Version</span>: <b>0.6.11</b></p><p><span data-i18n="publisher">Publisher</span>: <b>Hamvara</b></p><p>Copyright: <b>© 2026 Hamvara. All rights reserved.</b></p>
+<p><span data-i18n="appVersion">App Version</span>: <b>0.6.12</b></p><p><span data-i18n="publisher">Publisher</span>: <b>Hamvara</b></p><p>Copyright: <b>© 2026 Hamvara. All rights reserved.</b></p>
 <p><span data-i18n="dataSchema">Data Schema</span>: <b id="schemaVersion"></b></p>
 <p data-i18n="dataLocation">Operational data is stored in the Data folder beside the EXE.</p>
 <div id="automaticBackupStatus" class="summary">Automatic full backup: twice daily at 06:00 and 18:00 UTC.</div>
@@ -171,4 +171,4 @@
 </div><p class="section-hint">After creation, the BOM opens automatically with its first material row ready for entry.</p><div class="modal-actions"><button id="cancelNewBom" type="button">Cancel</button><button type="submit" class="primary">Create &amp; Open BOM</button></div></form></div>
 <div id="importReview" class="modal" hidden><div class="modal-card"><div class="page-head"><div><h2>Import Validation</h2><small id="importSummary"></small></div><button id="closeImportReview">×</button></div><div class="table-wrap import-review"><table id="importReviewTable"></table></div><div class="modal-actions import-pagination"><span id="importPageStatus"></span><button id="importPrev">Previous</button><button id="importNext">Next</button><button id="cancelImport">Cancel</button><button id="postImport" class="primary">Post READY Rows</button></div></div></div>
 <datalist id="skuOptions"></datalist><datalist id="productOptions"></datalist><div id="toast"></div>
-<script src="config.js?v=0.6.11"></script><script src="cloud.js?v=0.6.11"></script><script type="module" src="app.js?v=0.6.11"></script></body></html>
+<script src="config.js?v=0.6.12"></script><script src="cloud.js?v=0.6.12"></script><script type="module" src="app.js?v=0.6.12"></script></body></html>

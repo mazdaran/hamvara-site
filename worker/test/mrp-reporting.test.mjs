@@ -5,7 +5,7 @@ import {buildBusinessReport} from '../../mrp/reporting.js';
 import {readOpeningStockRow,resolveOpeningWarehouse,resolveOpeningUnit} from '../../mrp/opening-stock-import.js';
 import {IMPORT_SCHEMAS,detectImportEntity,suggestMapping,canonicalizeRow,validateCanonicalRow,analyzeCanonicalRows} from '../../mrp/universal-import.js';
 import {readTabularFile} from '../../mrp/excel.js';
-import {PERSIAN_I18N,translateUiText} from '../../mrp/i18n.js';
+import {PERSIAN_I18N,translateUiText,hasUiTranslation} from '../../mrp/i18n.js';
 
 const state={
   warehouses:[{code:'WH-RM',name:'Raw Materials'},{code:'WH-SF',name:'Shop Floor'}],
@@ -59,10 +59,27 @@ test('dashboard keeps import controls in their dedicated pages',async()=>{
 test('interface exposes English, Turkish and Persian with RTL-ready translations',async()=>{
   const html=await readFile(new URL('../../mrp/index.html',import.meta.url),'utf8');
   assert.match(html,/<option value="fa">فارسی<\/option>/);
+  assert.match(html,/data-i18n="productionExecution"/);
+  assert.match(html,/app\.js\?v=0\.6\.12/);
   assert.equal(PERSIAN_I18N.dashboard,'داشبورد');
+  assert.equal(PERSIAN_I18N.reportsAnalytics,'گزارش‌ها و تحلیل‌ها');
+  assert.equal(PERSIAN_I18N.documentsLabelsScan,'اسناد، لیبل و اسکن');
   assert.equal(translateUiText('Production Execution','fa'),'اجرای تولید');
   assert.equal(translateUiText('Production Execution','tr'),'Üretim Yürütme');
+  assert.equal(translateUiText('Üretim Yürütme','fa'),'اجرای تولید');
+  assert.equal(translateUiText('اجرای تولید','en'),'Production Execution');
   assert.equal(translateUiText('APPROVED','fa'),'تأییدشده');
+  assert.equal(translateUiText('Page 2 / 4 · rows 101–200 of 350','fa'),'صفحه 2 از 4 · ردیف 101 تا 200 از 350');
+  assert.equal(hasUiTranslation('Line Cost / Unit'),true);
+});
+
+test('every main and process-control navigation entry has an explicit Persian translation',async()=>{
+  const html=await readFile(new URL('../../mrp/index.html',import.meta.url),'utf8');
+  const nav=html.match(/<nav id="nav">([\s\S]*?)<\/nav>/)?.[1]||'';
+  const pageButtons=[...nav.matchAll(/<button\s+data-page="[^"]+"[^>]*data-i18n="([^"]+)"/g)].map(match=>match[1]);
+  assert.equal(pageButtons.length,18);
+  for(const key of pageButtons)assert.ok(PERSIAN_I18N[key],`Missing Persian navigation translation: ${key}`);
+  assert.match(nav,/data-i18n="processControl"/);
 });
 
 test('customer SKU workbook headers map to item master fields',()=>{
