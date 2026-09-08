@@ -8,7 +8,7 @@
     "dev": "wrangler dev --config ../wrangler.toml",
     "predeploy": "node scripts/verify-deploy-config.mjs",
     "deploy": "wrangler deploy --config ../wrangler.toml",
-    "db:mrp": "wrangler d1 execute hamvara-growth-production --config ../wrangler.toml --file migrations/0002_mrp_saas.sql --remote",
+    "db:mrp": "wrangler d1 execute hamvara-growth-production --config ../wrangler.toml --file migrations/0003_mrp_backups.sql --remote",
     "mrp:provision": "node scripts/create-mrp-workspace.mjs"
   },
   "devDependencies": {

@@ -1,4 +1,5 @@
 import {appendAudit,appendInventoryMovement} from './audit-workflow.js';
+import {bomSnapshot} from './bom-workflow.js';
 
 const ACTIVE_STATUSES=new Set(['PLANNED','RELEASED','IN_PRODUCTION','AWAITING_FQC','QUALITY_HOLD']);
 
@@ -26,7 +27,8 @@ export function createProductionJob(state,{id,workOrderNo,order,batchNo,plannedL
     const warehouse=line.warehouse||component.warehouse||'WH-RM',key=`${line.sku}|${warehouse}`,current=grouped.get(key)||{sku:line.sku,name:component.name||line.name||'',warehouse,factor:0,required:0};current.factor+=factor;current.required+=number(order.qty)*factor;grouped.set(key,current);
   }
   const materials=[...grouped.values()];
-  const job={id,workOrderNo,orderKey,orderId:order.id||'',orderNo:order.orderNo,productCode:order.productCode,productName:product.name||order.productCode,plannedQty:number(order.qty),completedQty:0,scrapQty:0,outputSku:product.outputSku||`FG-${product.code}`,batchNo:batchNo||`BATCH-${createdAt.slice(0,10).replaceAll('-','')}-${String(productionJobs(state).length+1).padStart(3,'0')}`,priority:order.priority||'NORMAL',dueDate:order.due||'',plannedLeadTimeHours:number(plannedLeadTimeHours)>0?number(plannedLeadTimeHours):8,status:'PLANNED',materials,createdAt,createdBy:metaFields(meta)};
+  const snapshot=bomSnapshot(state,order.productCode);
+  const job={id,workOrderNo,orderKey,orderId:order.id||'',orderNo:order.orderNo,productCode:order.productCode,productName:product.name||order.productCode,plannedQty:number(order.qty),completedQty:0,scrapQty:0,outputSku:product.outputSku||`FG-${product.code}`,batchNo:batchNo||`BATCH-${createdAt.slice(0,10).replaceAll('-','')}-${String(productionJobs(state).length+1).padStart(3,'0')}`,priority:order.priority||'NORMAL',dueDate:order.due||'',plannedLeadTimeHours:number(plannedLeadTimeHours)>0?number(plannedLeadTimeHours):8,status:'PLANNED',materials,bomVersion:snapshot.version,bomEffectiveDate:snapshot.effectiveDate,model:snapshot.model,design:snapshot.design,packageType:snapshot.packageType,processVariables:snapshot.variables,createdAt,createdBy:metaFields(meta)};
   productionJobs(state).unshift(job);order.productionStatus='PLANNED';recordAudit(state,job,'WORK_ORDER_CREATED',meta,createdAt,`Batch ${job.batchNo}`);return job;
 }
 

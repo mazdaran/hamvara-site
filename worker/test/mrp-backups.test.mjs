@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {runScheduledMrpBackups} from '../src/mrp.js';
+
+test('scheduled backup snapshots every non-empty workspace and applies retention',async()=>{const statements=[];const env={DB:{prepare(sql){statements.push(sql);return{bind(){return this},async run(){return{success:true}}}}}};const result=await runScheduledMrpBackups(env,'2026-09-08T06:00:00.000Z');assert.equal(result.ok,true);assert.equal(statements.some(sql=>sql.includes("SELECT lower(hex(randomblob(16)))")),true);assert.equal(statements.some(sql=>sql.includes("-90 days")),true)});

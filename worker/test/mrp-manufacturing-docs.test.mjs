@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {code128Svg,productionInstructionHtml,materialIssueHtml,cartonLabelHtml} from '../../mrp/manufacturing-docs.js';
+const job={workOrderNo:'WO-1',batchNo:'B-1',bomVersion:'3.0',productName:'Widget',plannedQty:5,createdAt:'2026-09-08',materials:[{sku:'RM-1',name:'Steel',warehouse:'WH-RM',required:10}],processVariables:[{category:'QUALITY',name:'Torque',value:'8',unit:'Nm',required:true}]};
+test('print documents contain traceability and signatures',()=>{assert.match(productionInstructionHtml(job),/BOM version:<\/b> 3.0/);assert.match(materialIssueHtml(job),/Production Manager/);assert.match(materialIssueHtml(job),/Warehouse/)});
+test('carton labels use configurable physical size and Code 128 SVG',()=>{const svg=code128Svg('FG-001');assert.match(svg,/barcode-svg/);assert.match(svg,/FG-001/);const html=cartonLabelHtml({productName:'Widget',sku:'FG-001',batchNo:'B-1'},{width:100,height:150,margin:5});assert.match(html,/@page\{size:100mm 150mm;margin:5mm\}/)});

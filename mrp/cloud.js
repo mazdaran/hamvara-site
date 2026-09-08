@@ -11,6 +11,7 @@
 
   window.HAMVARA_MRP_CLOUD = {
     enabled: true,
+    request,
     async load() {
       while (true) {
         if (!credentials) credentials = await showLogin();

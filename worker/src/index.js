@@ -1,4 +1,4 @@
-import { handleMrpRequest } from './mrp.js';
+import { handleMrpRequest, runScheduledMrpBackups } from './mrp.js';
 
 const PROVIDERS = {
   google: {
@@ -48,6 +48,9 @@ export default {
       console.error(error);
       return json({ error: error.message || 'Unexpected server error' }, error.status || 500, cors);
     }
+  },
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(runScheduledMrpBackups(env, new Date(controller.scheduledTime).toISOString()));
   }
 };
 

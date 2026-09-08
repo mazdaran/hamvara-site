@@ -26,8 +26,62 @@ export async function handleMrpRequest(request, env, url) {
   if (url.pathname === '/api/mrp/state' && request.method === 'PUT') {
     return saveState(request, env, actor);
   }
+  if (url.pathname === '/api/mrp/backups/status' && request.method === 'GET') {
+    return backupStatus(env, actor);
+  }
+  if (url.pathname === '/api/mrp/backups' && request.method === 'POST') {
+    return createManualBackup(env, actor);
+  }
+  if (url.pathname === '/api/mrp/waybill/analyze' && request.method === 'POST') {
+    return analyzeWaybill(request, env, actor);
+  }
   throw httpError(404, 'MRP endpoint not found.');
 }
+
+export async function runScheduledMrpBackups(env, scheduledAt = new Date().toISOString()) {
+  if (!env.DB) throw new Error('MRP database is not configured.');
+  await ensureBackupTable(env);
+  await env.DB.prepare(`INSERT INTO mrp_state_backups (id, workspace_id, state_json, revision, source, created_at)
+    SELECT lower(hex(randomblob(16))), workspace_id, state_json, revision, 'SCHEDULED', ? FROM mrp_state WHERE state_json IS NOT NULL`).bind(scheduledAt).run();
+  await env.DB.prepare("DELETE FROM mrp_state_backups WHERE created_at < datetime('now','-90 days')").run();
+  return { ok: true, scheduledAt };
+}
+
+async function backupStatus(env, actor) {
+  await ensureBackupTable(env);
+  const row = await env.DB.prepare('SELECT COUNT(*) AS count, MAX(created_at) AS last_backup_at FROM mrp_state_backups WHERE workspace_id = ?').bind(actor.workspace.id).first();
+  return json({ count: Number(row?.count || 0), lastBackupAt: row?.last_backup_at || null, scheduleUtc: ['06:00','18:00'], retentionDays: 90 });
+}
+
+async function createManualBackup(env,actor){await ensureBackupTable(env);const row=await env.DB.prepare('SELECT state_json, revision FROM mrp_state WHERE workspace_id = ?').bind(actor.workspace.id).first();if(!row?.state_json)throw httpError(409,'No workspace state is available to back up.');const createdAt=new Date().toISOString();await env.DB.prepare("INSERT INTO mrp_state_backups (id,workspace_id,state_json,revision,source,created_at) VALUES (?,?,?,?, 'MANUAL',?)").bind(crypto.randomUUID(),actor.workspace.id,row.state_json,Number(row.revision||0),createdAt).run();return json({ok:true,createdAt,revision:Number(row.revision||0)})}
+
+async function ensureBackupTable(env) {
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS mrp_state_backups (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, state_json TEXT NOT NULL, revision INTEGER NOT NULL, source TEXT NOT NULL DEFAULT 'SCHEDULED', created_at TEXT NOT NULL, FOREIGN KEY (workspace_id) REFERENCES mrp_workspaces(id) ON DELETE CASCADE)`).run();
+  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_mrp_backups_workspace_created ON mrp_state_backups(workspace_id, created_at DESC)').run();
+}
+
+async function analyzeWaybill(request, env, actor) {
+  if (!env.AI) throw httpError(503, 'Waybill recognition is not configured.');
+  const raw = await request.text();
+  if (new TextEncoder().encode(raw).byteLength > 7 * 1024 * 1024) throw httpError(413, 'Waybill image is too large. Maximum request size is 7 MB.');
+  let body;try { body = JSON.parse(raw); } catch { throw httpError(400, 'Invalid JSON payload.'); }
+  const match = /^data:image\/(?:png|jpeg|jpg|webp);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.image || ''));
+  if (!match) throw httpError(400, 'A PNG, JPEG or WebP waybill image is required.');
+  const binary = atob(match[1]);if (binary.length > 5 * 1024 * 1024) throw httpError(413, 'Waybill image exceeds 5 MB.');
+  const image = Array.from(binary, character => character.charCodeAt(0));
+  const prompt = `Read this supplier waybill. Return strict JSON only with this shape: {"documentNo":"","supplier":"","rows":[{"description":"","sku":"","qty":1,"unit":"","batchNo":"","expiryDate":"YYYY-MM-DD or empty"}]}. Preserve one row per physical line item. Never invent an SKU; leave sku empty unless it is visibly printed. Quantities must be numeric. Maximum 50 rows.`;
+  const model = '@cf/meta/llama-3.2-11b-vision-instruct';
+  const result = await env.AI.run(model, { image, prompt, max_tokens: 2200, temperature: 0 });
+  const response = typeof result === 'string' ? result : (result.response || result.result?.response || '');
+  let parsed;try { parsed = JSON.parse(extractJson(response)); } catch { throw httpError(502, 'The image could not be converted to a valid waybill. Try a clearer photo.'); }
+  const stateRow = await env.DB.prepare('SELECT state_json FROM mrp_state WHERE workspace_id = ?').bind(actor.workspace.id).first();let skus=[];try { skus=JSON.parse(stateRow?.state_json||'{}').skus||[]; } catch {}
+  const exact = new Map(skus.map(item=>[String(item.code||'').toUpperCase(),item.code]));
+  const rows=(Array.isArray(parsed.rows)?parsed.rows:[]).slice(0,50).map(row=>({description:clean(row.description,180),sku:exact.get(String(row.sku||'').toUpperCase())||'',qty:Math.max(0,Number(row.qty)||0),unit:clean(row.unit,30),batchNo:clean(row.batchNo,80),expiryDate:/^\d{4}-\d{2}-\d{2}$/.test(row.expiryDate)?row.expiryDate:''})).filter(row=>row.description||row.sku||row.qty);
+  await env.DB.prepare("INSERT INTO mrp_audit_log (workspace_id,user_id,action,details_json,created_at) VALUES (?,?,'waybill.analyzed',?,datetime('now'))").bind(actor.workspace.id,actor.user.id,JSON.stringify({fileName:clean(body.fileName,120),rows:rows.length,model})).run();
+  return json({ documentNo:clean(parsed.documentNo,100),supplier:clean(parsed.supplier,120),rows,model,analyzedAt:new Date().toISOString(),requiresHumanApproval:true });
+}
+
+function extractJson(value){const text=String(value||'').trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim(),start=text.indexOf('{'),end=text.lastIndexOf('}');if(start<0||end<=start)throw new Error('No JSON object.');return text.slice(start,end+1)}
 
 async function provisionWorkspace(request, env) {
   requireAdministrator(request, env);
