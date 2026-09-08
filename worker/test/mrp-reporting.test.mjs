@@ -56,11 +56,12 @@ test('dashboard keeps import controls in their dedicated pages',async()=>{
   assert.match(html,/data-import="openingStock"/);
 });
 
-test('interface exposes English, Turkish and Persian with RTL-ready translations',async()=>{
+test('interface is English-only while translation infrastructure remains available',async()=>{
   const html=await readFile(new URL('../../mrp/index.html',import.meta.url),'utf8');
-  assert.match(html,/<option value="fa">فارسی<\/option>/);
+  assert.doesNotMatch(html,/<select id="language">/);
+  assert.match(html,/id="interfaceLanguage" value="English" readonly/);
   assert.match(html,/data-i18n="productionExecution"/);
-  assert.match(html,/app\.js\?v=0\.6\.12/);
+  assert.match(html,/app\.js\?v=0\.6\.13/);
   assert.equal(PERSIAN_I18N.dashboard,'داشبورد');
   assert.equal(PERSIAN_I18N.reportsAnalytics,'گزارش‌ها و تحلیل‌ها');
   assert.equal(PERSIAN_I18N.documentsLabelsScan,'اسناد، لیبل و اسکن');
@@ -71,6 +72,17 @@ test('interface exposes English, Turkish and Persian with RTL-ready translations
   assert.equal(translateUiText('APPROVED','fa'),'تأییدشده');
   assert.equal(translateUiText('Page 2 / 4 · rows 101–200 of 350','fa'),'صفحه 2 از 4 · ردیف 101 تا 200 از 350');
   assert.equal(hasUiTranslation('Line Cost / Unit'),true);
+});
+
+test('goods receipt exposes a clear manual entry path with controlled QC routing',async()=>{
+  const html=await readFile(new URL('../../mrp/index.html',import.meta.url),'utf8');
+  const app=await readFile(new URL('../../mrp/app.js',import.meta.url),'utf8');
+  assert.match(html,/id="manualReceiptButton"[^>]*>\+ Manual Goods Receipt<\/button>/);
+  assert.match(html,/id="manualReceiptPanel"/);
+  assert.match(html,/Manual Goods Receipt Entry/);
+  assert.match(html,/Manual receipt → Quarantine → QC acceptance → Manager approval → Destination warehouse/);
+  assert.match(app,/transactionType:'GOODS_RECEIPT_QUARANTINE'/);
+  assert.match(app,/\$\('#manualReceiptButton'\)\.onclick/);
 });
 
 test('every main and process-control navigation entry has an explicit Persian translation',async()=>{
