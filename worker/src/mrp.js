@@ -68,11 +68,18 @@ async function analyzeWaybill(request, env, actor) {
   const match = /^data:image\/(?:png|jpeg|jpg|webp);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.image || ''));
   if (!match) throw httpError(400, 'A PNG, JPEG or WebP waybill image is required.');
   const binary = atob(match[1]);if (binary.length > 5 * 1024 * 1024) throw httpError(413, 'Waybill image exceeds 5 MB.');
-  const image = Array.from(binary, character => character.charCodeAt(0));
   const prompt = `Read this supplier waybill. Return strict JSON only with this shape: {"documentNo":"","supplier":"","rows":[{"description":"","sku":"","qty":1,"unit":"","batchNo":"","expiryDate":"YYYY-MM-DD or empty"}]}. Preserve one row per physical line item. Never invent an SKU; leave sku empty unless it is visibly printed. Quantities must be numeric. Maximum 50 rows.`;
-  const model = '@cf/meta/llama-3.2-11b-vision-instruct';
-  const result = await env.AI.run(model, { image, prompt, max_tokens: 2200, temperature: 0 });
-  const response = typeof result === 'string' ? result : (result.response || result.result?.response || '');
+  const model = '@cf/moondream/moondream3.1-9B-A2B';
+  const result = await env.AI.run(model, {
+    task: 'query',
+    image: String(body.image),
+    question: prompt,
+    reasoning: false,
+    stream: false,
+    max_tokens: 2200,
+    temperature: 0
+  });
+  const response = typeof result === 'string' ? result : (result.answer || result.response || result.result?.answer || result.result?.response || '');
   let parsed;try { parsed = JSON.parse(extractJson(response)); } catch { throw httpError(502, 'The image could not be converted to a valid waybill. Try a clearer photo.'); }
   const stateRow = await env.DB.prepare('SELECT state_json FROM mrp_state WHERE workspace_id = ?').bind(actor.workspace.id).first();let skus=[];try { skus=JSON.parse(stateRow?.state_json||'{}').skus||[]; } catch {}
   const exact = new Map(skus.map(item=>[String(item.code||'').toUpperCase(),item.code]));
