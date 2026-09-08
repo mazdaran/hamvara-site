@@ -47,10 +47,11 @@ test('production report calculates yield and actual time',()=>{
   assert.equal(report.kpis.find(([label])=>label==='Yield %')[1],90);
 });
 
-test('new customer dashboard exposes initial inventory import',async()=>{
+test('dashboard keeps import controls in their dedicated pages',async()=>{
   const html=await readFile(new URL('../../mrp/index.html',import.meta.url),'utf8');
-  assert.match(html,/id="inventoryOnboarding"/);
-  assert.match(html,/Import Initial Inventory Excel/);
+  const dashboard=html.match(/<section id="dashboard"[\s\S]*?<\/section>/)?.[0]||'';
+  assert.doesNotMatch(dashboard,/inventoryOnboarding|Import Initial Inventory Excel|data-import/);
+  assert.match(html,/data-page="importCenter"/);
   assert.match(html,/data-import="openingStock"/);
 });
 
