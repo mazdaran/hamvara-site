@@ -107,7 +107,7 @@ async function analyzeClaimDocuments(request, env) {
     'Currency: ' + currency,
     'Documents: ' + JSON.stringify(extracted)
   ].join('\n');
-  const result = await env.AI.run('@cf/qwen/qwen3-30b-a3b-fp8', {
+  const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fast', {
     messages: [
       { role: 'system', content: 'You are a cautious supplier-claim document comparison engine. Return valid JSON only. You do not provide legal advice.' },
       { role: 'user', content: prompt }
