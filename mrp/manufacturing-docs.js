@@ -8,6 +8,25 @@ export function code128Svg(value,{height=54,module=2}={}){
   return `<svg class="barcode-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${x+10} ${height+22}" role="img" aria-label="Barcode ${esc(text)}"><g fill="#000">${bars}</g><text x="${x/2}" y="${height+17}" text-anchor="middle" font-family="monospace" font-size="12">${esc(text)}</text></svg>`;
 }
 
+const RETAIL_PATTERNS={
+  L:['0001101','0011001','0010011','0111101','0100011','0110001','0101111','0111011','0110111','0001011'],
+  G:['0100111','0110011','0011011','0100001','0011101','0111001','0000101','0010001','0001001','0010111'],
+  R:['1110010','1100110','1101100','1000010','1011100','1001110','1010000','1000100','1001000','1110100']
+};
+const EAN_PARITY=['LLLLLL','LLGLGG','LLGGLG','LLGGGL','LGLLGG','LGGLLG','LGGGLL','LGLGLG','LGLGGL','LGGLGL'];
+
+export function retailBarcodeCheckDigit(body){const digits=String(body||'').split('').map(Number);if(!digits.length||digits.some(Number.isNaN))throw new Error('Barcode must contain digits only.');const sum=digits.reduce((total,digit,index)=>total+digit*((digits.length-1-index)%2===0?3:1),0);return String((10-sum%10)%10)}
+
+export function normalizeRetailBarcode(value,standard='EAN_13'){
+  const type=String(standard||'EAN_13').toUpperCase().replace('-','_'),digits=String(value??'').trim().replace(/[\s-]/g,''),length=type==='UPC_A'?12:type==='EAN_13'?13:0;if(!length)throw new Error('Barcode standard must be EAN-13 or UPC-A.');if(!/^\d+$/.test(digits))throw new Error(`${type.replace('_','-')} requires a numeric GTIN.`);if(digits.length===length-1)return{standard:type,value:digits+retailBarcodeCheckDigit(digits)};if(digits.length!==length)throw new Error(`${type.replace('_','-')} requires ${length-1} digits plus an optional check digit.`);if(retailBarcodeCheckDigit(digits.slice(0,-1))!==digits.at(-1))throw new Error(`${type.replace('_','-')} check digit is invalid.`);return{standard:type,value:digits};
+}
+
+export function retailBarcodeSvg(value,{standard='EAN_13',height=58,module=2}={}){
+  const normalized=normalizeRetailBarcode(value,standard),digits=normalized.value;let bits;
+  if(normalized.standard==='EAN_13'){const parity=EAN_PARITY[Number(digits[0])],left=[...digits.slice(1,7)].map((digit,index)=>RETAIL_PATTERNS[parity[index]][Number(digit)]).join(''),right=[...digits.slice(7)].map(digit=>RETAIL_PATTERNS.R[Number(digit)]).join('');bits=`101${left}01010${right}101`}else{const left=[...digits.slice(0,6)].map(digit=>RETAIL_PATTERNS.L[Number(digit)]).join(''),right=[...digits.slice(6)].map(digit=>RETAIL_PATTERNS.R[Number(digit)]).join('');bits=`101${left}01010${right}101`}
+  const quiet=10,width=(bits.length+quiet*2)*module,bars=[...bits].map((bit,index)=>bit==='1'?`<rect x="${(quiet+index)*module}" y="2" width="${module}" height="${height}"/>`:'').join('');return `<svg class="barcode-svg" data-barcode-standard="${normalized.standard}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height+22}" role="img" aria-label="${normalized.standard.replace('_','-')} barcode ${digits}"><g fill="#000">${bars}</g><text x="${width/2}" y="${height+18}" text-anchor="middle" font-family="monospace" font-size="12">${esc(digits)}</text></svg>`;
+}
+
 export function productionInstructionHtml(job,company='Hamvara'){
   const variables=job.processVariables||[];return documentShell('Production Instruction',company,job,`<table><thead><tr><th>#</th><th>Category</th><th>Requirement / Variable</th><th>Target</th><th>Unit</th><th>Required</th></tr></thead><tbody>${variables.map((v,i)=>`<tr><td>${i+1}</td><td>${esc(v.category)}</td><td>${esc(v.name)}</td><td>${esc(v.value)}</td><td>${esc(v.unit)}</td><td>${v.required?'Yes':'No'}</td></tr>`).join('')||'<tr><td colspan="6">No process variables defined.</td></tr>'}</tbody></table><div class="notes"><b>Model:</b> ${esc(job.model||'—')} &nbsp; <b>Design:</b> ${esc(job.design||'—')} &nbsp; <b>Packaging:</b> ${esc(job.packageType||'—')}</div>`);
 }
@@ -22,7 +41,7 @@ export function cartonLabelHtml(data,settings={}){
   const width=Number(settings.width)||100,height=Number(settings.height)||150,margin=Number(settings.margin)||4,orientation=settings.orientation==='landscape'?'landscape':'portrait';
   const pageWidth=orientation==='landscape'?height:width,pageHeight=orientation==='landscape'?width:height;
   const labels=Math.max(1,Math.min(24,Number(settings.labelsPerPage)||1)),gap=Math.max(0,Number(settings.gap)||0);
-  const label=`<article class="label"><h1>${esc(data.productName||data.description||'Product')}</h1><div class="sku">${esc(data.sku||'')}</div>${data.image?`<img src="${esc(data.image)}" alt="">`:''}<dl><dt>Model</dt><dd>${esc(data.model||'—')}</dd><dt>Design</dt><dd>${esc(data.design||'—')}</dd><dt>Packaging</dt><dd>${esc(data.packageType||'—')}</dd><dt>Batch</dt><dd>${esc(data.batchNo||'—')}</dd><dt>MFG</dt><dd>${esc(data.manufactureDate||'—')}</dd><dt>EXP</dt><dd>${esc(data.expiryDate||'—')}</dd><dt>Quantity</dt><dd>${esc(data.qty||'')} ${esc(data.unit||'')}</dd><dt>BOM</dt><dd>${esc(data.bomVersion||'—')}</dd></dl>${code128Svg(data.sku||data.batchNo||'HAMVARA')}<p class="warning">${esc(data.warning||'')}</p></article>`;
+  const barcode=retailBarcodeSvg(data.barcode||data.sku,{standard:settings.barcodeStandard||'EAN_13'}),label=`<article class="label"><h1>${esc(data.productName||data.description||'Product')}</h1><div class="sku">${esc(data.sku||'')}</div>${data.image?`<img src="${esc(data.image)}" alt="">`:''}<dl><dt>Model</dt><dd>${esc(data.model||'—')}</dd><dt>Design</dt><dd>${esc(data.design||'—')}</dd><dt>Packaging</dt><dd>${esc(data.packageType||'—')}</dd><dt>Batch</dt><dd>${esc(data.batchNo||'—')}</dd><dt>MFG</dt><dd>${esc(data.manufactureDate||'—')}</dd><dt>EXP</dt><dd>${esc(data.expiryDate||'—')}</dd><dt>Quantity</dt><dd>${esc(data.qty||'')} ${esc(data.unit||'')}</dd><dt>BOM</dt><dd>${esc(data.bomVersion||'—')}</dd></dl>${barcode}<p class="warning">${esc(data.warning||'')}</p></article>`;
   return `<!doctype html><html><head><meta charset="utf-8"><title>Carton Label</title><style>@page{size:${pageWidth}mm ${pageHeight}mm;margin:${margin}mm}*{box-sizing:border-box}body{margin:0;font-family:Arial;display:grid;grid-template-columns:repeat(${Math.ceil(Math.sqrt(labels))},1fr);gap:${gap}mm}.label{width:100%;min-height:${Math.max(30,pageHeight-margin*2)}mm;border:1px solid #111;padding:4mm;overflow:hidden;break-inside:avoid}.label h1{margin:0 0 2mm;font-size:18pt}.sku{font:14pt monospace;font-weight:bold}.label img{max-width:35%;max-height:25mm;float:right}dl{display:grid;grid-template-columns:30% 70%;margin:3mm 0;font-size:9pt}dt,dd{border-bottom:1px solid #ddd;margin:0;padding:1mm}.barcode-svg{width:100%;height:20mm}.warning{font-weight:bold;font-size:9pt}</style></head><body>${Array(labels).fill(label).join('')}</body></html>`;
 }
 

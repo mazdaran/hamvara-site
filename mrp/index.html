@@ -2,11 +2,11 @@
 <html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Hamvara MRP Industrial</title><link rel="stylesheet" href="styles.css?v=0.6.7">
+  <title>Hamvara MRP Industrial</title><link rel="stylesheet" href="styles.css?v=0.6.9">
 </head>
 <body>
 <header class="topbar">
-  <div><h1>HAMVARA <span class="brand-sub">MRP INDUSTRIAL</span></h1><span id="version">Version 0.6.7</span></div>
+  <div><h1>HAMVARA <span class="brand-sub">MRP INDUSTRIAL</span></h1><span id="version">Version 0.6.9</span></div>
   <div class="top-actions">
     <span id="saveState" class="badge ok" data-i18n="saved">Saved</span>
     <button id="backupBtn" data-i18n="backup">Backup</button>
@@ -81,7 +81,17 @@
   <div class="page-head history-head"><h2 data-i18n="receiptHistory">Receipt History</h2></div>
   <div class="table-wrap receipt-history"><table id="receiptTable"></table></div>
 </section>
-<section id="bom" class="page"><div class="page-head"><h2 data-i18n="productBom">Product BOM</h2><div class="import-actions"><select id="bomProduct"></select><button id="addBomItem" type="button">+ Material</button><button data-template="bom" data-i18n="downloadTemplate">Download Template</button><label class="button light"><span data-i18n="importExcel">Import Excel</span><input data-import="bom" type="file" accept=".xlsx" hidden></label></div></div><div id="bomInfo" class="summary"></div><div class="panel bom-profile"><h2>BOM Version & Product Configuration</h2><div class="form-grid"><label><span>Version</span><input id="bomVersion" placeholder="1.0"></label><label><span>Effective date</span><input id="bomEffectiveDate" type="date"></label><label><span>Model</span><input id="bomModel"></label><label><span>Design</span><input id="bomDesign"></label><label><span>Packaging type</span><input id="bomPackageType"></label></div></div><article class="panel bom-section"><h2>Material Requirements</h2><div class="table-wrap"><table id="bomTable"></table></div></article><article class="panel bom-section"><div class="page-head"><div><h2>Process, Quality & Packaging Variables</h2><small>Up to 20 variables per BOM version</small></div><button id="addBomVariable" type="button">+ Variable</button></div><div class="table-wrap process-table"><table id="bomVariableTable"></table></div></article><article class="panel bom-section"><h2>Version History</h2><div class="table-wrap process-table"><table id="bomHistoryTable"></table></div></article><button id="saveBom" class="primary">Save BOM Version</button></section>
+<section id="bom" class="page">
+  <div class="page-head"><h2 data-i18n="productBom">Product BOM</h2><div class="import-actions"><select id="bomProduct"></select><button id="addBomItem" type="button">+ Material</button><button data-template="bom" data-i18n="downloadTemplate">Download Template</button><label class="button light"><span data-i18n="importExcel">Import Excel</span><input data-import="bom" type="file" accept=".xlsx" hidden></label></div></div>
+  <div id="bomInfo" class="summary"></div>
+  <div class="panel bom-profile"><h2>BOM Version, Product Configuration & Conversion Cost</h2><div class="form-grid">
+    <label><span>Version</span><input id="bomVersion" placeholder="1.0"></label><label><span>Effective date</span><input id="bomEffectiveDate" type="date"></label><label><span>Model</span><input id="bomModel"></label><label><span>Design</span><input id="bomDesign"></label><label><span>Packaging type</span><input id="bomPackageType"></label>
+    <label><span>Labor cost / unit</span><input id="bomLaborCost" data-number="true" inputmode="decimal"></label><label><span>Overhead cost / unit</span><input id="bomOverheadCost" data-number="true" inputmode="decimal"></label><label><span>Other cost / unit</span><input id="bomOtherCost" data-number="true" inputmode="decimal"></label><label><span>Costing quantity</span><input id="bomCostQuantity" data-number="true" inputmode="decimal" value="1"></label>
+  </div></div>
+  <article class="panel bom-section"><h2>Material Requirements & Cost</h2><div class="table-wrap"><table id="bomTable"></table></div><div id="bomCostSummary" class="kpis bom-cost-kpis"></div></article>
+  <article class="panel bom-section"><div class="page-head"><div><h2>Process, Quality & Packaging Variables</h2><small>Up to 20 variables per BOM version</small></div><button id="addBomVariable" type="button">+ Variable</button></div><div class="table-wrap process-table"><table id="bomVariableTable"></table></div></article>
+  <article class="panel bom-section"><h2>Version History</h2><div class="table-wrap process-table"><table id="bomHistoryTable"></table></div></article><button id="saveBom" class="primary">Save New BOM Version</button>
+</section>
 <section id="orders" class="page"><div class="page-head"><h2 data-i18n="productionOrders">Production & Customer Orders</h2><div class="import-actions"><button id="addOrder" data-i18n="newOrderLine">+ New Order Line</button><button data-template="orders" data-i18n="downloadTemplate">Download Template</button><label class="button light"><span data-i18n="importExcel">Import Excel</span><input data-import="orders" type="file" accept=".xlsx" hidden></label></div></div><div class="hint" data-i18n="sameOrderHint">Use the same order number for multiple products.</div><div class="table-wrap"><table id="orderTable"></table></div></section>
 <section id="requirements" class="page"><div class="page-head"><h2 data-i18n="materialRequirements">Material Requirements & Shortages</h2><button id="exportRequirements" data-i18n="exportCsv">Export CSV</button></div><div id="orderSummary" class="cards"></div><div class="table-wrap"><table id="requirementTable"></table></div></section>
 <section id="production" class="page">
@@ -142,7 +152,9 @@
 <label><span data-i18n="companyName">Company Name</span><input id="companyName"></label>
 <label><span data-i18n="currency">Currency</span><input id="currency"></label>
 <label><span>Device / Workstation Name</span><input id="deviceName" placeholder="e.g. SHOP-FLOOR-01"></label>
-<p><span data-i18n="appVersion">App Version</span>: <b>0.6.7</b></p><p><span data-i18n="publisher">Publisher</span>: <b>Hamvara</b></p><p>Copyright: <b>© 2026 Hamvara. All rights reserved.</b></p>
+<label><span>Barcode Standard</span><select id="barcodeStandard"><option value="EAN_13">EAN-13</option><option value="UPC_A">UPC-A</option></select></label>
+<p class="section-hint">Retail labels require a valid numeric GTIN. Enter 12 digits for EAN-13 or 11 digits for UPC-A and Hamvara will calculate the check digit; a supplied check digit is validated.</p>
+<p><span data-i18n="appVersion">App Version</span>: <b>0.6.9</b></p><p><span data-i18n="publisher">Publisher</span>: <b>Hamvara</b></p><p>Copyright: <b>© 2026 Hamvara. All rights reserved.</b></p>
 <p><span data-i18n="dataSchema">Data Schema</span>: <b id="schemaVersion"></b></p>
 <p data-i18n="dataLocation">Operational data is stored in the Data folder beside the EXE.</p>
 <div id="automaticBackupStatus" class="summary">Automatic full backup: twice daily at 06:00 and 18:00 UTC.</div>
@@ -150,4 +162,4 @@
 </main></div>
 <div id="importReview" class="modal" hidden><div class="modal-card"><div class="page-head"><div><h2>Import Validation</h2><small id="importSummary"></small></div><button id="closeImportReview">×</button></div><div class="table-wrap import-review"><table id="importReviewTable"></table></div><div class="modal-actions import-pagination"><span id="importPageStatus"></span><button id="importPrev">Previous</button><button id="importNext">Next</button><button id="cancelImport">Cancel</button><button id="postImport" class="primary">Post READY Rows</button></div></div></div>
 <datalist id="skuOptions"></datalist><datalist id="productOptions"></datalist><div id="toast"></div>
-<script src="config.js?v=0.6.7"></script><script src="cloud.js?v=0.6.7"></script><script type="module" src="app.js?v=0.6.7"></script></body></html>
+<script src="config.js?v=0.6.9"></script><script src="cloud.js?v=0.6.9"></script><script type="module" src="app.js?v=0.6.9"></script></body></html>

@@ -18,23 +18,22 @@ export function createProductionJob(state,{id,workOrderNo,order,batchNo,plannedL
   if(productionJobs(state).some(job=>(job.orderKey===orderKey||(!order.id&&!job.orderId&&job.orderNo===order.orderNo&&job.productCode===order.productCode))&&job.status!=='CANCELLED'))throw new Error('A work order already exists for this order line.');
   const product=state.products.find(item=>item.code===order.productCode);
   if(!product)throw new Error('Product not found.');
-  const bom=state.boms[order.productCode]||[];
+  const snapshot=bomSnapshot(state,order.productCode,createdAt.slice(0,10)),bom=snapshot.materials||[];
   if(!bom.length)throw new Error('A saved BOM is required.');
   const grouped=new Map();
   for(const line of bom){
-    const factor=number(line.qty),component=state.skus.find(item=>item.code===line.sku);
+    const factor=number(line.grossQty??(number(line.qty)*(1+number(line.wastePercent||0)/100))),component=state.skus.find(item=>item.code===line.sku);
     if(!component||!(factor>0))throw new Error('Every BOM row needs a valid SKU and usage quantity.');
     const warehouse=line.warehouse||component.warehouse||'WH-RM',key=`${line.sku}|${warehouse}`,current=grouped.get(key)||{sku:line.sku,name:component.name||line.name||'',warehouse,factor:0,required:0};current.factor+=factor;current.required+=number(order.qty)*factor;grouped.set(key,current);
   }
   const materials=[...grouped.values()];
-  const snapshot=bomSnapshot(state,order.productCode);
-  const job={id,workOrderNo,orderKey,orderId:order.id||'',orderNo:order.orderNo,productCode:order.productCode,productName:product.name||order.productCode,plannedQty:number(order.qty),completedQty:0,scrapQty:0,outputSku:product.outputSku||`FG-${product.code}`,batchNo:batchNo||`BATCH-${createdAt.slice(0,10).replaceAll('-','')}-${String(productionJobs(state).length+1).padStart(3,'0')}`,priority:order.priority||'NORMAL',dueDate:order.due||'',plannedLeadTimeHours:number(plannedLeadTimeHours)>0?number(plannedLeadTimeHours):8,status:'PLANNED',materials,bomVersion:snapshot.version,bomEffectiveDate:snapshot.effectiveDate,model:snapshot.model,design:snapshot.design,packageType:snapshot.packageType,processVariables:snapshot.variables,createdAt,createdBy:metaFields(meta)};
+  const job={id,workOrderNo,orderKey,orderId:order.id||'',orderNo:order.orderNo,productCode:order.productCode,productName:product.name||order.productCode,plannedQty:number(order.qty),completedQty:0,scrapQty:0,outputSku:product.outputSku||`FG-${product.code}`,batchNo:batchNo||`BATCH-${createdAt.slice(0,10).replaceAll('-','')}-${String(productionJobs(state).length+1).padStart(3,'0')}`,priority:order.priority||'NORMAL',dueDate:order.due||'',plannedLeadTimeHours:number(plannedLeadTimeHours)>0?number(plannedLeadTimeHours):8,status:'PLANNED',materials,bomVersion:snapshot.version,bomEffectiveDate:snapshot.effectiveDate,model:snapshot.model,design:snapshot.design,packageType:snapshot.packageType,processVariables:snapshot.variables,materialCost:snapshot.materialCost||0,packagingCost:snapshot.packagingCost||0,laborCost:snapshot.laborCost||0,overheadCost:snapshot.overheadCost||0,otherCost:snapshot.otherCost||0,standardUnitCost:snapshot.standardUnitCost||0,createdAt,createdBy:metaFields(meta)};
   productionJobs(state).unshift(job);order.productionStatus='PLANNED';recordAudit(state,job,'WORK_ORDER_CREATED',meta,createdAt,`Batch ${job.batchNo}`);return job;
 }
 
 export function releaseProductionJob(state,jobId,releasedAt=new Date().toISOString(),meta={}){
   const job=findJob(state,jobId);if(job.status!=='PLANNED')throw new Error('Only a planned work order can be released.');
-  for(const material of job.materials){const stock=state.stock[material.sku]||{},free=number(stock[material.warehouse]||0)-number(stock.reserved||0);if(free+1e-9<material.required)throw new Error(`Insufficient stock for ${material.sku} in ${material.warehouse}.`)}
+  for(const material of job.materials){const stock=state.stock[material.sku]||{},reserved=productionJobs(state).filter(item=>item.status==='RELEASED').flatMap(item=>item.materials||[]).filter(item=>item.sku===material.sku&&item.warehouse===material.warehouse).reduce((sum,item)=>sum+number(item.required||0),0),free=number(stock[material.warehouse]||0)-reserved;if(free+1e-9<material.required)throw new Error(`Insufficient stock for ${material.sku} in ${material.warehouse}.`)}
   for(const material of job.materials){state.stock[material.sku]??={};state.stock[material.sku].reserved=number(state.stock[material.sku].reserved||0)+material.required}
   job.status='RELEASED';job.releasedAt=releasedAt;job.releasedBy=metaFields(meta);setOrderStatus(state,job,'RELEASED');recordAudit(state,job,'MATERIALS_RESERVED',meta,releasedAt);return job;
 }
@@ -55,7 +54,7 @@ export function completeProductionJob(state,jobId,{completedQty,scrapQty=0,compl
   const product=state.products.find(item=>item.code===job.productCode);if(!product)throw new Error('Product not found.');
   product.outputSku=job.outputSku;
   let output=state.skus.find(item=>item.code===job.outputSku);
-  if(!output){const materialCost=job.materials.reduce((total,material)=>total+(number(state.skus.find(item=>item.code===material.sku)?.cost||0)*material.factor),0);output={code:job.outputSku,name:product.name||job.productName,type:'FINISHED_GOOD',category:'',unit:product.unit||'ADET',cost:materialCost,warehouse:'WH-FG',supplier:'',leadTime:0,min:0,max:0,active:true};state.skus.push(output)}
+  if(!output){output={code:job.outputSku,name:product.name||job.productName,type:'FINISHED_GOOD',category:'',unit:product.unit||'ADET',cost:job.standardUnitCost||0,costBomVersion:job.bomVersion,costUpdatedAt:completedAt,warehouse:'WH-FG',supplier:'',leadTime:0,min:0,max:0,active:true};state.skus.push(output)}else{output.cost=job.standardUnitCost||0;output.costBomVersion=job.bomVersion;output.costUpdatedAt=completedAt}
   state.stock[job.outputSku]??={};state.stock[job.outputSku]['WH-QA']=number(state.stock[job.outputSku]['WH-QA']||0)+completed;state.stock[job.outputSku].reserved=number(state.stock[job.outputSku].reserved||0);
   appendInventoryMovement(state,{...metaFields(meta),sku:job.outputSku,warehouse:'WH-QA',qty:completed,direction:'IN',type:'PRODUCTION_FQC_HOLD',reference:job.workOrderNo,batchNo:job.batchNo,at:completedAt});
   inspectionId||=`${job.id}-fqc`;inspectionNo||=`FQC-${String((state.qualityInspections||[]).length+1).padStart(4,'0')}`;state.qualityInspections??=[];state.qualityInspections.unshift({id:inspectionId,inspectionNo,type:'FQC',reference:job.workOrderNo,productionJobId:job.id,sku:job.outputSku,qty:completed,result:'PENDING',date:completedAt.slice(0,10),ncrNo:'',disposition:'HOLD',released:false,stockReleased:false,notes:`Batch ${job.batchNo}`});

@@ -8,6 +8,7 @@ function valueByAlias(row,aliases){
 
 const FIELDS={
   sku:['SKU','Stock Code','Item Code','Product Code','Barcode','Stok Kodu','Ürün Kodu','Malzeme Kodu','کد کالا','کد محصول','بارکد'],
+  barcode:['GTIN / Barcode','GTIN','EAN-13','EAN13','UPC-A','UPCA','Barcode Value','Barkod Değeri','بارکد استاندارد'],
   description:['Description','Name','Item Name','Product Name','Stock Name','Açıklama','Ürün Adı','Stok Adı','Malzeme Adı','شرح','نام کالا','نام محصول'],
   type:['Type','Item Type','Category','Category Code','Tür','Tip','Kategori','نوع','دسته بندی'],
   warehouse:['Warehouse','Warehouse Code','Main Warehouse','Store','Location','Depo','Depo Kodu','Ana Depo','Ambar','انبار','کد انبار','انبار اصلی','محل انبار'],
@@ -52,5 +53,5 @@ export function readOpeningStockRow(state,row,{parseNumber,parseDate,defaultWare
   const cost=parseNumber?parseNumber(rawCost):Number(rawCost);
   const min=parseNumber?parseNumber(openingStockField(row,'min')):Number(openingStockField(row,'min'));
   const max=parseNumber?parseNumber(openingStockField(row,'max')):Number(openingStockField(row,'max'));
-  return{code,name:String(openingStockField(row,'description')||'').trim(),warehouse,rawWarehouse:String(rawWarehouse||'').trim(),quantity:Number.isFinite(quantity)?quantity:0,hasQuantity:String(rawQuantity??'').trim()!=='',rawQuantity:String(rawQuantity??'').trim(),unit:resolveOpeningUnit(openingStockField(row,'unit')),cost:Number.isFinite(cost)?cost:0,category:String(openingStockField(row,'type')||'').trim(),itemType:itemTypeForWarehouse(warehouse),min:Number.isFinite(min)?min:0,max:Number.isFinite(max)?max:0,batch:String(openingStockField(row,'batch')||'').trim(),date:parseDate?parseDate(openingStockField(row,'date')):String(openingStockField(row,'date')||'')};
+  return{code,barcode:String(openingStockField(row,'barcode')||'').trim(),name:String(openingStockField(row,'description')||'').trim(),warehouse,rawWarehouse:String(rawWarehouse||'').trim(),quantity:Number.isFinite(quantity)?quantity:0,hasQuantity:String(rawQuantity??'').trim()!=='',rawQuantity:String(rawQuantity??'').trim(),unit:resolveOpeningUnit(openingStockField(row,'unit')),cost:Number.isFinite(cost)?cost:0,category:String(openingStockField(row,'type')||'').trim(),itemType:itemTypeForWarehouse(warehouse),min:Number.isFinite(min)?min:0,max:Number.isFinite(max)?max:0,batch:String(openingStockField(row,'batch')||'').trim(),date:parseDate?parseDate(openingStockField(row,'date')):String(openingStockField(row,'date')||'')};
 }

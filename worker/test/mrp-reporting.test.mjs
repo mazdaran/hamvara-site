@@ -56,9 +56,15 @@ test('dashboard keeps import controls in their dedicated pages',async()=>{
 });
 
 test('customer SKU workbook headers map to item master fields',()=>{
-  const row={'SKU':8680613130008,'Description':'DIN 7505 3x12','TYPE':145,'UNIT':'PIECE','COST':48,'MAIN WAREHOUSE':'FG','MIN Q':180,'MAX Q':400};
+  const row={'SKU':8680613130008,'GTIN / Barcode':'4006381333931','Description':'DIN 7505 3x12','TYPE':145,'UNIT':'PIECE','COST':48,'MAIN WAREHOUSE':'FG','MIN Q':180,'MAX Q':400};
   const parsed=readOpeningStockRow(state,row,{parseNumber:Number,parseDate:value=>String(value||'2026-09-08')});
-  assert.deepEqual({code:parsed.code,warehouse:parsed.warehouse,unit:parsed.unit,category:parsed.category,itemType:parsed.itemType,min:parsed.min,max:parsed.max,quantity:parsed.quantity,hasQuantity:parsed.hasQuantity},{code:'8680613130008',warehouse:'WH-FG',unit:'ADET',category:'145',itemType:'FINISHED_GOOD',min:180,max:400,quantity:0,hasQuantity:false});
+  assert.deepEqual({code:parsed.code,barcode:parsed.barcode,warehouse:parsed.warehouse,unit:parsed.unit,category:parsed.category,itemType:parsed.itemType,min:parsed.min,max:parsed.max,quantity:parsed.quantity,hasQuantity:parsed.hasQuantity},{code:'8680613130008',barcode:'4006381333931',warehouse:'WH-FG',unit:'ADET',category:'145',itemType:'FINISHED_GOOD',min:180,max:400,quantity:0,hasQuantity:false});
+});
+
+test('universal SKU importer maps a separate GTIN field',()=>{
+  const headers=['SKU','GTIN / Barcode','Description'],mapping=suggestMapping(headers,'skus');
+  const clean=canonicalizeRow({'SKU':'FG-1','GTIN / Barcode':'4006381333931','Description':'Widget'},'skus',mapping);
+  assert.deepEqual({code:clean.code,barcode:clean.barcode,name:clean.name},{code:'FG-1',barcode:'4006381333931',name:'Widget'});
 });
 
 test('customer warehouse abbreviations FG and PACK are recognized',()=>{
@@ -85,6 +91,13 @@ test('universal importer reports duplicate business keys without dropping rows',
   assert.ok(Object.keys(IMPORT_SCHEMAS).length>=12);
 });
 
+test('universal BOM import maps consumption, waste, version and effective date',()=>{
+  const headers=['Product Code','Material SKU','Source Warehouse','Consumption Coefficient','Waste %','Version','Valid From'],mapping=suggestMapping(headers,'bom');
+  const clean=canonicalizeRow({'Product Code':'P-1','Material SKU':'RM-1','Source Warehouse':'WH-RM','Consumption Coefficient':'2.5','Waste %':'3','Version':'2.0','Valid From':'2026-09-01'},'bom',mapping,{parseNumber:Number,parseDate:String,parseWarehouse:String});
+  assert.deepEqual({component:clean.component,qty:clean.qty,wastePercent:clean.wastePercent,version:clean.version,effectiveDate:clean.effectiveDate},{component:'RM-1',qty:2.5,wastePercent:3,version:'2.0',effectiveDate:'2026-09-01'});
+  assert.deepEqual(validateCanonicalRow(clean,'bom'),[]);
+});
+
 test('tabular reader accepts quoted CSV exports',async()=>{
   const csv='Customer Code,Customer Name,Address\r\nC-1,"Acme, Ltd","Istanbul"\r\n';
   const file={name:'crm-export.csv',arrayBuffer:async()=>new TextEncoder().encode(csv).buffer};
@@ -103,4 +116,5 @@ test('universal import center exposes mapping and paginated validation controls'
   assert.match(html,/id="skuPageStatus"/);
   assert.match(html,/id="stockPageStatus"/);
   assert.match(html,/\.xlsx,\.csv,\.tsv/);
+  assert.match(html,/id="barcodeStandard"/);
 });
