@@ -23,6 +23,13 @@ test('inventory report keeps shop-floor quantity separate from warehouse stock',
   assert.equal(report.rows.find(row=>row.warehouse==='Shop Floor').state,'IN PROCESS');
 });
 
+test('inventory report limits rows to the selected warehouse',()=>{
+  const report=buildBusinessReport(state,{type:'inventory',warehouse:'WH-SF'});
+  assert.equal(report.rows.length,1);
+  assert.equal(report.rows[0].warehouse,'Shop Floor');
+  assert.equal(report.rows[0].quantity,5);
+});
+
 test('movement report filters by date, warehouse and free text',()=>{
   const report=buildBusinessReport(state,{type:'movements',from:'2026-09-09',warehouse:'WH-SF',query:'wo-1'});
   assert.equal(report.rows.length,1);

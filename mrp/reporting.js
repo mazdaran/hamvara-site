@@ -37,7 +37,7 @@ function inventoryReport(state,filters){
   for(const item of state.skus||[])for(const warehouse of state.warehouses||[]){
     if(filters.warehouse&&warehouse.code!==filters.warehouse)continue;
     const quantity=num(state.stock?.[item.code]?.[warehouse.code]);
-    if(!quantity&&!filters.warehouse)continue;
+    if(!quantity)continue;
     rows.push({warehouse:warehouse.name||warehouse.code,sku:item.code,description:item.name||'',unit:item.unit||'',quantity,unitCost:num(item.cost),value:quantity*num(item.cost),state:warehouse.code==='WH-QA'?'QUARANTINE':warehouse.code==='WH-SF'?'IN PROCESS':'ON HAND'});
   }
   const filtered=filterRows(rows,filters,'date');
