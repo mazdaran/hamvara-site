@@ -65,27 +65,36 @@ async function analyzeWaybill(request, env, actor) {
   const raw = await request.text();
   if (new TextEncoder().encode(raw).byteLength > 7 * 1024 * 1024) throw httpError(413, 'Waybill image is too large. Maximum request size is 7 MB.');
   let body;try { body = JSON.parse(raw); } catch { throw httpError(400, 'Invalid JSON payload.'); }
-  const match = /^data:image\/(?:png|jpeg|jpg|webp);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.image || ''));
+  const match = /^data:(image\/(?:png|jpeg|jpg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(body.image || ''));
   if (!match) throw httpError(400, 'A PNG, JPEG or WebP waybill image is required.');
-  const binary = atob(match[1]);if (binary.length > 5 * 1024 * 1024) throw httpError(413, 'Waybill image exceeds 5 MB.');
-  const prompt = `Read this supplier waybill. Return strict JSON only with this shape: {"documentNo":"","supplier":"","rows":[{"description":"","sku":"","qty":1,"unit":"","batchNo":"","expiryDate":"YYYY-MM-DD or empty"}]}. Preserve one row per physical line item. Never invent an SKU; leave sku empty unless it is visibly printed. Quantities must be numeric. Maximum 50 rows.`;
-  const model = '@cf/moondream/moondream3.1-9B-A2B';
+  const binary = atob(match[2]);if (binary.length > 5 * 1024 * 1024) throw httpError(413, 'Waybill image exceeds 5 MB.');
+  const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+  const fileName = clean(body.fileName,120) || 'waybill-image';
+  let conversion;
+  try {
+    conversion = await env.AI.toMarkdown({ name:fileName, blob:new Blob([bytes],{type:match[1]}) });
+  } catch { throw httpError(502, 'The waybill image could not be read. Use a clear, upright PNG or JPEG image.'); }
+  const converted = Array.isArray(conversion) ? conversion[0] : conversion;
+  if (!converted || converted.format === 'error' || !String(converted.data || '').trim()) throw httpError(502, clean(converted?.error,240) || 'No readable text was found in the waybill image.');
+  const ocrText = String(converted.data).slice(0,24000);
+  const prompt = `Convert the OCR text below from a supplier waybill into strict JSON only. Use exactly this shape: {"documentNo":"","supplier":"","rows":[{"description":"","sku":"","qty":1,"unit":"","batchNo":"","expiryDate":"YYYY-MM-DD or empty"}]}. Preserve one row per physical line item. Never invent an SKU; leave sku empty unless visibly present in the OCR text. Quantities must be numeric. Maximum 50 rows.\n\nOCR TEXT:\n${ocrText}`;
+  const model = '@cf/qwen/qwen3-30b-a3b-fp8';
   const result = await env.AI.run(model, {
-    task: 'query',
-    image: String(body.image),
-    question: prompt,
-    reasoning: false,
+    messages: [
+      {role:'system',content:'You extract structured purchasing data. Return valid JSON only, without markdown.'},
+      {role:'user',content:prompt}
+    ],
     stream: false,
     max_tokens: 2200,
     temperature: 0
   });
-  const response = typeof result === 'string' ? result : (result.answer || result.response || result.result?.answer || result.result?.response || '');
+  const response = typeof result === 'string' ? result : (result.response || result.result?.response || result.choices?.[0]?.message?.content || '');
   let parsed;try { parsed = JSON.parse(extractJson(response)); } catch { throw httpError(502, 'The image could not be converted to a valid waybill. Try a clearer photo.'); }
   const stateRow = await env.DB.prepare('SELECT state_json FROM mrp_state WHERE workspace_id = ?').bind(actor.workspace.id).first();let skus=[];try { skus=JSON.parse(stateRow?.state_json||'{}').skus||[]; } catch {}
   const exact = new Map(skus.map(item=>[String(item.code||'').toUpperCase(),item.code]));
   const rows=(Array.isArray(parsed.rows)?parsed.rows:[]).slice(0,50).map(row=>({description:clean(row.description,180),sku:exact.get(String(row.sku||'').toUpperCase())||'',qty:Math.max(0,Number(row.qty)||0),unit:clean(row.unit,30),batchNo:clean(row.batchNo,80),expiryDate:/^\d{4}-\d{2}-\d{2}$/.test(row.expiryDate)?row.expiryDate:''})).filter(row=>row.description||row.sku||row.qty);
-  await env.DB.prepare("INSERT INTO mrp_audit_log (workspace_id,user_id,action,details_json,created_at) VALUES (?,?,'waybill.analyzed',?,datetime('now'))").bind(actor.workspace.id,actor.user.id,JSON.stringify({fileName:clean(body.fileName,120),rows:rows.length,model})).run();
-  return json({ documentNo:clean(parsed.documentNo,100),supplier:clean(parsed.supplier,120),rows,model,analyzedAt:new Date().toISOString(),requiresHumanApproval:true });
+  await env.DB.prepare("INSERT INTO mrp_audit_log (workspace_id,user_id,action,details_json,created_at) VALUES (?,?,'waybill.analyzed',?,datetime('now'))").bind(actor.workspace.id,actor.user.id,JSON.stringify({fileName,rows:rows.length,model,ocr:'markdown-conversion'})).run();
+  return json({ documentNo:clean(parsed.documentNo,100),supplier:clean(parsed.supplier,120),rows,model,ocr:'markdown-conversion',analyzedAt:new Date().toISOString(),requiresHumanApproval:true });
 }
 
 function extractJson(value){const text=String(value||'').trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim(),start=text.indexOf('{'),end=text.lastIndexOf('}');if(start<0||end<=start)throw new Error('No JSON object.');return text.slice(start,end+1)}
