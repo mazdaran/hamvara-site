@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {buildBusinessReport} from '../../mrp/reporting.js';
-import {readOpeningStockRow,resolveOpeningWarehouse} from '../../mrp/opening-stock-import.js';
+import {readOpeningStockRow,resolveOpeningWarehouse,resolveOpeningUnit} from '../../mrp/opening-stock-import.js';
+import {IMPORT_SCHEMAS,detectImportEntity,suggestMapping,canonicalizeRow,validateCanonicalRow,analyzeCanonicalRows} from '../../mrp/universal-import.js';
+import {readTabularFile} from '../../mrp/excel.js';
 
 const state={
   warehouses:[{code:'WH-RM',name:'Raw Materials'},{code:'WH-SF',name:'Shop Floor'}],
@@ -61,4 +63,43 @@ test('customer SKU workbook headers map to item master fields',()=>{
 test('customer warehouse abbreviations FG and PACK are recognized',()=>{
   assert.equal(resolveOpeningWarehouse(state,'FG'),'WH-FG');
   assert.equal(resolveOpeningWarehouse(state,'PACK'),'WH-PK');
+  assert.equal(resolveOpeningUnit('PIECE'),'ADET');
+});
+
+test('universal importer detects CRM customers and maps common aliases',()=>{
+  const headers=['Account ID','Company','E-mail','Telephone','Credit Limit'];
+  const detected=detectImportEntity(headers);
+  assert.equal(detected.entity,'customers');
+  const mapping=suggestMapping(headers,'customers');
+  const clean=canonicalizeRow({'Account ID':'C-1','Company':'Acme','E-mail':'a@example.com','Telephone':'123','Credit Limit':'1.250,50'},'customers',mapping,{parseNumber:value=>Number(String(value).replace('.','').replace(',','.'))});
+  assert.deepEqual({code:clean.code,name:clean.name,email:clean.email,creditLimit:clean.creditLimit},{code:'C-1',name:'Acme',email:'a@example.com',creditLimit:1250.5});
+  assert.deepEqual(validateCanonicalRow(clean,'customers'),[]);
+});
+
+test('universal importer reports duplicate business keys without dropping rows',()=>{
+  const rows=[{clean:{poNo:'PO-1',sku:'RM-1'}},{clean:{poNo:'PO-1',sku:'RM-1'}},{clean:{poNo:'PO-1',sku:'RM-2'}}];
+  const analysis=analyzeCanonicalRows(rows,'purchaseOrders');
+  assert.deepEqual({rows:analysis.rows,unique:analysis.unique,duplicateRows:analysis.duplicateRows},{rows:3,unique:2,duplicateRows:1});
+  assert.equal(analysis.duplicateKeys.has('PO-1::RM-1'),true);
+  assert.ok(Object.keys(IMPORT_SCHEMAS).length>=12);
+});
+
+test('tabular reader accepts quoted CSV exports',async()=>{
+  const csv='Customer Code,Customer Name,Address\r\nC-1,"Acme, Ltd","Istanbul"\r\n';
+  const file={name:'crm-export.csv',arrayBuffer:async()=>new TextEncoder().encode(csv).buffer};
+  const parsed=await readTabularFile(file);
+  assert.equal(parsed.format,'CSV');
+  assert.deepEqual(parsed.headers,['Customer Code','Customer Name','Address']);
+  assert.equal(parsed.rows[0]['Customer Name'],'Acme, Ltd');
+});
+
+test('universal import center exposes mapping and paginated validation controls',async()=>{
+  const html=await readFile(new URL('../../mrp/index.html',import.meta.url),'utf8');
+  assert.match(html,/data-page="importCenter"/);
+  assert.match(html,/id="universalMappingTable"/);
+  assert.match(html,/id="importPrev"/);
+  assert.match(html,/id="importNext"/);
+  assert.match(html,/id="skuPageStatus"/);
+  assert.match(html,/id="stockPageStatus"/);
+  assert.match(html,/\.xlsx,\.csv,\.tsv/);
 });

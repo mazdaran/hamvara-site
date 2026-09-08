@@ -29,7 +29,7 @@ const WAREHOUSE_ALIASES={
 };
 
 const UNIT_ALIASES={ADET:['ADET','PIECE','PCS','PC','EA','EACH','عدد','قطعه'],KG:['KG','KILOGRAM','KİLOGRAM','کیلوگرم'],G:['G','GRAM','گرم'],L:['L','LITER','LITRE','LİTRE','لیتر'],ML:['ML','MILLILITER','MILLILITRE','میلی لیتر'],M:['M','METER','METRE','متر'],M2:['M2','M²','SQUARE METER','متر مربع'],M3:['M3','M³','CUBIC METER','متر مکعب'],PAKET:['PAKET','PACK','PACKAGE','بسته'],RULO:['RULO','ROLL','رول'],KUTU:['KUTU','BOX','کارتن']};
-const resolveUnit=value=>{const candidate=normalized(value);return Object.entries(UNIT_ALIASES).find(([,aliases])=>aliases.some(alias=>normalized(alias)===candidate))?.[0]||String(value||'ADET').trim()||'ADET'};
+export const resolveOpeningUnit=value=>{const candidate=normalized(value);return Object.entries(UNIT_ALIASES).find(([,aliases])=>aliases.some(alias=>normalized(alias)===candidate))?.[0]||String(value||'ADET').trim()||'ADET'};
 const itemTypeForWarehouse=warehouse=>warehouse==='WH-FG'?'FINISHED_GOOD':warehouse==='WH-PK'?'PACKAGING':warehouse==='WH-SF'?'SEMI_FINISHED':'RAW_MATERIAL';
 
 export function openingStockField(row,field){return valueByAlias(row,FIELDS[field]||[field])}
@@ -52,5 +52,5 @@ export function readOpeningStockRow(state,row,{parseNumber,parseDate,defaultWare
   const cost=parseNumber?parseNumber(rawCost):Number(rawCost);
   const min=parseNumber?parseNumber(openingStockField(row,'min')):Number(openingStockField(row,'min'));
   const max=parseNumber?parseNumber(openingStockField(row,'max')):Number(openingStockField(row,'max'));
-  return{code,name:String(openingStockField(row,'description')||'').trim(),warehouse,rawWarehouse:String(rawWarehouse||'').trim(),quantity:Number.isFinite(quantity)?quantity:0,hasQuantity:String(rawQuantity??'').trim()!=='',rawQuantity:String(rawQuantity??'').trim(),unit:resolveUnit(openingStockField(row,'unit')),cost:Number.isFinite(cost)?cost:0,category:String(openingStockField(row,'type')||'').trim(),itemType:itemTypeForWarehouse(warehouse),min:Number.isFinite(min)?min:0,max:Number.isFinite(max)?max:0,batch:String(openingStockField(row,'batch')||'').trim(),date:parseDate?parseDate(openingStockField(row,'date')):String(openingStockField(row,'date')||'')};
+  return{code,name:String(openingStockField(row,'description')||'').trim(),warehouse,rawWarehouse:String(rawWarehouse||'').trim(),quantity:Number.isFinite(quantity)?quantity:0,hasQuantity:String(rawQuantity??'').trim()!=='',rawQuantity:String(rawQuantity??'').trim(),unit:resolveOpeningUnit(openingStockField(row,'unit')),cost:Number.isFinite(cost)?cost:0,category:String(openingStockField(row,'type')||'').trim(),itemType:itemTypeForWarehouse(warehouse),min:Number.isFinite(min)?min:0,max:Number.isFinite(max)?max:0,batch:String(openingStockField(row,'batch')||'').trim(),date:parseDate?parseDate(openingStockField(row,'date')):String(openingStockField(row,'date')||'')};
 }

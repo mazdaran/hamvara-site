@@ -2,11 +2,11 @@
 <html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Hamvara MRP Industrial</title><link rel="stylesheet" href="styles.css?v=0.6.5">
+  <title>Hamvara MRP Industrial</title><link rel="stylesheet" href="styles.css?v=0.6.6">
 </head>
 <body>
 <header class="topbar">
-  <div><h1>HAMVARA <span class="brand-sub">MRP INDUSTRIAL</span></h1><span id="version">Version 0.6.5</span></div>
+  <div><h1>HAMVARA <span class="brand-sub">MRP INDUSTRIAL</span></h1><span id="version">Version 0.6.6</span></div>
   <div class="top-actions">
     <span id="saveState" class="badge ok" data-i18n="saved">Saved</span>
     <button id="backupBtn" data-i18n="backup">Backup</button>
@@ -26,6 +26,7 @@
   <button data-page="orders" data-i18n="orders">Orders</button>
   <button data-page="requirements" data-i18n="requirements">Requirements</button>
   <button data-page="reports" data-label-en="Reports & Analytics" data-label-tr="Raporlar ve Analizler">Reports & Analytics</button>
+  <button data-page="importCenter" data-label-en="Universal Import" data-label-tr="Evrensel İçe Aktarma">Universal Import</button>
   <div class="nav-label nav-section" data-label-en="PROCESS CONTROL" data-label-tr="SÜREÇ KONTROLÜ">PROCESS CONTROL</div>
   <button data-page="production" data-label-en="Production Execution" data-label-tr="Üretim Yürütme">Production Execution</button>
   <button data-page="documents" data-label-en="Documents, Labels & Scan" data-label-tr="Belgeler, Etiketler ve Tarama">Documents, Labels & Scan</button>
@@ -49,9 +50,18 @@
   <div id="reportKpis" class="kpis report-kpis"></div>
   <article class="panel report-results"><div class="report-result-head"><h2 id="reportTitle">Business Management Overview</h2><span id="reportCount"></span></div><div class="table-wrap report-table-wrap"><table id="reportTable"></table></div></article>
 </section>
-<section id="products" class="page"><div class="page-head"><h2 data-i18n="products">Products</h2><div><input id="productSearch" data-i18n-placeholder="searchCodeName" placeholder="Search code or name"><button id="addProduct" data-i18n="newProduct">+ New Product</button></div></div><div class="table-wrap"><table id="productTable"></table></div></section>
-<section id="skus" class="page"><div class="page-head"><h2 data-i18n="itemMaster">Item Master & SKU</h2><div><input id="skuSearch" data-i18n-placeholder="searchSku" placeholder="Search SKU"><button id="addSku" data-i18n="newSku">+ New SKU</button></div></div><div class="table-wrap"><table id="skuTable"></table></div></section>
-<section id="stock" class="page"><div class="page-head"><div><h2 data-i18n="warehouseInventory">Warehouse Inventory</h2><small data-i18n="stockEditHint">Use this table for opening balances or authorized corrections.</small></div><div class="import-actions"><input id="stockSearch" data-i18n-placeholder="searchSku" placeholder="Search SKU"><button data-template="openingStock" data-i18n="downloadTemplate">Download Template</button><label class="button light"><span data-i18n="importExcel">Import Excel</span><input data-import="openingStock" type="file" accept=".xlsx" hidden></label></div></div><div class="warehouse-browser"><button id="warehouseRoot" class="warehouse-root active" type="button">▾ <span data-i18n="warehouses">Warehouses</span></button><div id="warehouseBranches" class="warehouse-branches"></div></div><div id="warehouseKpis" class="kpis warehouse-kpis"></div><div class="table-wrap warehouse-stock-table"><table id="stockTable"></table></div><article class="panel warehouse-report"><h2>Warehouse Movement Report</h2><div class="table-wrap process-table"><table id="warehouseMovementTable"></table></div></article></section>
+<section id="importCenter" class="page">
+  <div class="page-head"><div><h2>Universal Import Center</h2><small>Normalize exports from ERP, CRM, accounting and spreadsheet systems before posting to Hamvara</small></div><button id="downloadImportContract">Download Import Contract</button></div>
+  <article class="panel universal-import-source"><div class="form-grid">
+    <label><span>Data type</span><select id="universalEntity"><option value="auto">Auto detect</option></select></label>
+    <label class="wide"><span>Excel / CSV / TSV file</span><input id="universalFile" type="file" accept=".xlsx,.csv,.tsv,text/csv,text/tab-separated-values"></label>
+  </div><div id="universalFileStatus" class="hint">Select a file. Hamvara will detect its data type and suggest a column mapping.</div></article>
+  <article id="universalMappingPanel" class="panel universal-mapping" hidden><div class="page-head"><div><h2>Column Mapping</h2><small>Review the suggested mapping before validation</small></div><button id="validateUniversalImport" class="gate-action">Validate mapped rows</button></div><div class="table-wrap process-table"><table id="universalMappingTable"></table></div></article>
+  <article class="panel import-contract"><h2>Hamvara Standard Import Contract</h2><div class="table-wrap process-table"><table id="importContractTable"></table></div></article>
+</section>
+<section id="products" class="page"><div class="page-head"><h2 data-i18n="products">Products</h2><div><input id="productSearch" data-i18n-placeholder="searchCodeName" placeholder="Search code or name"><button id="addProduct" data-i18n="newProduct">+ New Product</button></div></div><div class="table-wrap"><table id="productTable"></table></div><div class="import-pagination"><span id="productPageStatus"></span><button id="productPrev" type="button">Previous</button><button id="productNext" type="button">Next</button></div></section>
+<section id="skus" class="page"><div class="page-head"><h2 data-i18n="itemMaster">Item Master & SKU</h2><div><input id="skuSearch" data-i18n-placeholder="searchSku" placeholder="Search SKU"><button id="addSku" data-i18n="newSku">+ New SKU</button></div></div><div class="table-wrap"><table id="skuTable"></table></div><div class="import-pagination"><span id="skuPageStatus"></span><button id="skuPrev" type="button">Previous</button><button id="skuNext" type="button">Next</button></div></section>
+<section id="stock" class="page"><div class="page-head"><div><h2 data-i18n="warehouseInventory">Warehouse Inventory</h2><small data-i18n="stockEditHint">Use this table for opening balances or authorized corrections.</small></div><div class="import-actions"><input id="stockSearch" data-i18n-placeholder="searchSku" placeholder="Search SKU"><button data-template="openingStock" data-i18n="downloadTemplate">Download Template</button><label class="button light"><span data-i18n="importExcel">Import Excel</span><input data-import="openingStock" type="file" accept=".xlsx" hidden></label></div></div><div class="warehouse-browser"><button id="warehouseRoot" class="warehouse-root active" type="button">▾ <span data-i18n="warehouses">Warehouses</span></button><div id="warehouseBranches" class="warehouse-branches"></div></div><div id="warehouseKpis" class="kpis warehouse-kpis"></div><div class="table-wrap warehouse-stock-table"><table id="stockTable"></table></div><div class="import-pagination"><span id="stockPageStatus"></span><button id="stockPrev" type="button">Previous</button><button id="stockNext" type="button">Next</button></div><article class="panel warehouse-report"><h2>Warehouse Movement Report</h2><div class="table-wrap process-table"><table id="warehouseMovementTable"></table></div></article></section>
 <section id="receipts" class="page">
   <div class="page-head"><h2 data-i18n="goodsReceipt">Goods Receipt</h2><div class="import-actions"><button data-template="receipts" data-i18n="downloadTemplate">Download Template</button><label class="button light"><span data-i18n="importExcel">Import Excel</span><input data-import="receipts" type="file" accept=".xlsx" hidden></label></div></div>
   <div class="panel receipt-form">
@@ -132,12 +142,12 @@
 <label><span data-i18n="companyName">Company Name</span><input id="companyName"></label>
 <label><span data-i18n="currency">Currency</span><input id="currency"></label>
 <label><span>Device / Workstation Name</span><input id="deviceName" placeholder="e.g. SHOP-FLOOR-01"></label>
-<p><span data-i18n="appVersion">App Version</span>: <b>0.6.5</b></p><p><span data-i18n="publisher">Publisher</span>: <b>Hamvara</b></p><p>Copyright: <b>© 2026 Hamvara. All rights reserved.</b></p>
+<p><span data-i18n="appVersion">App Version</span>: <b>0.6.6</b></p><p><span data-i18n="publisher">Publisher</span>: <b>Hamvara</b></p><p>Copyright: <b>© 2026 Hamvara. All rights reserved.</b></p>
 <p><span data-i18n="dataSchema">Data Schema</span>: <b id="schemaVersion"></b></p>
 <p data-i18n="dataLocation">Operational data is stored in the Data folder beside the EXE.</p>
 <div id="automaticBackupStatus" class="summary">Automatic full backup: twice daily at 06:00 and 18:00 UTC.</div>
 <button id="saveSettings" class="primary" data-i18n="saveSettings">Save Settings</button></div></section>
 </main></div>
-<div id="importReview" class="modal" hidden><div class="modal-card"><div class="page-head"><div><h2>Excel Import Validation</h2><small id="importSummary"></small></div><button id="closeImportReview">×</button></div><div class="table-wrap import-review"><table id="importReviewTable"></table></div><div class="modal-actions"><button id="cancelImport">Cancel</button><button id="postImport" class="primary">Post READY Rows</button></div></div></div>
+<div id="importReview" class="modal" hidden><div class="modal-card"><div class="page-head"><div><h2>Import Validation</h2><small id="importSummary"></small></div><button id="closeImportReview">×</button></div><div class="table-wrap import-review"><table id="importReviewTable"></table></div><div class="modal-actions import-pagination"><span id="importPageStatus"></span><button id="importPrev">Previous</button><button id="importNext">Next</button><button id="cancelImport">Cancel</button><button id="postImport" class="primary">Post READY Rows</button></div></div></div>
 <datalist id="skuOptions"></datalist><datalist id="productOptions"></datalist><div id="toast"></div>
-<script src="config.js?v=0.6.5"></script><script src="cloud.js?v=0.6.5"></script><script type="module" src="app.js?v=0.6.5"></script></body></html>
+<script src="config.js?v=0.6.6"></script><script src="cloud.js?v=0.6.6"></script><script type="module" src="app.js?v=0.6.6"></script></body></html>
