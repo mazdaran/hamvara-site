@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {buildBusinessReport} from '../../mrp/reporting.js';
+import {readOpeningStockRow,resolveOpeningWarehouse} from '../../mrp/opening-stock-import.js';
 
 const state={
   warehouses:[{code:'WH-RM',name:'Raw Materials'},{code:'WH-SF',name:'Shop Floor'}],
@@ -49,4 +50,15 @@ test('new customer dashboard exposes initial inventory import',async()=>{
   assert.match(html,/id="inventoryOnboarding"/);
   assert.match(html,/Import Initial Inventory Excel/);
   assert.match(html,/data-import="openingStock"/);
+});
+
+test('customer SKU workbook headers map to item master fields',()=>{
+  const row={'SKU':8680613130008,'Description':'DIN 7505 3x12','TYPE':145,'UNIT':'PIECE','COST':48,'MAIN WAREHOUSE':'FG','MIN Q':180,'MAX Q':400};
+  const parsed=readOpeningStockRow(state,row,{parseNumber:Number,parseDate:value=>String(value||'2026-09-08')});
+  assert.deepEqual({code:parsed.code,warehouse:parsed.warehouse,unit:parsed.unit,category:parsed.category,itemType:parsed.itemType,min:parsed.min,max:parsed.max,quantity:parsed.quantity,hasQuantity:parsed.hasQuantity},{code:'8680613130008',warehouse:'WH-FG',unit:'ADET',category:'145',itemType:'FINISHED_GOOD',min:180,max:400,quantity:0,hasQuantity:false});
+});
+
+test('customer warehouse abbreviations FG and PACK are recognized',()=>{
+  assert.equal(resolveOpeningWarehouse(state,'FG'),'WH-FG');
+  assert.equal(resolveOpeningWarehouse(state,'PACK'),'WH-PK');
 });
