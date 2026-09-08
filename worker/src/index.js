@@ -35,6 +35,7 @@ export default {
       if (url.pathname === '/health') response = json({ ok: true, service: 'hamvara-growth-api', pageSpeedApiKeyConfigured: Boolean(env.PAGESPEED_API_KEY), oauthConfigured: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.OAUTH_STATE_SECRET && env.TOKEN_ENCRYPTION_KEY), databaseConfigured: Boolean(env.DB), aiConfigured: Boolean(env.AI), time: new Date().toISOString() });
       else if (url.pathname === '/api/audit' && request.method === 'POST') response = await audit(request, env);
       else if (url.pathname === '/api/sku-bridge/analyze' && request.method === 'POST') response = await analyzeSkuColumns(request, env);
+      else if (url.pathname === '/api/claimpilot/analyze' && request.method === 'POST') response = await analyzeClaimDocuments(request, env);
       else if (url.pathname === '/api/integrations' && request.method === 'GET') response = await integrationStatuses(env);
       else if (url.pathname === '/api/google/overview' && request.method === 'GET') response = await googleOverview(url, env);
       else if (/^\/api\/integrations\/(google|meta|linkedin|wordpress)\/test$/.test(url.pathname) && request.method === 'GET') response = await testIntegration(url.pathname.split('/')[3], env);
@@ -54,6 +55,97 @@ export default {
   }
 };
 
+
+
+async function analyzeClaimDocuments(request, env) {
+  if (!env.AI) throw httpError(503, 'Workers AI binding is not configured.');
+  const body = await request.json();
+  const documents = Array.isArray(body.documents) ? body.documents.slice(0, 3) : [];
+  if (!documents.length) throw httpError(400, 'At least one document is required.');
+  let totalBytes = 0;
+  const extracted = [];
+  for (const document of documents) {
+    const role = cleanCell(document.role, 40);
+    const fileName = cleanCell(document.fileName, 120) || 'claim-document';
+    const mimeType = cleanCell(document.mimeType, 100) || 'application/octet-stream';
+    const encoded = String(document.dataBase64 || '');
+    if (!/^[A-Za-z0-9+/=\s]+$/.test(encoded)) throw httpError(400, 'Invalid document encoding.');
+    let binary;
+    try { binary = atob(encoded.replace(/\s/g, '')); } catch { throw httpError(400, 'Invalid document encoding.'); }
+    if (binary.length > 3 * 1024 * 1024) throw httpError(413, fileName + ' exceeds the 3 MB beta limit.');
+    totalBytes += binary.length;
+    if (totalBytes > 8 * 1024 * 1024) throw httpError(413, 'The combined document size exceeds 8 MB.');
+    const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+    let text = '';
+    if (/^(text\/|application\/(csv|json))/.test(mimeType)) {
+      text = new TextDecoder().decode(bytes);
+    } else {
+      let conversion;
+      try {
+        conversion = await env.AI.toMarkdown({ name: fileName, blob: new Blob([bytes], { type: mimeType }) });
+      } catch {
+        throw httpError(502, fileName + ' could not be read. Use a clear PDF, image, spreadsheet or text file.');
+      }
+      const converted = Array.isArray(conversion) ? conversion[0] : conversion;
+      if (!converted || converted.format === 'error' || !String(converted.data || '').trim()) {
+        throw httpError(502, cleanCell(converted?.error, 240) || 'No readable text was found in ' + fileName + '.');
+      }
+      text = String(converted.data);
+    }
+    extracted.push({ role: role || 'supporting_document', fileName, text: text.slice(0, 12000) });
+  }
+  const currency = cleanCell(body.currency, 8) || 'USD';
+  const prompt = [
+    'Compare purchasing documents and return strict JSON only.',
+    'Never invent a SKU, quantity, price, date, contractual term or evidence. Use null or omit a finding when facts are uncertain.',
+    'A discrepancy must cite the source facts visible in the supplied document text.',
+    'Return exactly this shape:',
+    '{"claimStrength":0,"scoreText":"","headline":"","missingEvidence":[""],"discrepancies":[{"type":"","reference":"","evidence":"","freeResult":""}]}',
+    'claimStrength must be 0-100 and must decrease for missing documents, contradictory OCR or weak evidence.',
+    'Include at most 8 discrepancies. freeResult may show a quantity or unit price difference, but never calculate or reveal the total monetary claim.',
+    'Supported checks: shortage, overcharge, wrong SKU, packing mismatch, receipt mismatch, visible damage, quality rejection, late delivery, and documented freight/other cost.',
+    'Currency: ' + currency,
+    'Documents: ' + JSON.stringify(extracted)
+  ].join('\n');
+  const result = await env.AI.run('@cf/qwen/qwen3-30b-a3b-fp8', {
+    messages: [
+      { role: 'system', content: 'You are a cautious supplier-claim document comparison engine. Return valid JSON only. You do not provide legal advice.' },
+      { role: 'user', content: prompt }
+    ],
+    temperature: 0.1,
+    max_tokens: 1800
+  });
+  const raw = typeof result === 'string' ? result : (result.response || result.result?.response || '');
+  const parsed = extractJson(raw);
+  const discrepancies = Array.isArray(parsed.discrepancies) ? parsed.discrepancies.slice(0, 8).map(item => ({
+    type: cleanCell(item.type, 80),
+    reference: cleanCell(item.reference, 100),
+    evidence: cleanCell(item.evidence, 220),
+    freeResult: cleanCell(item.freeResult, 180)
+  })).filter(item => item.type) : [];
+  const missingEvidence = Array.isArray(parsed.missingEvidence) ? parsed.missingEvidence.slice(0, 8).map(item => cleanCell(item, 140)).filter(Boolean) : [];
+  const windowDays = Math.max(1, Math.min(365, Number(body.claimWindowDays || 14)));
+  let deadlineRisk = 'Check the claim period in your contract';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(body.deliveryDate || ''))) {
+    const deadline = new Date(body.deliveryDate + 'T12:00:00Z');
+    deadline.setUTCDate(deadline.getUTCDate() + windowDays);
+    const days = Math.ceil((deadline.getTime() - Date.now()) / 86400000);
+    deadlineRisk = days < 0 ? 'Contractual window may have expired ' + Math.abs(days) + ' day(s) ago' : days === 0 ? 'Contractual window may expire today' : 'Estimated contractual window: ' + days + ' day(s) remaining';
+  }
+  return json({
+    claimStrength: Math.max(0, Math.min(100, Number(parsed.claimStrength || 0))),
+    scoreText: cleanCell(parsed.scoreText, 180),
+    headline: cleanCell(parsed.headline, 180),
+    missingEvidence,
+    discrepancies: discrepancies.slice(0, 3),
+    totalDiscrepancies: discrepancies.length,
+    deadlineRisk,
+    processedDocuments: extracted.map(item => ({ role: item.role, fileName: item.fileName })),
+    premiumLocked: ['exact_claim_amount','all_discrepancies','damage_delay_freight_calculation','claim_letter','debit_note','pdf_package'],
+    requiresHumanApproval: true,
+    disclaimer: 'Document comparison only; not legal, customs or insurance advice.'
+  });
+}
 
 async function analyzeSkuColumns(request, env) {
   if (!env.AI) throw httpError(503, 'Workers AI binding is not configured.');
