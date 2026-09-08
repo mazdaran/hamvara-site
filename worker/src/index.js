@@ -107,16 +107,43 @@ async function analyzeClaimDocuments(request, env) {
     'Currency: ' + currency,
     'Documents: ' + JSON.stringify(extracted)
   ].join('\n');
-  const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fast', {
+  const result = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
     messages: [
       { role: 'system', content: 'You are a cautious supplier-claim document comparison engine. Return valid JSON only. You do not provide legal advice.' },
       { role: 'user', content: prompt }
     ],
+    response_format: {
+      type: 'json_schema',
+      json_schema: {
+        type: 'object',
+        properties: {
+          claimStrength: { type: 'number' },
+          scoreText: { type: 'string' },
+          headline: { type: 'string' },
+          missingEvidence: { type: 'array', items: { type: 'string' } },
+          discrepancies: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                type: { type: 'string' },
+                reference: { type: 'string' },
+                evidence: { type: 'string' },
+                freeResult: { type: 'string' }
+              },
+              required: ['type','reference','evidence','freeResult']
+            }
+          }
+        },
+        required: ['claimStrength','scoreText','headline','missingEvidence','discrepancies']
+      }
+    },
     temperature: 0.1,
     max_tokens: 1800
   });
-  const raw = typeof result === 'string' ? result : (result.response || result.result?.response || '');
-  const parsed = extractJson(raw);
+  const structured = result && typeof result.response === 'object' ? result.response : (result && typeof result.result?.response === 'object' ? result.result.response : null);
+  const raw = typeof result === 'string' ? result : (typeof result?.response === 'string' ? result.response : (typeof result?.result?.response === 'string' ? result.result.response : ''));
+  const parsed = structured || extractJson(raw);
   const discrepancies = Array.isArray(parsed.discrepancies) ? parsed.discrepancies.slice(0, 8).map(item => ({
     type: cleanCell(item.type, 80),
     reference: cleanCell(item.reference, 100),
