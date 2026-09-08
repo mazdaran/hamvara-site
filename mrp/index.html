@@ -35,10 +35,10 @@
   <button data-page="settings" data-i18n="settings">Settings</button>
 </nav>
 <main>
-<section id="dashboard" class="page active"><div class="section-title"><h2 data-i18n="operationsDashboard">Operations Dashboard</h2></div><div id="kpis" class="kpis"></div><div class="panel"><h2 data-i18n="actionRequired">Action Required</h2><div id="alerts"></div></div></section>
+<section id="dashboard" class="page active"><div class="section-title"><h2 data-i18n="operationsDashboard">Operations Dashboard</h2></div><div id="kpis" class="kpis"></div><div class="panel"><h2>Production Management KPI</h2><div id="productionManagementKpis" class="kpis process-kpis"></div><div id="productionManagementAlerts"></div></div><div class="panel dashboard-actions"><h2 data-i18n="actionRequired">Action Required</h2><div id="alerts"></div></div></section>
 <section id="products" class="page"><div class="page-head"><h2 data-i18n="products">Products</h2><div><input id="productSearch" data-i18n-placeholder="searchCodeName" placeholder="Search code or name"><button id="addProduct" data-i18n="newProduct">+ New Product</button></div></div><div class="table-wrap"><table id="productTable"></table></div></section>
 <section id="skus" class="page"><div class="page-head"><h2 data-i18n="itemMaster">Item Master & SKU</h2><div><input id="skuSearch" data-i18n-placeholder="searchSku" placeholder="Search SKU"><button id="addSku" data-i18n="newSku">+ New SKU</button></div></div><div class="table-wrap"><table id="skuTable"></table></div></section>
-<section id="stock" class="page"><div class="page-head"><div><h2 data-i18n="warehouseInventory">Warehouse Inventory</h2><small data-i18n="stockEditHint">Use this table for opening balances or authorized corrections.</small></div><div class="import-actions"><input id="stockSearch" data-i18n-placeholder="searchSku" placeholder="Search SKU"><button data-template="openingStock" data-i18n="downloadTemplate">Download Template</button><label class="button light"><span data-i18n="importExcel">Import Excel</span><input data-import="openingStock" type="file" accept=".xlsx" hidden></label></div></div><div class="warehouse-browser"><button id="warehouseRoot" class="warehouse-root active" type="button">▾ <span data-i18n="warehouses">Warehouses</span></button><div id="warehouseBranches" class="warehouse-branches"></div></div><div class="table-wrap"><table id="stockTable"></table></div></section>
+<section id="stock" class="page"><div class="page-head"><div><h2 data-i18n="warehouseInventory">Warehouse Inventory</h2><small data-i18n="stockEditHint">Use this table for opening balances or authorized corrections.</small></div><div class="import-actions"><input id="stockSearch" data-i18n-placeholder="searchSku" placeholder="Search SKU"><button data-template="openingStock" data-i18n="downloadTemplate">Download Template</button><label class="button light"><span data-i18n="importExcel">Import Excel</span><input data-import="openingStock" type="file" accept=".xlsx" hidden></label></div></div><div class="warehouse-browser"><button id="warehouseRoot" class="warehouse-root active" type="button">▾ <span data-i18n="warehouses">Warehouses</span></button><div id="warehouseBranches" class="warehouse-branches"></div></div><div id="warehouseKpis" class="kpis warehouse-kpis"></div><div class="table-wrap warehouse-stock-table"><table id="stockTable"></table></div><article class="panel warehouse-report"><h2>Warehouse Movement Report</h2><div class="table-wrap process-table"><table id="warehouseMovementTable"></table></div></article></section>
 <section id="receipts" class="page">
   <div class="page-head"><h2 data-i18n="goodsReceipt">Goods Receipt</h2><div class="import-actions"><button data-template="receipts" data-i18n="downloadTemplate">Download Template</button><label class="button light"><span data-i18n="importExcel">Import Excel</span><input data-import="receipts" type="file" accept=".xlsx" hidden></label></div></div>
   <div class="panel receipt-form">
@@ -63,9 +63,13 @@
 <section id="requirements" class="page"><div class="page-head"><h2 data-i18n="materialRequirements">Material Requirements & Shortages</h2><button id="exportRequirements" data-i18n="exportCsv">Export CSV</button></div><div id="orderSummary" class="cards"></div><div class="table-wrap"><table id="requirementTable"></table></div></section>
 <section id="production" class="page">
   <div class="page-head"><div><h2>Production Execution</h2><small>Work order → material reservation → shop-floor issue → finished-goods receipt</small></div><div class="production-create"><select id="productionOrderSelect"></select><button id="createProductionJob" class="primary compact">+ Work Order</button></div></div>
-  <div id="productionKpis" class="kpis process-kpis"></div>
-  <div class="hint">Release reserves the BOM materials. Issue moves them to Shop Floor. Completion consumes the issued materials and posts the good quantity to Product warehouse.</div>
-  <div class="table-wrap"><table id="productionTable"></table></div>
+  <div id="productionKpis" class="kpis production-kpis"></div>
+  <div id="productionLastChange" class="last-change"></div>
+  <div class="hint">Release reserves BOM materials. Issue moves them to Shop Floor. Reporting completion moves the batch to Quarantine; only accepted FQC posts it to Product warehouse.</div>
+  <article class="panel production-panel"><h2>Prioritized Production Queue</h2><div class="table-wrap process-table"><table id="productionQueueTable"></table></div></article>
+  <article class="panel production-panel"><h2>Work Orders</h2><div class="table-wrap"><table id="productionTable"></table></div></article>
+  <article class="panel production-panel"><h2>Batch Traceability & Actual Time</h2><div class="table-wrap process-table"><table id="productionTraceTable"></table></div></article>
+  <article class="panel production-panel"><h2>Production Audit Trail</h2><div class="table-wrap process-table"><table id="productionAuditTable"></table></div></article>
 </section>
 <section id="procurement" class="page">
   <div class="page-head"><div><h2>Procurement & Approved Suppliers</h2><small>PR → approved supplier → PO → quarantine receipt → three-way match</small></div><div><button id="addSupplier">+ Supplier</button><button id="addPr">+ Purchase Request</button><button id="addPo" class="primary compact">+ Purchase Order</button></div></div>
@@ -105,6 +109,7 @@
 <label><span data-i18n="language">Language</span><select id="language"><option value="en">English</option><option value="tr">Türkçe</option></select></label>
 <label><span data-i18n="companyName">Company Name</span><input id="companyName"></label>
 <label><span data-i18n="currency">Currency</span><input id="currency"></label>
+<label><span>Device / Workstation Name</span><input id="deviceName" placeholder="e.g. SHOP-FLOOR-01"></label>
 <p><span data-i18n="appVersion">App Version</span>: <b>0.5.1</b></p><p><span data-i18n="publisher">Publisher</span>: <b>Hamvara</b></p><p>Copyright: <b>© 2026 Hamvara. All rights reserved.</b></p>
 <p><span data-i18n="dataSchema">Data Schema</span>: <b id="schemaVersion"></b></p>
 <p data-i18n="dataLocation">Operational data is stored in the Data folder beside the EXE.</p>

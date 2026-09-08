@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {appendAudit,appendInventoryMovement,warehouseReport,productionMetrics} from '../../mrp/audit-workflow.js';
+
+test('warehouse report is isolated to the selected warehouse and carries trace data',()=>{const state={skus:[{code:'A',name:'A',cost:2},{code:'B',name:'B',cost:5}],stock:{A:{'WH-SF':5,'WH-FG':20},B:{'WH-FG':1}},inventoryMovements:[]};appendInventoryMovement(state,{sku:'A',warehouse:'WH-SF',qty:5,direction:'IN',type:'PRODUCTION_ISSUE',reference:'WO-1',batchNo:'B-1',user:'operator',device:'LINE-1',at:'2026-09-08T10:00:00Z'});const report=warehouseReport(state,'WH-SF');assert.equal(report.totalQuantity,5);assert.equal(report.inventoryValue,10);assert.equal(report.items.length,1);assert.equal(report.movements[0].batchNo,'B-1')});
+
+test('audit remembers the last changer and production KPI reports yield and holds',()=>{const state={auditTrail:[],productionJobs:[{status:'COMPLETED',completedQty:9,scrapQty:1,actualLeadTimeHours:6},{status:'AWAITING_FQC'},{status:'QUALITY_HOLD'},{status:'PLANNED',dueDate:'2026-09-01'}]};appendAudit(state,{action:'UPDATED',user:'manager',device:'OFFICE-1',at:'2026-09-08T10:00:00Z'});const kpi=productionMetrics(state,new Date('2026-09-08T10:00:00Z'));assert.equal(state.lastChange.user,'manager');assert.equal(kpi.awaitingFqc,1);assert.equal(kpi.holds,1);assert.equal(kpi.overdue,1);assert.equal(kpi.yieldPercent,90);assert.equal(kpi.averageActualHours,6)});

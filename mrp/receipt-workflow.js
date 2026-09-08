@@ -11,7 +11,7 @@ export function calculateAvailableStock(stockRecord,warehouses){
     .reduce((total,warehouse)=>total+Number(stock[warehouse.code]||0),0)-Number(stock.reserved||0);
 }
 
-export function queueReceiptForApproval(state,data){
+export function queueReceiptForApproval(state,data,meta={}){
   const qty=Number(data.qty);
   if(!data.sku||!Number.isFinite(qty)||qty<=0)throw new Error('Valid SKU and quantity are required.');
   if(!data.targetWarehouse||data.targetWarehouse==='WH-QA')throw new Error('A destination warehouse is required.');
@@ -38,6 +38,8 @@ export function queueReceiptForApproval(state,data){
   };
   state.receipts.unshift(receipt);
   state.qualityInspections.unshift(inspection);
+  appendInventoryMovement(state,{...metaFields(meta),sku:data.sku,warehouse:'WH-QA',qty,direction:'IN',type:'QUARANTINE_RECEIPT',reference:data.reference,at:data.postedAt});
+  appendAudit(state,{...metaFields(meta),action:'RECEIPT_SUBMITTED_FOR_QC',entity:'RECEIPT',reference:data.reference,at:data.postedAt});
   return {receipt,inspection};
 }
 
@@ -59,7 +61,7 @@ export function applyReceiptQcDecision(state,inspectionId,ncrNo=''){
   return receipt;
 }
 
-export function applyManagerReceiptDecision(state,receiptId,approved,ncrNo=''){
+export function applyManagerReceiptDecision(state,receiptId,approved,ncrNo='',meta={}){
   const receipt=requireReceipt(state,receiptId);
   if(receipt.qcStatus!=='ACCEPTED'||receipt.status!=='PENDING_MANAGER')throw new Error('QC acceptance is required before manager approval.');
   const inspection=state.qualityInspections.find(item=>item.receiptId===receiptId);
@@ -68,6 +70,7 @@ export function applyManagerReceiptDecision(state,receiptId,approved,ncrNo=''){
     receipt.status='HOLD_NCR';
     receipt.ncrNo=ncrNo;
     if(inspection){inspection.ncrNo||=ncrNo;inspection.disposition='HOLD'}
+    appendAudit(state,{...metaFields(meta),action:'RECEIPT_MANAGER_REJECTED',entity:'RECEIPT',reference:receipt.reference});
     return receipt;
   }
   const stock=state.stock[receipt.sku]??={};
@@ -84,5 +87,11 @@ export function applyManagerReceiptDecision(state,receiptId,approved,ncrNo=''){
   receipt.status='POSTED';
   receipt.approvedAt=new Date().toISOString();
   if(inspection)inspection.stockReleased=true;
+  appendInventoryMovement(state,{...metaFields(meta),sku:receipt.sku,warehouse:'WH-QA',qty:receipt.qty,direction:'OUT',type:'QC_RELEASE',reference:receipt.reference,at:receipt.approvedAt});
+  appendInventoryMovement(state,{...metaFields(meta),sku:receipt.sku,warehouse:destination,qty:receipt.qty,direction:'IN',type:'GOODS_RECEIPT',reference:receipt.reference,at:receipt.approvedAt});
+  appendAudit(state,{...metaFields(meta),action:'RECEIPT_POSTED',entity:'RECEIPT',reference:receipt.reference,at:receipt.approvedAt,details:`${receipt.qty} ${receipt.sku} → ${destination}`});
   return receipt;
 }
+import {appendAudit,appendInventoryMovement} from './audit-workflow.js';
+
+function metaFields(meta={}){return{user:meta.user||'unknown',role:meta.role||'',workspace:meta.workspace||'',device:meta.device||'unknown'}}

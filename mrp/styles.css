@@ -11,6 +11,7 @@
 
 /* Production execution */
 .production-create{align-items:center}.production-create select{min-width:360px}.production-materials{white-space:normal;min-width:230px;line-height:1.6}.production-qty{min-width:110px;text-align:right}.production-location{min-width:165px;font-weight:600;color:var(--blue-dark)}#productionTable td:last-child{display:flex;gap:6px;align-items:center}@media(max-width:900px){.production-create select{min-width:220px}}
+.production-kpis{grid-template-columns:repeat(8,minmax(120px,1fr))}.production-panel{margin-top:14px}.last-change{background:#17212b;color:#dce5ec;border-left:4px solid #4a9bd1;padding:10px 13px;margin-bottom:12px;font-size:12px}.warehouse-kpis{grid-template-columns:repeat(5,minmax(145px,1fr))}.warehouse-report{margin-top:14px}.warehouse-stock-table{max-height:360px}.dashboard-actions{margin-top:14px}.management-next{background:var(--blue-light);border-left:4px solid var(--blue);padding:10px 12px}.production-panel .table-wrap{max-height:360px}@media(max-width:1350px){.production-kpis{grid-template-columns:repeat(4,1fr)}}@media(max-width:900px){.production-kpis,.warehouse-kpis{grid-template-columns:repeat(2,1fr)}}
 
 /* SaaS workspace access */
 .cloud-account{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
