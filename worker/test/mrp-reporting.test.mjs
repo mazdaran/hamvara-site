@@ -61,7 +61,7 @@ test('interface is English-only while translation infrastructure remains availab
   assert.doesNotMatch(html,/<select id="language">/);
   assert.match(html,/id="interfaceLanguage" value="English" readonly/);
   assert.match(html,/data-i18n="productionExecution"/);
-  assert.match(html,/app\.js\?v=0\.6\.13/);
+  assert.match(html,/app\.js\?v=0\.6\.14/);
   assert.equal(PERSIAN_I18N.dashboard,'داشبورد');
   assert.equal(PERSIAN_I18N.reportsAnalytics,'گزارش‌ها و تحلیل‌ها');
   assert.equal(PERSIAN_I18N.documentsLabelsScan,'اسناد، لیبل و اسکن');
@@ -83,6 +83,18 @@ test('goods receipt exposes a clear manual entry path with controlled QC routing
   assert.match(html,/Manual receipt → Quarantine → QC acceptance → Manager approval → Destination warehouse/);
   assert.match(app,/transactionType:'GOODS_RECEIPT_QUARANTINE'/);
   assert.match(app,/\$\('#manualReceiptButton'\)\.onclick/);
+});
+
+test('supplier waybill recognition is located inside goods receipt',async()=>{
+  const html=await readFile(new URL('../../mrp/index.html',import.meta.url),'utf8');
+  const receipts=html.match(/<section id="receipts"[\s\S]*?<\/section>/)?.[0]||'';
+  const documents=html.match(/<section id="documents"[\s\S]*?<\/section>/)?.[0]||'';
+  assert.match(receipts,/id="supplierWaybillReceipt"/);
+  assert.match(receipts,/Supplier Waybill Recognition &amp; Incoming Labels/);
+  assert.match(receipts,/id="analyzeWaybill"/);
+  assert.match(receipts,/id="printWaybillLabels"/);
+  assert.doesNotMatch(documents,/id="waybillImage"/);
+  assert.equal((html.match(/id="waybillImage"/g)||[]).length,1);
 });
 
 test('every main and process-control navigation entry has an explicit Persian translation',async()=>{

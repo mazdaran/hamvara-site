@@ -2,11 +2,11 @@
 <html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Hamvara MRP Industrial</title><link rel="stylesheet" href="styles.css?v=0.6.13">
+  <title>Hamvara MRP Industrial</title><link rel="stylesheet" href="styles.css?v=0.6.14">
 </head>
 <body>
 <header class="topbar">
-  <div><h1>HAMVARA <span class="brand-sub">MRP INDUSTRIAL</span></h1><span id="version">Version 0.6.13</span></div>
+  <div><h1>HAMVARA <span class="brand-sub">MRP INDUSTRIAL</span></h1><span id="version">Version 0.6.14</span></div>
   <div class="top-actions">
     <span id="saveState" class="badge ok" data-i18n="saved">Saved</span>
     <button id="backupBtn" data-i18n="backup">Backup</button>
@@ -79,6 +79,7 @@
     </div>
     <button id="postReceipt" class="primary">Submit for QC</button>
   </article>
+  <article id="supplierWaybillReceipt" class="panel receipt-waybill-panel"><div class="page-head"><div><h2>Supplier Waybill Recognition &amp; Incoming Labels</h2><small>Upload a supplier waybill image, review the recognized items and print one incoming barcode label for each row.</small></div><span class="status-chip warn">REVIEW REQUIRED</span></div><div class="waybill-upload"><input id="waybillImage" type="file" accept="image/*" capture="environment"><button id="analyzeWaybill" class="gate-action">Read Waybill Image</button><span id="waybillStatus">Upload an image; extracted rows must be reviewed before printing or posting.</span></div><div class="table-wrap process-table"><table id="waybillTable"></table></div><button id="printWaybillLabels">Print One Barcode Label per Row</button></article>
   <div class="page-head history-head"><h2 data-i18n="receiptHistory">Receipt History</h2></div>
   <div class="table-wrap receipt-history"><table id="receiptTable"></table></div>
 </section>
@@ -112,7 +113,6 @@
     <article class="panel"><h2>Receive from Shop Floor</h2><div class="form-grid scan-grid"><label><span>Scanned work order / batch</span><input id="shopFloorScan" placeholder="Scan or enter WO / batch"></label><label><span>Good quantity</span><input id="shopFloorGoodQty" type="text" data-number="true" inputmode="decimal"></label><label><span>Scrap quantity</span><input id="shopFloorScrapQty" type="text" data-number="true" inputmode="decimal" value="0"></label></div><div class="document-actions"><button id="startCameraScan">Use Mobile Camera</button><button id="receiveShopFloor" class="gate-action">Confirm Receipt to FQC</button></div><video id="scannerVideo" playsinline hidden></video><p class="section-hint">The finished batch is posted to Quarantine and cannot enter Product stock until FQC acceptance.</p></article>
   </div>
   <article class="panel production-panel"><h2>Carton Label Designer</h2><div class="label-designer"><div class="label-controls"><div class="form-grid"><label><span>Saved templates</span><select id="labelTemplateSelect"><option value="">New template</option></select></label><label><span>Template name</span><input id="labelTemplateName" value="Default Carton"></label><label><span>Size</span><select id="labelPreset"><option value="100x150">100×150 mm</option><option value="100x100">100×100 mm</option><option value="148x210">A5</option><option value="210x297">A4</option><option value="custom">Custom</option></select></label><label><span>Width mm</span><input id="labelWidth" type="number" value="100"></label><label><span>Height mm</span><input id="labelHeight" type="number" value="150"></label><label><span>Orientation</span><select id="labelOrientation"><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select></label><label><span>Margin mm</span><input id="labelMargin" type="number" value="4"></label><label><span>Labels per page</span><input id="labelsPerPage" type="number" min="1" max="24" value="1"></label><label><span>Gap mm</span><input id="labelGap" type="number" min="0" value="2"></label><label><span>Manufacture date</span><input id="labelMfg" type="date"></label><label><span>Expiry date</span><input id="labelExpiry" type="date"></label><label><span>Quantity / carton</span><input id="labelQty" type="text" data-number="true"></label><label><span>Warning text</span><input id="labelWarning"></label><label class="wide"><span>Logo / product / package image</span><input id="labelImage" type="file" accept="image/*"></label></div><div class="document-actions"><button id="saveLabelTemplate">Save Template</button><button id="printCartonLabel" class="gate-action">Print / Save PDF</button></div></div><div id="labelPreview" class="label-preview"></div></div></article>
-  <article class="panel production-panel"><h2>Supplier Waybill Recognition & Incoming Labels</h2><div class="waybill-upload"><input id="waybillImage" type="file" accept="image/*" capture="environment"><button id="analyzeWaybill" class="gate-action">Read Waybill Image</button><span id="waybillStatus">Upload an image; extracted rows must be reviewed before posting.</span></div><div class="table-wrap process-table"><table id="waybillTable"></table></div><button id="printWaybillLabels">Print One Barcode Label per Row</button></article>
 </section>
 <section id="procurement" class="page">
   <div class="page-head"><div><h2>Procurement & Approved Suppliers</h2><small>PR → approved supplier → PO → quarantine receipt → three-way match</small></div><div><button id="addSupplier">+ Supplier</button><button id="addPr">+ Purchase Request</button><button id="addPo" class="primary compact">+ Purchase Order</button></div></div>
@@ -155,7 +155,7 @@
 <label><span>Device / Workstation Name</span><input id="deviceName" placeholder="e.g. SHOP-FLOOR-01"></label>
 <label><span>Barcode Standard</span><select id="barcodeStandard"><option value="EAN_13">EAN-13</option><option value="UPC_A">UPC-A</option></select></label>
 <p class="section-hint">Retail labels require a valid numeric GTIN. Enter 12 digits for EAN-13 or 11 digits for UPC-A and Hamvara will calculate the check digit; a supplied check digit is validated.</p>
-<p><span data-i18n="appVersion">App Version</span>: <b>0.6.13</b></p><p><span data-i18n="publisher">Publisher</span>: <b>Hamvara</b></p><p>Copyright: <b>© 2026 Hamvara. All rights reserved.</b></p>
+<p><span data-i18n="appVersion">App Version</span>: <b>0.6.14</b></p><p><span data-i18n="publisher">Publisher</span>: <b>Hamvara</b></p><p>Copyright: <b>© 2026 Hamvara. All rights reserved.</b></p>
 <p><span data-i18n="dataSchema">Data Schema</span>: <b id="schemaVersion"></b></p>
 <p data-i18n="dataLocation">Operational data is stored in the Data folder beside the EXE.</p>
 <div id="automaticBackupStatus" class="summary">Automatic full backup: twice daily at 06:00 and 18:00 UTC.</div>
@@ -172,4 +172,4 @@
 </div><p class="section-hint">After creation, the BOM opens automatically with its first material row ready for entry.</p><div class="modal-actions"><button id="cancelNewBom" type="button">Cancel</button><button type="submit" class="primary">Create &amp; Open BOM</button></div></form></div>
 <div id="importReview" class="modal" hidden><div class="modal-card"><div class="page-head"><div><h2>Import Validation</h2><small id="importSummary"></small></div><button id="closeImportReview">×</button></div><div class="table-wrap import-review"><table id="importReviewTable"></table></div><div class="modal-actions import-pagination"><span id="importPageStatus"></span><button id="importPrev">Previous</button><button id="importNext">Next</button><button id="cancelImport">Cancel</button><button id="postImport" class="primary">Post READY Rows</button></div></div></div>
 <datalist id="skuOptions"></datalist><datalist id="productOptions"></datalist><div id="toast"></div>
-<script src="config.js?v=0.6.13"></script><script src="cloud.js?v=0.6.13"></script><script type="module" src="app.js?v=0.6.13"></script></body></html>
+<script src="config.js?v=0.6.14"></script><script src="cloud.js?v=0.6.14"></script><script type="module" src="app.js?v=0.6.14"></script></body></html>
