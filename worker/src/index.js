@@ -36,6 +36,7 @@ export default {
       else if (url.pathname === '/api/audit' && request.method === 'POST') response = await audit(request, env);
       else if (url.pathname === '/api/sku-bridge/analyze' && request.method === 'POST') response = await analyzeSkuColumns(request, env);
       else if (url.pathname === '/api/claimpilot/analyze' && request.method === 'POST') response = await analyzeClaimDocuments(request, env);
+      else if (url.pathname === '/api/loadfit/analyze' && request.method === 'POST') response = await analyzeLoadFit(request, env);
       else if (url.pathname === '/api/integrations' && request.method === 'GET') response = await integrationStatuses(env);
       else if (url.pathname === '/api/google/overview' && request.method === 'GET') response = await googleOverview(url, env);
       else if (/^\/api\/integrations\/(google|meta|linkedin|wordpress)\/test$/.test(url.pathname) && request.method === 'GET') response = await testIntegration(url.pathname.split('/')[3], env);
@@ -56,6 +57,96 @@ export default {
 };
 
 
+
+
+async function analyzeLoadFit(request, env) {
+  if (!env.AI) throw httpError(503, 'Workers AI binding is not configured.');
+  const body = await request.json();
+  const shipment = {
+    product: cleanCell(body.product, 100),
+    category: cleanCell(body.category, 40),
+    quantity: Math.max(0, Number(body.qty || 0)),
+    loadedUnits: Math.max(0, Number(body.loadedUnits || 0)),
+    cartons: Math.max(0, Number(body.cartons || 0)),
+    pallets: Math.max(0, Number(body.palletCount || 0)),
+    grossWeightKg: Math.max(0, Number(body.gross || 0)),
+    volumeUtilizationPercent: Math.max(0, Math.min(100, Number(body.volumePct || 0))),
+    payloadUtilizationPercent: Math.max(0, Math.min(100, Number(body.weightPct || 0))),
+    freightCostPerUnit: Math.max(0, Number(body.costPer || 0)),
+    emptyOrderUnits: Math.max(0, Number(body.empty || 0)),
+    transport: cleanCell(body.tr?.name, 80),
+    riskScore: Math.max(0, Math.min(100, Number(body.risk || 0))),
+    conditions: {
+      fragile: Boolean(body.conditions?.fragile),
+      upright: Boolean(body.conditions?.upright),
+      stackable: Boolean(body.conditions?.stackable),
+      ventilation: Boolean(body.conditions?.ventilation),
+      moistureSensitive: Boolean(body.conditions?.moisture),
+      potentialDangerousGoods: Boolean(body.conditions?.hazardous),
+      minimumTemperatureC: body.conditions?.tempMin === null ? null : Number(body.conditions?.tempMin),
+      maximumTemperatureC: body.conditions?.tempMax === null ? null : Number(body.conditions?.tempMax),
+      maximumHumidityPercent: body.conditions?.humidity === null ? null : Number(body.conditions?.humidity),
+      insurance: cleanCell(body.conditions?.insurance, 30)
+    }
+  };
+  if (!shipment.product || !shipment.transport || shipment.quantity < 1) throw httpError(400, 'A calculated shipment is required.');
+  const prompt = [
+    'Review this shipment-planning result and return strict JSON only.',
+    'Do not recalculate geometry and do not invent regulations, carrier limits, policy coverage or certifications.',
+    'Give operationally useful checks, phrased as items the user must confirm before loading.',
+    'If potentialDangerousGoods is true, clearly require classification and carrier approval without guessing a UN number.',
+    'If temperature or ventilation is specified, mention cold-chain or airflow verification.',
+    'If insurance is none or unknown, tell the user to confirm cargo cover and exclusions.',
+    'Return exactly: {"summary":"","recommendations":[""],"riskSignal":"low|medium|high","disclaimer":""}.',
+    'Provide 3 to 5 concise recommendations.',
+    'Shipment: ' + JSON.stringify(shipment)
+  ].join('\n');
+  try {
+    const result = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+      messages: [
+        { role: 'system', content: 'You are a cautious cargo-planning assistant. You do not provide certified loading, dangerous-goods, insurance or legal approval.' },
+        { role: 'user', content: prompt }
+      ],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          type: 'object',
+          properties: {
+            summary: { type: 'string' },
+            recommendations: { type: 'array', items: { type: 'string' } },
+            riskSignal: { type: 'string', enum: ['low','medium','high'] },
+            disclaimer: { type: 'string' }
+          },
+          required: ['summary','recommendations','riskSignal','disclaimer']
+        }
+      },
+      temperature: 0.1,
+      max_tokens: 900
+    });
+    const structured = result && typeof result.response === 'object' ? result.response : (result && typeof result.result?.response === 'object' ? result.result.response : null);
+    const raw = typeof result === 'string' ? result : (typeof result?.response === 'string' ? result.response : (typeof result?.result?.response === 'string' ? result.result.response : ''));
+    const parsed = structured || extractJson(raw);
+    return json({
+      summary: cleanCell(parsed.summary, 240),
+      recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations.slice(0, 5).map(item => cleanCell(item, 220)).filter(Boolean) : [],
+      riskSignal: ['low','medium','high'].includes(parsed.riskSignal) ? parsed.riskSignal : (shipment.riskScore >= 65 ? 'high' : shipment.riskScore >= 35 ? 'medium' : 'low'),
+      disclaimer: cleanCell(parsed.disclaimer, 240) || 'Planning estimate only. Verify with the carrier and qualified personnel.'
+    });
+  } catch (error) {
+    console.error('LoadFit AI review fallback:', error);
+    const recommendations = ['Confirm the transport unit internal dimensions and payload with the carrier.', 'Verify packaging strength, load distribution and cargo securing before loading.'];
+    if (shipment.conditions.ventilation) recommendations.push('Confirm that the loading pattern preserves required airflow.');
+    if (shipment.conditions.moistureSensitive) recommendations.push('Confirm moisture barriers, desiccants and storage humidity limits.');
+    if (shipment.conditions.potentialDangerousGoods) recommendations.push('Obtain dangerous-goods classification and carrier approval before booking.');
+    if (shipment.conditions.insurance === 'none' || shipment.conditions.insurance === 'unknown') recommendations.push('Confirm cargo insurance scope, exclusions and declared value.');
+    return json({
+      summary: 'The capacity estimate is usable for planning, but handling and carrier checks remain open.',
+      recommendations: recommendations.slice(0, 5),
+      riskSignal: shipment.riskScore >= 65 ? 'high' : shipment.riskScore >= 35 ? 'medium' : 'low',
+      disclaimer: 'Planning estimate only. Verify with the carrier and qualified personnel.'
+    });
+  }
+}
 
 async function analyzeClaimDocuments(request, env) {
   if (!env.AI) throw httpError(503, 'Workers AI binding is not configured.');
