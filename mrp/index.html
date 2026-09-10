@@ -2,11 +2,11 @@
 <html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Hamvara MRP Industrial</title><link rel="stylesheet" href="styles.css?v=0.6.14">
+  <title>Hamvara MRP Industrial</title><link rel="stylesheet" href="styles.css?v=0.6.16"><link rel="stylesheet" href="project-workspaces.css?v=0.6.16">
 </head>
 <body>
 <header class="topbar">
-  <div><h1>HAMVARA <span class="brand-sub">MRP INDUSTRIAL</span></h1><span id="version">Version 0.6.14</span></div>
+  <div><h1>HAMVARA <span class="brand-sub">MRP INDUSTRIAL</span></h1><span id="version">Version 0.6.16</span></div>
   <div class="top-actions">
     <span id="saveState" class="badge ok" data-i18n="saved">Saved</span>
     <button id="backupBtn" data-i18n="backup">Backup</button>
@@ -26,6 +26,7 @@
   <button data-page="orders" data-i18n="orders">Orders</button>
   <button data-page="requirements" data-i18n="requirements">Requirements</button>
   <button data-page="reports" data-i18n="reportsAnalytics">Reports & Analytics</button>
+  <button data-page="projects">Projects & KPI</button>
   <button data-page="importCenter" data-i18n="universalImport">Universal Import</button>
   <div class="nav-label nav-section" data-i18n="processControl">PROCESS CONTROL</div>
   <button data-page="production" data-i18n="productionExecution">Production Execution</button>
@@ -148,6 +149,28 @@
   <div id="exchangeKpis" class="kpis exchange-kpis"></div>
   <div class="table-wrap"><table id="exchangeTable"></table></div>
 </section>
+<section id="projects" class="page">
+  <div class="page-head"><div><h2>Projects & Continuous Improvement</h2><small>Run factory projects with operational ERP data, measurable KPI and controlled actions</small></div><button id="addProject" class="primary compact">+ New Project</button></div>
+  <div id="projectPortfolioKpis" class="kpis project-kpis"></div>
+  <article class="panel project-control"><div class="form-grid">
+    <label class="wide"><span>Active project</span><select id="projectSelect"></select></label>
+    <label><span>Management method</span><select id="projectMethod"><option>KANBAN</option><option>WATERFALL</option><option>SCRUM</option><option>LEAN</option><option>SIX_SIGMA</option><option>HYBRID</option></select></label>
+    <label><span>Status</span><select id="projectStatus"><option>PLANNING</option><option>ACTIVE</option><option>ON_HOLD</option><option>COMPLETED</option><option>CANCELLED</option></select></label>
+    <label class="wide"><span>Project name</span><input id="projectName"></label><label><span>Owner</span><input id="projectOwner"></label><label><span>Start date</span><input id="projectStartDate" type="date"></label><label><span>Due date</span><input id="projectDueDate" type="date"></label>
+    <label class="wide"><span>Objective / expected result</span><input id="projectObjective"></label>
+    <label><span>Approved budget</span><input id="projectBudget" data-number="true" inputmode="decimal"></label>
+    <label><span>ERP link type</span><select id="projectLinkType"><option value="">No link</option><option>PRODUCTION_ORDER</option><option>SALES_ORDER</option><option>PURCHASE_ORDER</option><option>SKU</option><option>MACHINE</option><option>QUALITY_NCR</option><option>WAREHOUSE</option></select></label>
+    <label><span>ERP reference</span><input id="projectLinkId" placeholder="WO, order, SKU or NCR number"></label>
+  </div></article>
+  <div class="project-layout">
+    <article class="panel project-board-panel"><div class="project-section-head"><div><h2>Execution Board</h2><small id="projectMethodHint"></small></div><button id="addProjectTask">+ Task</button></div><div id="projectBoard" class="project-board"></div></article>
+    <article id="projectMethodWorkspace" class="panel method-workspace"></article>
+    <article class="panel project-planning-map"><div class="project-section-head"><div><h2>Task Planning Map</h2><small>Assign tasks to Waterfall milestones or Scrum sprints and maintain planned dates</small></div></div><div class="table-wrap method-table"><table id="projectTaskPlanningTable"></table></div></article>
+    <article class="panel project-kpi-panel"><div class="project-section-head"><div><h2>Project KPI</h2><small>Live values can be calculated directly from ERP activity</small></div><button id="addProjectKpi">+ KPI</button></div><div id="projectKpiCards" class="project-kpi-cards"></div><div class="table-wrap project-kpi-table"><table id="projectKpiTable"></table></div></article>
+    <article class="panel project-finance-panel"><div class="project-section-head"><div><h2>Project Financial Control</h2><small>Budget, commitments, actual cost and revenue synchronized with ERP records</small></div><button id="addProjectFinance">+ Financial Entry</button></div><div id="projectFinanceKpis" class="kpis project-finance-kpis"></div><div class="table-wrap project-finance-table"><table id="projectFinanceTable"></table></div></article>
+    <article class="panel project-links-panel"><div class="project-section-head"><div><h2>ERP Link Register</h2><small>Link an ERP record to this project and optionally to one task; the relation is stored on both records</small></div><button id="addProjectLink">+ ERP Link</button></div><div class="table-wrap project-links-table"><table id="projectLinksTable"></table></div></article>
+  </div>
+</section>
 <section id="settings" class="page"><div class="panel narrow"><h2 data-i18n="systemSettings">System Settings</h2>
 <label><span>Interface Language</span><input id="interfaceLanguage" value="English" readonly></label>
 <label><span data-i18n="companyName">Company Name</span><input id="companyName"></label>
@@ -155,7 +178,7 @@
 <label><span>Device / Workstation Name</span><input id="deviceName" placeholder="e.g. SHOP-FLOOR-01"></label>
 <label><span>Barcode Standard</span><select id="barcodeStandard"><option value="EAN_13">EAN-13</option><option value="UPC_A">UPC-A</option></select></label>
 <p class="section-hint">Retail labels require a valid numeric GTIN. Enter 12 digits for EAN-13 or 11 digits for UPC-A and Hamvara will calculate the check digit; a supplied check digit is validated.</p>
-<p><span data-i18n="appVersion">App Version</span>: <b>0.6.14</b></p><p><span data-i18n="publisher">Publisher</span>: <b>Hamvara</b></p><p>Copyright: <b>© 2026 Hamvara. All rights reserved.</b></p>
+<p><span data-i18n="appVersion">App Version</span>: <b>0.6.16</b></p><p><span data-i18n="publisher">Publisher</span>: <b>Hamvara</b></p><p>Copyright: <b>© 2026 Hamvara. All rights reserved.</b></p>
 <p><span data-i18n="dataSchema">Data Schema</span>: <b id="schemaVersion"></b></p>
 <p data-i18n="dataLocation">Operational data is stored in the Data folder beside the EXE.</p>
 <div id="automaticBackupStatus" class="summary">Automatic full backup: twice daily at 06:00 and 18:00 UTC.</div>
@@ -172,4 +195,4 @@
 </div><p class="section-hint">After creation, the BOM opens automatically with its first material row ready for entry.</p><div class="modal-actions"><button id="cancelNewBom" type="button">Cancel</button><button type="submit" class="primary">Create &amp; Open BOM</button></div></form></div>
 <div id="importReview" class="modal" hidden><div class="modal-card"><div class="page-head"><div><h2>Import Validation</h2><small id="importSummary"></small></div><button id="closeImportReview">×</button></div><div class="table-wrap import-review"><table id="importReviewTable"></table></div><div class="modal-actions import-pagination"><span id="importPageStatus"></span><button id="importPrev">Previous</button><button id="importNext">Next</button><button id="cancelImport">Cancel</button><button id="postImport" class="primary">Post READY Rows</button></div></div></div>
 <datalist id="skuOptions"></datalist><datalist id="productOptions"></datalist><div id="toast"></div>
-<script src="config.js?v=0.6.14"></script><script src="cloud.js?v=0.6.14"></script><script type="module" src="app.js?v=0.6.14"></script></body></html>
+<script src="config.js?v=0.6.16"></script><script src="cloud.js?v=0.6.16"></script><script type="module" src="app.js?v=0.6.16"></script></body></html>

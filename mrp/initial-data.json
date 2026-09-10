@@ -1,6 +1,6 @@
 {
-  "appVersion": "0.5.0",
-  "schemaVersion": 6,
+  "appVersion": "0.6.16",
+  "schemaVersion": 14,
   "company": "Hamvara",
   "warehouses": [
     {
@@ -42,5 +42,14 @@
   "qualityInspections": [],
   "salesOrders": [],
   "financeApprovals": [],
-  "shipments": []
+  "shipments": [],
+  "projects": [],
+  "projectTasks": [],
+  "kpiDefinitions": [],
+  "projectMilestones": [],
+  "projectSprints": [],
+  "projectFiveWhys": [],
+  "projectDmaicStages": [],
+  "projectFinance": [],
+  "projectErpLinks": []
 }
