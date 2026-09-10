@@ -1,0 +1,29 @@
+.compliance-note {
+  display: none;
+  margin-top: 18px;
+  padding: 14px 15px;
+  border: 1px solid rgba(255, 177, 74, .45);
+  border-radius: 9px;
+  background: rgba(255, 177, 74, .07);
+}
+
+.compliance-note.visible {
+  display: block;
+}
+
+.compliance-note b,
+.compliance-note span {
+  display: block;
+}
+
+.compliance-note b {
+  color: var(--orange);
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.compliance-note span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
