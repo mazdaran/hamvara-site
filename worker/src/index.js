@@ -36,6 +36,7 @@ export default {
       else if (url.pathname === '/api/audit' && request.method === 'POST') response = await audit(request, env);
       else if (url.pathname === '/api/sku-bridge/analyze' && request.method === 'POST') response = await analyzeSkuColumns(request, env);
       else if (url.pathname === '/api/claimpilot/analyze' && request.method === 'POST') response = await analyzeClaimDocuments(request, env);
+      else if (url.pathname === '/api/deadlineguard/analyze' && request.method === 'POST') response = await analyzeDeadlineDocument(request, env);
       else if (url.pathname === '/api/loadfit/analyze' && request.method === 'POST') response = await analyzeLoadFit(request, env);
       else if (url.pathname === '/api/integrations' && request.method === 'GET') response = await integrationStatuses(env);
       else if (url.pathname === '/api/google/overview' && request.method === 'GET') response = await googleOverview(url, env);
@@ -58,6 +59,137 @@ export default {
 
 
 
+
+
+async function analyzeDeadlineDocument(request, env) {
+  if (!env.AI) throw httpError(503, 'Workers AI binding is not configured.');
+  const body = await request.json();
+  const fileName = cleanCell(body.fileName, 140) || 'trade-document';
+  const mimeType = cleanCell(body.mimeType, 100) || 'application/octet-stream';
+  const documentRole = cleanCell(body.documentRole, 50) || 'other';
+  const context = cleanCell(body.context, 700);
+  const encoded = String(body.dataBase64 || '');
+  if (!encoded || !/^[A-Za-z0-9+/=\\s]+$/.test(encoded)) throw httpError(400, 'A valid document is required.');
+  let binary;
+  try { binary = atob(encoded.replace(/\\s/g, '')); } catch { throw httpError(400, 'Invalid document encoding.'); }
+  if (binary.length > 5 * 1024 * 1024) throw httpError(413, 'The document exceeds the 5 MB beta limit.');
+  const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+  let documentText = '';
+  if (/^(text\\/|application\\/(csv|json))/.test(mimeType)) {
+    documentText = new TextDecoder().decode(bytes);
+  } else {
+    let conversion;
+    try {
+      conversion = await env.AI.toMarkdown({ name: fileName, blob: new Blob([bytes], { type: mimeType }) });
+    } catch {
+      throw httpError(502, 'The document could not be read. Use a clear PDF, image, Excel, CSV or text file.');
+    }
+    const converted = Array.isArray(conversion) ? conversion[0] : conversion;
+    if (!converted || converted.format === 'error' || !String(converted.data || '').trim()) {
+      throw httpError(502, cleanCell(converted?.error, 240) || 'No readable text was found in the document.');
+    }
+    documentText = String(converted.data);
+  }
+  documentText = documentText.slice(0, 18000);
+  const prompt = [
+    'Extract trade deadlines from the supplied document and return strict JSON only.',
+    'Do not invent dates, parties, references, obligations or conditions.',
+    'Use YYYY-MM-DD only when the source supports a calendar date. Otherwise use an empty string.',
+    'A conditional date must be marked conditional=true and its trigger explained in condition.',
+    'Source excerpt must be a short faithful excerpt or close factual rendering of the relevant document text.',
+    'Return at most 20 deadlines and this exact shape:',
+    '{"project":"","counterparty":"","reference":"","deadlines":[{"title":"","date":"YYYY-MM-DD or empty","owner":"","category":"Shipment|Contract|Payment|Insurance|Certificate|Inspection|Claim|Customs|Other","importance":"high|medium|low","sourceExcerpt":"","confidence":0.0,"conditional":false,"condition":""}]}',
+    'High importance means missing the date could plausibly block shipment, payment, insurance coverage, document presentation, customs action or a contractual claim.',
+    'Document role: ' + documentRole,
+    context ? 'User context: ' + context : '',
+    'Document text: ' + documentText
+  ].filter(Boolean).join('\\n');
+  const model = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+  const result = await env.AI.run(model, {
+    messages: [
+      { role: 'system', content: 'You are a cautious international-trade deadline extraction engine. You identify document facts for human review and do not provide legal, banking, customs or insurance advice.' },
+      { role: 'user', content: prompt }
+    ],
+    response_format: {
+      type: 'json_schema',
+      json_schema: {
+        type: 'object',
+        properties: {
+          project: { type: 'string' },
+          counterparty: { type: 'string' },
+          reference: { type: 'string' },
+          deadlines: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                title: { type: 'string' },
+                date: { type: 'string' },
+                owner: { type: 'string' },
+                category: { type: 'string', enum: ['Shipment','Contract','Payment','Insurance','Certificate','Inspection','Claim','Customs','Other'] },
+                importance: { type: 'string', enum: ['high','medium','low'] },
+                sourceExcerpt: { type: 'string' },
+                confidence: { type: 'number' },
+                conditional: { type: 'boolean' },
+                condition: { type: 'string' }
+              },
+              required: ['title','date','owner','category','importance','sourceExcerpt','confidence','conditional','condition']
+            }
+          }
+        },
+        required: ['project','counterparty','reference','deadlines']
+      }
+    },
+    temperature: 0.1,
+    max_tokens: 2200
+  });
+  const structured = result && typeof result.response === 'object'
+    ? result.response
+    : (result && typeof result.result?.response === 'object' ? result.result.response : null);
+  const raw = typeof result === 'string'
+    ? result
+    : (typeof result?.response === 'string' ? result.response : (typeof result?.result?.response === 'string' ? result.result.response : ''));
+  let parsed = structured;
+  if (!parsed) {
+    try { parsed = JSON.parse(extractJson(raw)); }
+    catch { throw httpError(502, 'AI returned an invalid deadline response.'); }
+  }
+  const allowedCategories = ['Shipment','Contract','Payment','Insurance','Certificate','Inspection','Claim','Customs','Other'];
+  const allowedImportance = ['high','medium','low'];
+  const deadlines = (Array.isArray(parsed.deadlines) ? parsed.deadlines : []).slice(0, 20).map(item => {
+    const date = /^\\d{4}-\\d{2}-\\d{2}$/.test(String(item.date || '')) ? String(item.date) : '';
+    const condition = cleanCell(item.condition, 260);
+    const excerpt = cleanCell(item.sourceExcerpt, 360);
+    return {
+      title: cleanCell(item.title, 160),
+      date,
+      owner: cleanCell(item.owner, 100),
+      category: allowedCategories.includes(item.category) ? item.category : 'Other',
+      importance: allowedImportance.includes(item.importance) ? item.importance : 'medium',
+      sourceExcerpt: [excerpt, condition ? 'Condition: ' + condition : ''].filter(Boolean).join(' · '),
+      confidence: Math.max(0, Math.min(1, Number(item.confidence) || 0)),
+      conditional: Boolean(item.conditional)
+    };
+  }).filter(item => item.title || item.date || item.sourceExcerpt);
+  const extension = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : '';
+  const inputType = ['xlsx','xls','csv'].includes(extension) ? 'Excel/spreadsheet'
+    : extension === 'pdf' ? 'PDF'
+    : ['jpg','jpeg','png','webp'].includes(extension) ? 'image'
+    : 'document';
+  return json({
+    project: cleanCell(parsed.project, 160) || fileName,
+    counterparty: cleanCell(parsed.counterparty, 140),
+    reference: cleanCell(parsed.reference, 100),
+    deadlines,
+    generationMethod: 'AI extraction from ' + inputType,
+    source: 'Cloudflare Workers AI',
+    model,
+    sourceFile: fileName,
+    extractedAt: new Date().toISOString(),
+    requiresHumanApproval: true,
+    disclaimer: 'Review every extracted date against the original document before use.'
+  });
+}
 
 async function analyzeLoadFit(request, env) {
   if (!env.AI) throw httpError(503, 'Workers AI binding is not configured.');
