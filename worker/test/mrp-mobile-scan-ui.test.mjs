@@ -11,6 +11,8 @@ test('shop floor exposes secure temporary mobile camera pairing',async()=>{
   ]);
   assert.match(html,/id="pairMobileCamera"/);
   assert.match(html,/id="mobilePairQr"/);
+  assert.match(html,/id="barcodeTargetKind"/);
+  assert.match(html,/id="printSelectedBarcodes"/);
   assert.match(mobile,/html5-qrcode\.min\.js/);
   assert.match(mobile,/id="connectionStatus"/);
   assert.match(server,/SCAN_SESSION_MINUTES = 15/);

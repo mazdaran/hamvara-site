@@ -6,9 +6,10 @@ const number=value=>{const result=Number(value);return Number.isFinite(result)?r
 const metaFields=(meta={})=>({user:meta.user||'unknown',role:meta.role||'',workspace:meta.workspace||'',device:meta.device||'unknown'});
 
 export function normalizeShopFloorState(state){
-  state.operators??=[];state.workCenters??=[];state.operationSessions??=[];state.andonAlerts??=[];state.continuousImprovementItems??=[];
+  state.operators??=[];state.workCenters??=[];state.operationSessions??=[];state.andonAlerts??=[];state.continuousImprovementItems??=[];state.shopFloorTasks??=DEFAULT_ROUTE.map((code,index)=>({id:`TASK-${String(index+1).padStart(3,'0')}`,code,name:code.replaceAll('_',' '),barcode:'',description:'',active:true}));
   state.operators.forEach((item,index)=>{item.id||=uid('OP');item.code||=`OP-${String(index+1).padStart(3,'0')}`;item.barcode??='';item.name??='';item.shift??='A';item.hourlyRate=number(item.hourlyRate);item.active=item.active!==false});
   state.workCenters.forEach((item,index)=>{item.id||=uid('WC');item.code||=`WC-${String(index+1).padStart(3,'0')}`;item.barcode??='';item.machineBarcode??='';item.name??='';item.machine??='';item.status??='AVAILABLE';item.hourlyRate=number(item.hourlyRate);item.overheadRate=number(item.overheadRate);item.restartMinutes=number(item.restartMinutes);item.reworkMinutesPerUnit=number(item.reworkMinutesPerUnit);item.active=item.active!==false});
+  state.shopFloorTasks.forEach((item,index)=>{item.id||=`TASK-${String(index+1).padStart(3,'0')}`;item.code||=`OPERATION-${String(index+1).padStart(3,'0')}`;item.name||=item.code.replaceAll('_',' ');item.barcode??='';item.description??='';item.active=item.active!==false});
   state.productionJobs??=[];state.productionJobs.forEach(job=>{job.operationRoute=Array.isArray(job.operationRoute)&&job.operationRoute.length?job.operationRoute:[...DEFAULT_ROUTE]});
   state.operationSessions.forEach(item=>{item.status??='RUNNING';item.goodQty=number(item.goodQty);item.scrapQty=number(item.scrapQty);item.reworkQty=number(item.reworkQty);item.downtimeMinutes=number(item.downtimeMinutes);item.pauseStartedAt??='';item.pauseEvents??=[]});
   return state;
