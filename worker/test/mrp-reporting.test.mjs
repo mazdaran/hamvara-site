@@ -61,7 +61,7 @@ test('interface is English-only while translation infrastructure remains availab
   assert.doesNotMatch(html,/<select id="language">/);
   assert.match(html,/id="interfaceLanguage" value="English" readonly/);
   assert.match(html,/data-i18n="productionExecution"/);
-  assert.match(html,/app\.js\?v=0\.6\.21/);
+  assert.match(html,/app\.js\?v=0\.6\.22/);
   assert.equal(PERSIAN_I18N.dashboard,'داشبورد');
   assert.equal(PERSIAN_I18N.reportsAnalytics,'گزارش‌ها و تحلیل‌ها');
   assert.equal(PERSIAN_I18N.documentsLabelsScan,'اسناد، لیبل و اسکن');
@@ -73,6 +73,8 @@ test('interface is English-only while translation infrastructure remains availab
   assert.equal(translateUiText('Page 2 / 4 · rows 101–200 of 350','fa'),'صفحه 2 از 4 · ردیف 101 تا 200 از 350');
   assert.equal(hasUiTranslation('Line Cost / Unit'),true);
 });
+
+test('report center exposes dedicated IFRS and US GAAP engine outputs',async()=>{const html=await readFile(new URL('../../mrp/index.html',import.meta.url),'utf8');assert.match(html,/option value="financialStatements"/);assert.match(html,/option value="accountingControls"/)});
 
 test('goods receipt exposes a clear manual entry path with controlled QC routing',async()=>{
   const html=await readFile(new URL('../../mrp/index.html',import.meta.url),'utf8');

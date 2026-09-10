@@ -1,3 +1,5 @@
+import {buildAccountingControlReport,buildStatutoryReport} from './accounting-engines.js';
+
 const num=value=>Number(value)||0;
 const dateOf=value=>String(value||'').slice(0,10);
 const inPeriod=(value,from,to)=>{const date=dateOf(value);return (!from||!date||date>=from)&&(!to||!date||date<=to)};
@@ -87,8 +89,12 @@ function auditReport(state,filters){
   return{title:'Audit Trail & Last Changes',columns:['date','action','entity','reference','user','role','device','workspace','details'],rows,kpis:[['Changes',rows.length],['Users',new Set(rows.map(x=>x.user).filter(Boolean)).size],['Devices',new Set(rows.map(x=>x.device).filter(Boolean)).size],['Entities',new Set(rows.map(x=>x.entity).filter(Boolean)).size]]};
 }
 
+function statutoryFinancialReport(state,filters){if(state.accountingSettings?.profile==='MANAGEMENT_ONLY')return{title:'Statutory Financial Statements',columns:['engine','statement','line','amount','standard','status'],rows:[{engine:'None',statement:'Configuration',line:'Select IFRS/TFRS or US GAAP in Settings.',amount:0,standard:'Management only',status:'BLOCKED'}],kpis:[['Engine','NONE'],['Readiness','BLOCKED'],['Blocking issues',1]]};const report=buildStatutoryReport(state,filters),rows=filterRows(report.rows.map(row=>({...row,engine:report.name,status:row.line==='Balance check'&&row.amount?'OUT_OF_BALANCE':'CALCULATED'})),filters,'date');return{title:`${report.name} · Financial Statements`,columns:['engine','statement','line','amount','standard','status'],rows,kpis:[['Engine',report.engine],['Readiness',report.readiness],['Blocking issues',report.issues.length],['Warnings',report.warnings.length],['Presentation',report.presentation],['Inventory',report.inventoryStandard]]}}
+
+function accountingControlReport(state,filters){const report=buildAccountingControlReport(state,filters),records=[...(report.issues||[]).map(message=>({severity:'BLOCKER',code:'CORE_CONTROL',reference:'',message})),...(report.warnings||[]).map(message=>({severity:'WARNING',code:'CORE_CONTROL',reference:'',message})),...(report.engineIssues||[]),...(report.engineWarnings||[])],rows=records.map(item=>({engine:report.engineName,severity:item.severity,code:item.code,reference:item.reference||'',message:item.message,status:item.severity==='BLOCKER'?'ACTION_REQUIRED':'REVIEW'}));return{title:`${report.engineName} · Accounting Controls`,columns:['engine','severity','code','reference','message','status'],rows:filterRows(rows,filters,'date'),kpis:[['Profile',report.profile],['Engine',report.engine],['Readiness',report.readiness],['Blocking issues',rows.filter(row=>row.severity==='BLOCKER').length],['Warnings',rows.filter(row=>row.severity==='WARNING').length],['Posted journals',report.postedJournals]]}}
+
 export function buildBusinessReport(state,rawFilters={}){
   const filters={type:rawFilters.type||'overview',from:rawFilters.from||'',to:rawFilters.to||'',warehouse:rawFilters.warehouse||'',query:String(rawFilters.query||'').trim().toLowerCase()};
-  const builders={overview:overviewReport,inventory:inventoryReport,movements:movementReport,production:productionReport,quality:qualityReport,procurement:procurementReport,sales:salesReport,receipts:receiptReport,audit:auditReport};
+  const builders={overview:overviewReport,financialStatements:statutoryFinancialReport,accountingControls:accountingControlReport,inventory:inventoryReport,movements:movementReport,production:productionReport,quality:qualityReport,procurement:procurementReport,sales:salesReport,receipts:receiptReport,audit:auditReport};
   return(builders[filters.type]||overviewReport)(state,filters);
 }
