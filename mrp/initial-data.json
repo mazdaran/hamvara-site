@@ -1,6 +1,6 @@
 {
-  "appVersion": "0.6.18",
-  "schemaVersion": 16,
+  "appVersion": "0.6.21",
+  "schemaVersion": 19,
   "company": "Hamvara",
   "warehouses": [
     {
@@ -56,5 +56,12 @@
   "workCenters": [],
   "operationSessions": [],
   "andonAlerts": [],
-  "continuousImprovementItems": []
+  "continuousImprovementItems": [],
+  "accountingSettings": {"profile":"IFRS_TFRS","baseCurrency":"TRY","fiscalYearStart":"01-01"},
+  "chartOfAccounts": [],
+  "accountingPeriods": [],
+  "journalEntries": [],
+  "inventoryValuations": {},
+  "inventoryCostLayers": [],
+  "inventoryCostMovements": []
 }
