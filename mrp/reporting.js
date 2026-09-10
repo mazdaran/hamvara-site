@@ -17,10 +17,13 @@ function overviewReport(state){
   const shipped=(state.shipments||[]).filter(item=>item.status==='SHIPPED').length;
   const salesValue=(state.salesOrders||[]).reduce((sum,item)=>sum+num(item.qty)*num(item.unitPrice),0);
   const purchaseValue=(state.purchaseOrders||[]).reduce((sum,item)=>sum+num(item.qty)*num(item.unitPrice),0);
+  const operationalLoss=production.reduce((sum,item)=>sum+num(item.operationalLoss),0),deliveryRisk=production.filter(item=>['AT_RISK','LATE'].includes(item.deliveryRisk)).length;
   const rows=[
     {area:'Inventory',metric:'Inventory value',value:inventoryValue,status:'LIVE'},
     {area:'Production',metric:'Open production orders',value:openOrders,status:openOrders?'ACTION':'OK'},
     {area:'Production',metric:'Completed work orders',value:completed,status:'INFO'},
+    {area:'Production',metric:'Forecast delivery risks',value:deliveryRisk,status:deliveryRisk?'ACTION':'OK'},
+    {area:'Finance',metric:'Production operational loss',value:operationalLoss,status:operationalLoss?'ACTION':'OK'},
     {area:'Quality',metric:'Pending inspections',value:pendingQc,status:pendingQc?'ACTION':'OK'},
     {area:'Quality',metric:'NCR / rejected inspections',value:ncr,status:ncr?'ACTION':'OK'},
     {area:'Procurement',metric:'Open purchase requests',value:openPr,status:openPr?'OPEN':'OK'},
@@ -29,7 +32,7 @@ function overviewReport(state){
     {area:'Sales',metric:'Sales order value',value:salesValue,status:'INFO'},
     {area:'Shipping',metric:'Shipped consignments',value:shipped,status:'INFO'}
   ];
-  return{title:'Business Management Overview',columns:['area','metric','value','status'],rows,kpis:[['Inventory value',inventoryValue],['Open orders',openOrders],['Pending QC',pendingQc],['Open PR',openPr],['Open PO',openPo],['Sales value',salesValue]]};
+  return{title:'Business Management Overview',columns:['area','metric','value','status'],rows,kpis:[['Inventory value',inventoryValue],['Open orders',openOrders],['Delivery risks',deliveryRisk],['Operational loss',operationalLoss],['Pending QC',pendingQc],['Sales value',salesValue]]};
 }
 
 function inventoryReport(state,filters){
@@ -52,9 +55,9 @@ function movementReport(state,filters){
 }
 
 function productionReport(state,filters){
-  const rows=filterRows((state.productionJobs||[]).map(item=>({date:item.completedAt||item.startedAt||item.createdAt||'',workOrder:item.workOrderNo||'',order:item.orderNo||'',product:item.productName||item.productCode||'',batch:item.batchNo||'',planned:num(item.plannedQty),completed:num(item.completedQty),scrap:num(item.scrapQty),yield:item.completedQty||item.scrapQty?num(item.completedQty)/(num(item.completedQty)+num(item.scrapQty))*100:0,plannedHours:num(item.plannedLeadTimeHours),actualHours:item.startedAt&&item.completedAt?(new Date(item.completedAt)-new Date(item.startedAt))/36e5:0,status:item.status||'',user:item.completedBy?.user||item.createdBy?.user||''})),filters,'date');
+  const rows=filterRows((state.productionJobs||[]).map(item=>({date:item.productionCompletedAt||item.completedAt||item.issuedAt||item.startedAt||item.createdAt||'',workOrder:item.workOrderNo||'',order:item.orderNo||'',product:item.productName||item.productCode||'',batch:item.batchNo||'',planned:num(item.plannedQty),completed:num(item.completedQty),scrap:num(item.scrapQty),yield:item.completedQty||item.scrapQty?num(item.completedQty)/(num(item.completedQty)+num(item.scrapQty))*100:0,plannedHours:num(item.plannedLeadTimeHours),forecastHours:num(item.forecastLeadTimeHours),forecastCompletion:item.forecastCompletionAt||'',delayHours:num(item.forecastDelayHours),downtimeMinutes:num(item.downtimeMinutes),downtimeCost:num(item.downtimeCost),scrapLoss:num(item.scrapLoss),reworkCost:num(item.reworkCost),operationalLoss:num(item.operationalLoss),deliveryRisk:item.deliveryRisk||'ON_TIME',actualHours:item.actualLeadTimeHours!=null?num(item.actualLeadTimeHours):item.startedAt&&item.completedAt?(new Date(item.completedAt)-new Date(item.startedAt))/36e5:0,status:item.status||'',user:item.completedBy?.user||item.createdBy?.user||''})),filters,'date');
   const good=rows.reduce((s,x)=>s+x.completed,0),scrap=rows.reduce((s,x)=>s+x.scrap,0);
-  return{title:'Production Performance & KPI',columns:['date','workOrder','order','product','batch','planned','completed','scrap','yield','plannedHours','actualHours','status','user'],rows,kpis:[['Work orders',rows.length],['Completed',rows.filter(x=>x.status==='COMPLETED').length],['Good quantity',good],['Scrap',scrap],['Yield %',good+scrap?good/(good+scrap)*100:0],['Avg actual h',rows.length?rows.reduce((s,x)=>s+x.actualHours,0)/rows.length:0]]};
+  return{title:'Production Performance & KPI',columns:['date','workOrder','order','product','batch','planned','completed','scrap','yield','plannedHours','forecastHours','forecastCompletion','delayHours','downtimeMinutes','downtimeCost','scrapLoss','reworkCost','operationalLoss','deliveryRisk','actualHours','status','user'],rows,kpis:[['Work orders',rows.length],['Delivery risks',rows.filter(x=>x.deliveryRisk!=='ON_TIME').length],['Downtime min',rows.reduce((s,x)=>s+x.downtimeMinutes,0)],['Operational loss',rows.reduce((s,x)=>s+x.operationalLoss,0)],['Scrap',scrap],['Yield %',good+scrap?good/(good+scrap)*100:0]]};
 }
 
 function qualityReport(state,filters){

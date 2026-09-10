@@ -61,7 +61,7 @@ test('interface is English-only while translation infrastructure remains availab
   assert.doesNotMatch(html,/<select id="language">/);
   assert.match(html,/id="interfaceLanguage" value="English" readonly/);
   assert.match(html,/data-i18n="productionExecution"/);
-  assert.match(html,/app\.js\?v=0\.6\.17/);
+  assert.match(html,/app\.js\?v=0\.6\.18/);
   assert.equal(PERSIAN_I18N.dashboard,'داشبورد');
   assert.equal(PERSIAN_I18N.reportsAnalytics,'گزارش‌ها و تحلیل‌ها');
   assert.equal(PERSIAN_I18N.documentsLabelsScan,'اسناد، لیبل و اسکن');
