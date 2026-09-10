@@ -456,6 +456,21 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
       </article>
 
       <article class="prod">
+        <span class="prod-code">DEC-01</span>
+        <h3>Hamvara Decision Center</h3>
+        <p class="what" data-t="dcWhat"></p>
+        <ul>
+          <li data-t="dcF1"></li>
+          <li data-t="dcF2"></li>
+          <li data-t="dcF3"></li>
+        </ul>
+        <div class="prod-foot">
+          <a class="btn" href="/decision-center/" data-t="dcCta">Open Decision Center</a>
+          <span class="prod-price" data-t="dcPrice"></span>
+        </div>
+      </article>
+
+      <article class="prod">
         <span class="prod-code">GRW-01</span>
         <h3>Hamvara Growth</h3>
         <p class="what" data-t="p4What"></p>
@@ -603,6 +618,10 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
       p6Cta: 'Analyze inventory',
       p6Price: 'Free beta · runs in your browser',
 
+      dcWhat: 'Choose a production problem, find the right Hamvara plan and run a live MRP workflow before requesting a demo.',
+      dcF1: 'Problem-to-solution advisor', dcF2: 'Interactive plan and price builder', dcF3: 'Live order-to-production workflow',
+      dcCta: 'Open Decision Center', dcPrice: 'Interactive preview',
+
       p4What: 'A practical growth workspace that turns live website and channel data into a prioritized marketing plan.',
       p4f1: 'Real PageSpeed and Lighthouse website audit',
       p4f2: 'Search, analytics and social data connections',
@@ -679,6 +698,10 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
       p6Cta: 'تحلیل موجودی',
       p6Price: 'نسخه آزمایشی رایگان · اجرا در مرورگر',
 
+      dcWhat: 'مشکل تولید را انتخاب کنید، پلن مناسب Hamvara را پیدا کنید و قبل از درخواست دمو جریان زنده MRP را اجرا کنید.',
+      dcF1: 'راهنمای مشکل تا راهکار', dcF2: 'سازنده تعاملی پلن و قیمت', dcF3: 'جریان زنده سفارش تا تولید',
+      dcCta: 'ورود به مرکز تصمیم‌گیری', dcPrice: 'پیش‌نمایش تعاملی',
+
       p4What: 'فضای کاری رشد که دادهٔ واقعی سایت و کانال‌ها را به برنامهٔ بازاریابی اولویت‌بندی‌شده تبدیل می‌کند.',
       p4f1: 'تحلیل واقعی سایت با PageSpeed و Lighthouse',
       p4f2: 'اتصال داده‌های جست‌وجو، آمار و شبکه‌های اجتماعی',
@@ -754,6 +777,10 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
       p6f3: 'Veri kaynağı kayıtlı yönetim raporu',
       p6Cta: 'Stoğu analiz et',
       p6Price: 'Ücretsiz beta · tarayıcıda çalışır',
+
+      dcWhat: 'Üretim sorununuzu seçin, doğru Hamvara planını bulun ve demo istemeden önce canlı MRP akışını çalıştırın.',
+      dcF1: 'Problemden çözüme danışman', dcF2: 'Etkileşimli plan ve fiyat oluşturucu', dcF3: 'Siparişten üretime canlı akış',
+      dcCta: 'Karar Merkezini aç', dcPrice: 'Etkileşimli önizleme',
 
       p4What: 'Canlı web sitesi ve kanal verilerini öncelikli bir pazarlama planına dönüştüren pratik büyüme çalışma alanı.',
       p4f1: 'Gerçek PageSpeed ve Lighthouse web sitesi analizi',
@@ -848,6 +875,8 @@ footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:va
       trackEvent('select_content', { content_type: 'product', item_id: 'sku_bridge' });
     } else if (href === '/inventory-intelligence/') {
       trackEvent('select_content', { content_type: 'product', item_id: 'inventory_intelligence' });
+    } else if (href === '/decision-center/') {
+      trackEvent('select_content', { content_type: 'product', item_id: 'decision_center' });
     } else if (href === '/growth/') {
       trackEvent('select_content', { content_type: 'product', item_id: 'hamvara_growth' });
     } else if (href === '#contact') {
