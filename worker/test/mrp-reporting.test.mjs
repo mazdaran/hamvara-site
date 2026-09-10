@@ -61,7 +61,7 @@ test('interface is English-only while translation infrastructure remains availab
   assert.doesNotMatch(html,/<select id="language">/);
   assert.match(html,/id="interfaceLanguage" value="English" readonly/);
   assert.match(html,/data-i18n="productionExecution"/);
-  assert.match(html,/app\.js\?v=0\.6\.22/);
+  assert.match(html,/app\.js\?v=0\.6\.23/);
   assert.equal(PERSIAN_I18N.dashboard,'داشبورد');
   assert.equal(PERSIAN_I18N.reportsAnalytics,'گزارش‌ها و تحلیل‌ها');
   assert.equal(PERSIAN_I18N.documentsLabelsScan,'اسناد، لیبل و اسکن');
@@ -75,6 +75,8 @@ test('interface is English-only while translation infrastructure remains availab
 });
 
 test('report center exposes dedicated IFRS and US GAAP engine outputs',async()=>{const html=await readFile(new URL('../../mrp/index.html',import.meta.url),'utf8');assert.match(html,/option value="financialStatements"/);assert.match(html,/option value="accountingControls"/)});
+
+test('shop floor exposes smart camera and hardware-scanner identification with confirmation',async()=>{const html=await readFile(new URL('../../mrp/index.html',import.meta.url),'utf8'),app=await readFile(new URL('../../mrp/app.js',import.meta.url),'utf8');const live=html.match(/<section id="shopFloorLive"[\s\S]*?<\/section>/)?.[0]||'';assert.match(live,/id="liveSmartScan"/);assert.match(live,/id="startLiveCamera"/);assert.match(live,/id="liveScannerVideo"/);assert.match(live,/VERIFY BEFORE APPLY/);assert.match(app,/identifyShopFloorCode/);assert.match(app,/SHOP_FLOOR_BARCODE_CONFIRMED/)});
 
 test('goods receipt exposes a clear manual entry path with controlled QC routing',async()=>{
   const html=await readFile(new URL('../../mrp/index.html',import.meta.url),'utf8');

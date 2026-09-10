@@ -7,8 +7,8 @@ const metaFields=(meta={})=>({user:meta.user||'unknown',role:meta.role||'',works
 
 export function normalizeShopFloorState(state){
   state.operators??=[];state.workCenters??=[];state.operationSessions??=[];state.andonAlerts??=[];state.continuousImprovementItems??=[];
-  state.operators.forEach((item,index)=>{item.id||=uid('OP');item.code||=`OP-${String(index+1).padStart(3,'0')}`;item.name??='';item.shift??='A';item.hourlyRate=number(item.hourlyRate);item.active=item.active!==false});
-  state.workCenters.forEach((item,index)=>{item.id||=uid('WC');item.code||=`WC-${String(index+1).padStart(3,'0')}`;item.name??='';item.machine??='';item.status??='AVAILABLE';item.hourlyRate=number(item.hourlyRate);item.overheadRate=number(item.overheadRate);item.restartMinutes=number(item.restartMinutes);item.reworkMinutesPerUnit=number(item.reworkMinutesPerUnit);item.active=item.active!==false});
+  state.operators.forEach((item,index)=>{item.id||=uid('OP');item.code||=`OP-${String(index+1).padStart(3,'0')}`;item.barcode??='';item.name??='';item.shift??='A';item.hourlyRate=number(item.hourlyRate);item.active=item.active!==false});
+  state.workCenters.forEach((item,index)=>{item.id||=uid('WC');item.code||=`WC-${String(index+1).padStart(3,'0')}`;item.barcode??='';item.machineBarcode??='';item.name??='';item.machine??='';item.status??='AVAILABLE';item.hourlyRate=number(item.hourlyRate);item.overheadRate=number(item.overheadRate);item.restartMinutes=number(item.restartMinutes);item.reworkMinutesPerUnit=number(item.reworkMinutesPerUnit);item.active=item.active!==false});
   state.productionJobs??=[];state.productionJobs.forEach(job=>{job.operationRoute=Array.isArray(job.operationRoute)&&job.operationRoute.length?job.operationRoute:[...DEFAULT_ROUTE]});
   state.operationSessions.forEach(item=>{item.status??='RUNNING';item.goodQty=number(item.goodQty);item.scrapQty=number(item.scrapQty);item.reworkQty=number(item.reworkQty);item.downtimeMinutes=number(item.downtimeMinutes);item.pauseStartedAt??='';item.pauseEvents??=[]});
   return state;
