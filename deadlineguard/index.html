@@ -70,7 +70,7 @@
 <footer><div class="wrap foot"><span>© 2026 Hamvara · Istanbul, Türkiye</span><span>Practical software for international trade</span></div></footer>
 <script>
 (()=>{'use strict';
-const $=id=>document.getElementById(id), api=String((window.HAMVARA_GROWTH_CONFIG||{}).apiBase||'').replace(/\/$/,'');
+const $=id=>document.getElementById(id), api=String((window.HAMVARA_GROWTH_CONFIG||{}).apiBase||'https://hamvara-growth-api.yahya-mazdarani.workers.dev').replace(/\/$/,'');
 let state={id:'',project:'',party:'',reference:'',method:'Manual entry',source:'None',engine:'Rule engine',createdAt:'',reviewedAt:'',reviewedBy:'',revisions:0,items:[]};
 const q=s=>String(s||'').trim(), esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function reportId(){return 'DLG-'+new Date().toISOString().slice(0,10).replace(/-/g,'')+'-'+Math.random().toString(36).slice(2,7).toUpperCase()}
