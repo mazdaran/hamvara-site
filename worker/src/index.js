@@ -69,13 +69,13 @@ async function analyzeDeadlineDocument(request, env) {
   const documentRole = cleanCell(body.documentRole, 50) || 'other';
   const context = cleanCell(body.context, 700);
   const encoded = String(body.dataBase64 || '');
-  if (!encoded || !/^[A-Za-z0-9+/=\\s]+$/.test(encoded)) throw httpError(400, 'A valid document is required.');
+  if (!encoded || !/^[A-Za-z0-9+/=\s]+$/.test(encoded)) throw httpError(400, 'A valid document is required.');
   let binary;
-  try { binary = atob(encoded.replace(/\\s/g, '')); } catch { throw httpError(400, 'Invalid document encoding.'); }
+  try { binary = atob(encoded.replace(/\s/g, '')); } catch { throw httpError(400, 'Invalid document encoding.'); }
   if (binary.length > 5 * 1024 * 1024) throw httpError(413, 'The document exceeds the 5 MB beta limit.');
   const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
   let documentText = '';
-  if (/^(text\\/|application\\/(csv|json))/.test(mimeType)) {
+  if (/^(text\/|application\/(csv|json))/.test(mimeType)) {
     documentText = new TextDecoder().decode(bytes);
   } else {
     let conversion;
@@ -157,7 +157,7 @@ async function analyzeDeadlineDocument(request, env) {
   const allowedCategories = ['Shipment','Contract','Payment','Insurance','Certificate','Inspection','Claim','Customs','Other'];
   const allowedImportance = ['high','medium','low'];
   const deadlines = (Array.isArray(parsed.deadlines) ? parsed.deadlines : []).slice(0, 20).map(item => {
-    const date = /^\\d{4}-\\d{2}-\\d{2}$/.test(String(item.date || '')) ? String(item.date) : '';
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(String(item.date || '')) ? String(item.date) : '';
     const condition = cleanCell(item.condition, 260);
     const excerpt = cleanCell(item.sourceExcerpt, 360);
     return {
