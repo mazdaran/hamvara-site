@@ -3,6 +3,10 @@ const MAX_STATE_BYTES = 5 * 1024 * 1024;
 export async function handleMrpRequest(request, env, url) {
   if (!env.DB) throw httpError(503, 'MRP database is not configured.');
 
+  if (url.pathname === '/api/mrp/mobile-scan/session' && request.method === 'GET') return mobileScanSession(request, env);
+  if (url.pathname === '/api/mrp/mobile-scan/events' && request.method === 'GET') return mobileScanEvents(request, env, url);
+  if (url.pathname === '/api/mrp/mobile-scan/events' && request.method === 'POST') return createMobileScanEvent(request, env);
+
   if (url.pathname === '/api/mrp/workspaces' && request.method === 'POST') {
     return provisionWorkspace(request, env);
   }
@@ -35,8 +39,78 @@ export async function handleMrpRequest(request, env, url) {
   if (url.pathname === '/api/mrp/waybill/analyze' && request.method === 'POST') {
     return analyzeWaybill(request, env, actor);
   }
+  if (url.pathname === '/api/mrp/scan-sessions' && request.method === 'POST') return createScanSession(env, actor);
+  const scanSessionMatch = /^\/api\/mrp\/scan-sessions\/([0-9a-f-]+)(?:\/(events|close))?\/?$/.exec(url.pathname);
+  if (scanSessionMatch && request.method === 'GET' && scanSessionMatch[2] === 'events') return scanSessionEvents(env, actor, scanSessionMatch[1], url);
+  if (scanSessionMatch && request.method === 'POST' && scanSessionMatch[2] === 'close') return closeScanSession(env, actor, scanSessionMatch[1]);
+  const scanEventMatch = /^\/api\/mrp\/scan-events\/([0-9a-f-]+)\/confirm\/?$/.exec(url.pathname);
+  if (scanEventMatch && request.method === 'POST') return confirmScanEvent(request, env, actor, scanEventMatch[1]);
   throw httpError(404, 'MRP endpoint not found.');
 }
+
+const SCAN_SESSION_MINUTES = 15;
+
+async function createScanSession(env, actor) {
+  const id = crypto.randomUUID(), token = base64url(crypto.getRandomValues(new Uint8Array(32))), tokenHash = await sha256(token);
+  const expiresAt = new Date(Date.now() + SCAN_SESSION_MINUTES * 60000).toISOString();
+  await env.DB.prepare(`INSERT INTO mrp_scan_sessions (id,workspace_id,terminal_user_id,token_hash,status,expires_at,created_at)
+    VALUES (?,?,?,?,'ACTIVE',?,datetime('now'))`).bind(id,actor.workspace.id,actor.user.id,tokenHash,expiresAt).run();
+  await env.DB.prepare("INSERT INTO mrp_audit_log (workspace_id,user_id,action,details_json,created_at) VALUES (?,?,'mobile_scan.paired',?,datetime('now'))")
+    .bind(actor.workspace.id,actor.user.id,JSON.stringify({sessionId:id,expiresAt})).run();
+  return json({id,token,expiresAt,expiresInSeconds:SCAN_SESSION_MINUTES*60},201);
+}
+
+async function scanSessionEvents(env, actor, id, url) {
+  const session = await terminalScanSession(env,actor,id); const after=Math.max(0,Number(url.searchParams.get('after'))||0);
+  const result=await env.DB.prepare(`SELECT id,sequence,raw_code,status,result_json,created_at,confirmed_at FROM mrp_scan_events
+    WHERE session_id = ? AND sequence > ? ORDER BY sequence ASC LIMIT 50`).bind(id,after).all();
+  return json({session:publicScanSession(session),events:(result.results||[]).map(publicScanEvent)});
+}
+
+async function closeScanSession(env, actor, id) {
+  await terminalScanSession(env,actor,id,false);
+  await env.DB.prepare("UPDATE mrp_scan_sessions SET status='CLOSED',closed_at=datetime('now') WHERE id=? AND workspace_id=?").bind(id,actor.workspace.id).run();
+  return json({ok:true});
+}
+
+async function confirmScanEvent(request, env, actor, eventId) {
+  const body=await safeJson(request),status=body.status==='REVIEWED'?'REVIEWED':'CONFIRMED',result=body.result&&typeof body.result==='object'?JSON.stringify(body.result).slice(0,4000):null;
+  const event=await env.DB.prepare(`SELECT e.id,e.session_id FROM mrp_scan_events e JOIN mrp_scan_sessions s ON s.id=e.session_id
+    WHERE e.id=? AND s.workspace_id=?`).bind(eventId,actor.workspace.id).first();
+  if(!event)throw httpError(404,'Scan event not found.');
+  await env.DB.prepare("UPDATE mrp_scan_events SET status=?,result_json=?,confirmed_at=CASE WHEN ?='CONFIRMED' THEN datetime('now') ELSE confirmed_at END WHERE id=?").bind(status,result,status,eventId).run();
+  return json({ok:true,status});
+}
+
+async function mobileScanSession(request,env){const session=await authenticateMobileScanner(request,env);return json({session:publicScanSession(session)});}
+async function mobileScanEvents(request,env,url){const session=await authenticateMobileScanner(request,env),after=Math.max(0,Number(url.searchParams.get('after'))||0);const result=await env.DB.prepare('SELECT id,sequence,raw_code,status,result_json,created_at,confirmed_at FROM mrp_scan_events WHERE session_id=? AND sequence>? ORDER BY sequence ASC LIMIT 50').bind(session.id,after).all();return json({session:publicScanSession(session),events:(result.results||[]).map(publicScanEvent)});}
+
+async function createMobileScanEvent(request,env){
+  const session=await authenticateMobileScanner(request,env),body=await safeJson(request),rawCode=clean(body.code,256);
+  if(!rawCode)throw httpError(400,'A barcode value is required.');
+  const count=await env.DB.prepare('SELECT COUNT(*) AS count FROM mrp_scan_events WHERE session_id=?').bind(session.id).first();
+  if(Number(count?.count||0)>=250)throw httpError(429,'This scan session has reached its event limit.');
+  const sequence=Number(count?.count||0)+1,id=crypto.randomUUID();
+  await env.DB.prepare("INSERT INTO mrp_scan_events (id,session_id,sequence,raw_code,status,created_at) VALUES (?,?,?,?,'PENDING',datetime('now'))").bind(id,session.id,sequence,rawCode).run();
+  return json({event:{id,sequence,code:rawCode,status:'PENDING',createdAt:new Date().toISOString()}},201);
+}
+
+async function authenticateMobileScanner(request,env){
+  const token=String(request.headers.get('X-Hamvara-Scan-Token')||''),device=String(request.headers.get('X-Hamvara-Scan-Device')||'');
+  if(!/^[A-Za-z0-9_-]{43}$/.test(token)||!/^[-A-Za-z0-9]{16,80}$/.test(device))throw httpError(401,'Mobile scan credentials are required.');
+  const tokenHash=await sha256(token),deviceHash=await sha256(device);
+  const row=await env.DB.prepare('SELECT id,workspace_id,status,expires_at,device_hash FROM mrp_scan_sessions WHERE token_hash=?').bind(tokenHash).first();
+  if(!row)throw httpError(401,'Mobile scan session is invalid.');
+  if(row.status!=='ACTIVE'||Date.parse(row.expires_at)<=Date.now()){await env.DB.prepare("UPDATE mrp_scan_sessions SET status='EXPIRED' WHERE id=? AND status='ACTIVE'").bind(row.id).run();throw httpError(410,'Mobile scan session has expired.');}
+  if(row.device_hash&&!constantTimeEqual(row.device_hash,deviceHash))throw httpError(403,'This pairing is already bound to another device.');
+  if(!row.device_hash)await env.DB.prepare('UPDATE mrp_scan_sessions SET device_hash=? WHERE id=? AND device_hash IS NULL').bind(deviceHash,row.id).run();
+  return {...row,device_hash:deviceHash};
+}
+
+async function terminalScanSession(env,actor,id,requireActive=true){const row=await env.DB.prepare('SELECT id,workspace_id,status,expires_at,device_hash FROM mrp_scan_sessions WHERE id=? AND workspace_id=?').bind(id,actor.workspace.id).first();if(!row)throw httpError(404,'Scan session not found.');if(requireActive&&(row.status!=='ACTIVE'||Date.parse(row.expires_at)<=Date.now()))throw httpError(410,'Mobile scan session has expired.');return row;}
+function publicScanSession(row){return{id:row.id,status:row.status,expiresAt:row.expires_at,connected:Boolean(row.device_hash)}}
+function publicScanEvent(row){let result=null;try{result=row.result_json?JSON.parse(row.result_json):null}catch{}return{id:row.id,sequence:Number(row.sequence),code:row.raw_code,status:row.status,result,createdAt:row.created_at,confirmedAt:row.confirmed_at}}
+async function safeJson(request){try{return await request.json()}catch{throw httpError(400,'Invalid JSON payload.')}}
 
 export async function runScheduledMrpBackups(env, scheduledAt = new Date().toISOString()) {
   if (!env.DB) throw new Error('MRP database is not configured.');
