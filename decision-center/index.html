@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#07172b">
+  <meta name="description" content="Hamvara ile üretim probleminizi seçin, doğru planı bulun ve MRP otomasyonunu canlı görün.">
+  <title>Hamvara | Üretim Karar Merkezi</title>
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./compliance.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#problems" aria-label="Hamvara ana sayfa">
+      <span class="brand-mark">H</span><span>HAMVARA</span>
+    </a>
+    <nav aria-label="Bölümler">
+      <a href="#problems">Çözüm Bul</a>
+      <a href="#plans">Plan Oluştur</a>
+      <a href="#automation">Canlı Akış</a>
+    </nav>
+    <button class="ghost" id="langBtn" type="button">EN</button>
+  </header>
+
+  <main>
+    <section class="intro">
+      <div>
+        <p class="eyebrow">ÜRETİM KARAR MERKEZİ</p>
+        <h1>Sorunu seçin.<br><span>Üretimi netleştirin.</span></h1>
+        <p class="lead">Hamvara, stok ve üretim verisini karara dönüştürür. Üç kısa adımda ihtiyacınızı görün, planınızı oluşturun ve otomasyonu deneyin.</p>
+      </div>
+      <div class="signal-card" aria-label="Örnek fabrika durumu">
+        <div class="signal-head"><span>Fabrika sinyali</span><span class="live">CANLI</span></div>
+        <div class="metric"><strong>3</strong><span>kritik malzeme</span></div>
+        <div class="metric"><strong>₺84.600</strong><span>risk altındaki sipariş</span></div>
+        <div class="metric good"><strong>18 saat</strong><span>kazanılabilir süre</span></div>
+      </div>
+    </section>
+
+    <section id="problems" class="panel">
+      <div class="section-title"><span>01</span><div><p>PROBLEM → ÇÖZÜM</p><h2>Bugün sizi en çok ne yavaşlatıyor?</h2></div></div>
+      <div class="problem-layout">
+        <div class="problem-list" role="tablist" aria-label="Üretim sorunları">
+          <button class="problem active" data-problem="materials"><span class="icon">◫</span><span><b>Malzeme yeterli mi bilmiyorum</b><small>Sipariş öncesi stok belirsizliği</small></span><i>→</i></button>
+          <button class="problem" data-problem="inventory"><span class="icon">⌁</span><span><b>Gerçek stok görünmüyor</b><small>Depolar ve hareketler uyuşmuyor</small></span><i>→</i></button>
+          <button class="problem" data-problem="receiving"><span class="icon">▥</span><span><b>Mal kabul çok zaman alıyor</b><small>Kağıt, Excel ve tekrar veri girişi</small></span><i>→</i></button>
+          <button class="problem" data-problem="delivery"><span class="icon">◷</span><span><b>Teslim tarihi güvenilir değil</b><small>Kapasite ve malzeme birlikte hesaplanmıyor</small></span><i>→</i></button>
+        </div>
+        <article class="solution" id="solutionCard" aria-live="polite">
+          <p class="solution-label">HAMVARA ÖNERİSİ</p>
+          <h3 id="solutionTitle">MRP Material Check</h3>
+          <p id="solutionText">Sipariş miktarını BOM ile karşılaştırır; kullanılabilir, rezerve ve eksik malzemeyi saniyeler içinde ayırır.</p>
+          <div class="risk"><span>Tahmini risk</span><strong id="riskValue">Yüksek</strong></div>
+          <div class="solution-stats">
+            <span><b id="statOne">120 kg</b><small>örnek eksik</small></span>
+            <span><b id="statTwo">4 saat</b><small>erken uyarı kazancı</small></span>
+          </div>
+          <button class="primary jump-demo" type="button">Örnek MRP çalıştır <span>→</span></button>
+        </article>
+      </div>
+    </section>
+
+    <section id="plans" class="panel">
+      <div class="section-title"><span>02</span><div><p>PLAN BUILDER</p><h2>İşletmenize uyan yapıyı oluşturun</h2></div></div>
+      <div class="builder">
+        <form id="planForm">
+          <label>SKU sayısı <output id="skuOut">500</output><input id="sku" type="range" min="50" max="5000" step="50" value="500"></label>
+          <label>Depo sayısı <output id="warehouseOut">3</output><input id="warehouse" type="range" min="1" max="20" value="3"></label>
+          <fieldset><legend>İhtiyaçlar</legend>
+            <label class="check"><input type="checkbox" name="feature" value="mrp" checked><span>BOM & MRP</span></label>
+            <label class="check"><input type="checkbox" name="feature" value="barcode"><span>Barkod & mobil</span></label>
+            <label class="check"><input type="checkbox" name="feature" value="tr"><span>e-Belge taslak hazırlama</span></label>
+            <label class="check"><input type="checkbox" name="feature" value="ai"><span>AI belge okuma</span></label>
+          </fieldset>
+        </form>
+        <aside class="recommendation">
+          <p>ÖNERİLEN YAPI</p>
+          <div class="plan-name"><h3 id="planName">Medium</h3><span id="planTag">En iyi eşleşme</span></div>
+          <p id="planReason">BOM, malzeme ihtiyacı ve satın alma önerileri için dengeli başlangıç.</p>
+          <ul id="planFeatures"><li>MRP ihtiyaç planlama</li><li>BOM yönetimi</li><li>Satın alma önerileri</li></ul>
+          <div class="price"><span>Başlangıç tahmini</span><strong id="priceValue">₺1.490<small>/ay</small></strong></div>
+          <button class="primary" id="quoteBtn" type="button">Teklif özetini hazırla <span>→</span></button>
+          <p class="fine">Nihai fiyat kurulum kapsamına göre onaylanır.</p>
+          <div class="compliance-note" id="complianceNote">
+            <b>e‑Belge Taslak Hazırlama</b>
+            <span>Hamvara fatura ve irsaliye verilerini kontrol ederek gönderime hazır taslak oluşturur. GİB’e belge göndermez ve özel entegratör hizmeti sunmaz. Taslak, kullanıcı tarafından kontrol edilerek yetkili e‑Belge sistemi üzerinden gönderilmelidir.</span>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="automation" class="panel automation">
+      <div class="section-title"><span>03</span><div><p>CANLI OTOMASYON</p><h2>Bir siparişin uçtan uca yolculuğu</h2></div></div>
+      <div class="demo-toolbar">
+        <div><span>SENARYO</span><strong>500 adet · HM-2048</strong></div>
+        <button class="primary" id="runDemo" type="button">Akışı başlat <span>▶</span></button>
+      </div>
+      <div class="flow" id="flow">
+        <div class="flow-step" data-step="0"><i>1</i><span><b>Müşteri siparişi</b><small>500 adet kaydedildi</small></span><em>Bekliyor</em></div>
+        <div class="connector"></div>
+        <div class="flow-step" data-step="1"><i>2</i><span><b>BOM hesaplama</b><small>8 bileşen kontrol ediliyor</small></span><em>Bekliyor</em></div>
+        <div class="connector"></div>
+        <div class="flow-step warning" data-step="2"><i>3</i><span><b>Eksik tespiti</b><small>120 kg sac eksik</small></span><em>Bekliyor</em></div>
+        <div class="connector"></div>
+        <div class="flow-step" data-step="3"><i>4</i><span><b>Satın alma önerisi</b><small>Onaya hazır</small></span><em>Bekliyor</em></div>
+        <div class="connector"></div>
+        <div class="flow-step" data-step="4"><i>5</i><span><b>Üretim serbest</b><small>Planlanan teslim: 18 Eylül</small></span><em>Bekliyor</em></div>
+      </div>
+      <div class="result" id="result">
+        <span>SONUÇ</span>
+        <div><strong>120 kg</strong><small>önceden görülen eksik</small></div>
+        <div><strong>18 saat</strong><small>gecikme önlendi</small></div>
+        <div><strong>₺24.800</strong><small>plansız maliyet önlendi</small></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <footer><span>HAMVARA</span><small>Production clarity, from stock to delivery.</small></footer>
+  <script src="./app.js"></script>
+</body>
+</html>
