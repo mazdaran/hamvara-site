@@ -2,11 +2,11 @@
 <html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Hamvara MRP Industrial</title><link rel="stylesheet" href="styles.css?v=0.6.16"><link rel="stylesheet" href="project-workspaces.css?v=0.6.16">
+  <title>Hamvara MRP Industrial</title><link rel="stylesheet" href="styles.css?v=0.6.17"><link rel="stylesheet" href="project-workspaces.css?v=0.6.17"><link rel="stylesheet" href="shop-floor-live.css?v=0.6.17">
 </head>
 <body>
 <header class="topbar">
-  <div><h1>HAMVARA <span class="brand-sub">MRP INDUSTRIAL</span></h1><span id="version">Version 0.6.16</span></div>
+  <div><h1>HAMVARA <span class="brand-sub">MRP INDUSTRIAL</span></h1><span id="version">Version 0.6.17</span></div>
   <div class="top-actions">
     <span id="saveState" class="badge ok" data-i18n="saved">Saved</span>
     <button id="backupBtn" data-i18n="backup">Backup</button>
@@ -30,6 +30,7 @@
   <button data-page="importCenter" data-i18n="universalImport">Universal Import</button>
   <div class="nav-label nav-section" data-i18n="processControl">PROCESS CONTROL</div>
   <button data-page="production" data-i18n="productionExecution">Production Execution</button>
+  <button data-page="shopFloorLive">Shop Floor Live</button>
   <button data-page="documents" data-i18n="documentsLabelsScan">Documents, Labels & Scan</button>
   <button data-page="procurement" data-i18n="procurementSuppliers">Procurement & Suppliers</button>
   <button data-page="quality" data-i18n="qualityNcr">Quality & NCR</button>
@@ -107,6 +108,22 @@
   <article class="panel production-panel"><h2>Batch Traceability & Actual Time</h2><div class="table-wrap process-table"><table id="productionTraceTable"></table></div></article>
   <article class="panel production-panel"><h2>Production Audit Trail</h2><div class="table-wrap process-table"><table id="productionAuditTable"></table></div></article>
 </section>
+<section id="shopFloorLive" class="page">
+  <div class="page-head"><div><h2>Shop Floor Live</h2><small>Real-time operator execution, stage control, Andon and continuous improvement</small></div><div><button id="addOperator">+ Operator</button><button id="addWorkCenter">+ Work Center</button></div></div>
+  <div id="shopFloorKpis" class="kpis shop-floor-kpis"></div>
+  <div class="shop-floor-grid">
+    <article class="panel operator-terminal"><div class="project-section-head"><div><h2>Operator Terminal</h2><small>Identify operator, work order and workstation before starting</small></div><span class="status-chip neutral">LIVE</span></div><div class="form-grid">
+      <label><span>Operator</span><select id="liveOperator"></select></label><label><span>Work order</span><select id="liveWorkOrder"></select></label><label><span>Next operation</span><select id="liveStage"></select></label><label><span>Work center / machine</span><select id="liveWorkCenter"></select></label><label><span>Input quantity</span><input id="liveInputQty" data-number="true" inputmode="decimal"></label>
+    </div><div class="terminal-actions"><button id="startLiveOperation" class="primary compact">Start Operation</button><button id="raiseAndon" class="andon-button">Raise Andon</button></div><div id="operatorTerminalMessage" class="section-hint">Select an issued work order. Stages must be completed in sequence.</div></article>
+    <article class="panel live-master-data"><h2>Operators & Work Centers</h2><div class="table-wrap live-master-table"><table id="operatorTable"></table></div><div class="table-wrap live-master-table"><table id="workCenterTable"></table></div></article>
+  </div>
+  <article class="panel live-operations-panel"><div class="project-section-head"><div><h2>Live Operations Control Board</h2><small>Manager view of every operator, machine and active production stage</small></div></div><div id="activeOperationCards" class="active-operation-cards"></div></article>
+  <div class="shop-floor-grid lower">
+    <article class="panel"><h2>Andon Alerts</h2><div class="table-wrap live-table"><table id="andonTable"></table></div></article>
+    <article class="panel"><h2>Continuous Improvement Queue</h2><div class="table-wrap live-table"><table id="improvementTable"></table></div></article>
+  </div>
+  <article class="panel live-history-panel"><h2>Operation History</h2><div class="table-wrap"><table id="operationHistoryTable"></table></div></article>
+</section>
 <section id="documents" class="page">
   <div class="page-head"><div><h2>Production Documents, Labels & Scan</h2><small>Printable work-order documents, carton labels and controlled shop-floor receipt</small></div><select id="documentJobSelect"></select></div>
   <div class="process-grid document-grid">
@@ -178,7 +195,7 @@
 <label><span>Device / Workstation Name</span><input id="deviceName" placeholder="e.g. SHOP-FLOOR-01"></label>
 <label><span>Barcode Standard</span><select id="barcodeStandard"><option value="EAN_13">EAN-13</option><option value="UPC_A">UPC-A</option></select></label>
 <p class="section-hint">Retail labels require a valid numeric GTIN. Enter 12 digits for EAN-13 or 11 digits for UPC-A and Hamvara will calculate the check digit; a supplied check digit is validated.</p>
-<p><span data-i18n="appVersion">App Version</span>: <b>0.6.16</b></p><p><span data-i18n="publisher">Publisher</span>: <b>Hamvara</b></p><p>Copyright: <b>© 2026 Hamvara. All rights reserved.</b></p>
+<p><span data-i18n="appVersion">App Version</span>: <b>0.6.17</b></p><p><span data-i18n="publisher">Publisher</span>: <b>Hamvara</b></p><p>Copyright: <b>© 2026 Hamvara. All rights reserved.</b></p>
 <p><span data-i18n="dataSchema">Data Schema</span>: <b id="schemaVersion"></b></p>
 <p data-i18n="dataLocation">Operational data is stored in the Data folder beside the EXE.</p>
 <div id="automaticBackupStatus" class="summary">Automatic full backup: twice daily at 06:00 and 18:00 UTC.</div>
@@ -195,4 +212,4 @@
 </div><p class="section-hint">After creation, the BOM opens automatically with its first material row ready for entry.</p><div class="modal-actions"><button id="cancelNewBom" type="button">Cancel</button><button type="submit" class="primary">Create &amp; Open BOM</button></div></form></div>
 <div id="importReview" class="modal" hidden><div class="modal-card"><div class="page-head"><div><h2>Import Validation</h2><small id="importSummary"></small></div><button id="closeImportReview">×</button></div><div class="table-wrap import-review"><table id="importReviewTable"></table></div><div class="modal-actions import-pagination"><span id="importPageStatus"></span><button id="importPrev">Previous</button><button id="importNext">Next</button><button id="cancelImport">Cancel</button><button id="postImport" class="primary">Post READY Rows</button></div></div></div>
 <datalist id="skuOptions"></datalist><datalist id="productOptions"></datalist><div id="toast"></div>
-<script src="config.js?v=0.6.16"></script><script src="cloud.js?v=0.6.16"></script><script type="module" src="app.js?v=0.6.16"></script></body></html>
+<script src="config.js?v=0.6.17"></script><script src="cloud.js?v=0.6.17"></script><script type="module" src="app.js?v=0.6.17"></script></body></html>
