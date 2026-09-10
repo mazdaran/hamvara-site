@@ -593,8 +593,9 @@ function providerConfig(provider,env){
 }
 function status(row){return{connected:Boolean(row),updatedAt:row?.updated_at||null};}
 function validHttpUrl(value){try{const url=new URL(String(value||''));return /^https?:$/.test(url.protocol)?url:null}catch{return null}}
-function safeReturnTo(value,env){const fallback='https://hamvara.com/growth/';try{const url=new URL(value||fallback);const allowed=(env.ALLOWED_ORIGINS||'https://hamvara.com,http://localhost:8080').split(',').map(x=>x.trim());return allowed.includes(url.origin)?url.toString():fallback}catch{return fallback}}
-function corsHeaders(origin,env){const allowed=(env.ALLOWED_ORIGINS||'https://hamvara.com,http://localhost:8080').split(',').map(x=>x.trim());return{'Access-Control-Allow-Origin':allowed.includes(origin)?origin:allowed[0],'Access-Control-Allow-Headers':'Content-Type, Authorization, X-Hamvara-Workspace, X-Hamvara-User, X-Hamvara-Key, X-Hamvara-Scan-Token, X-Hamvara-Scan-Device','Access-Control-Allow-Methods':'GET, POST, PUT, OPTIONS','Vary':'Origin'};}
+function allowedOrigins(env){return(env.ALLOWED_ORIGINS||'https://hamvara.com,https://www.hamvara.com,https://mazdaran.github.io,http://localhost:8080,http://127.0.0.1:8080').split(',').map(x=>x.trim())}
+function safeReturnTo(value,env){const fallback='https://hamvara.com/growth/';try{const url=new URL(value||fallback);return allowedOrigins(env).includes(url.origin)?url.toString():fallback}catch{return fallback}}
+function corsHeaders(origin,env){const allowed=allowedOrigins(env);return{'Access-Control-Allow-Origin':allowed.includes(origin)?origin:allowed[0],'Access-Control-Allow-Headers':'Content-Type, Authorization, X-Hamvara-Workspace, X-Hamvara-User, X-Hamvara-Key, X-Hamvara-Scan-Token, X-Hamvara-Scan-Device','Access-Control-Allow-Methods':'GET, POST, PUT, OPTIONS','Vary':'Origin'};}
 function stripMarkdownLinks(text){return text.replace(/\[([^\]]+)\]\([^\)]+\)/g,'$1').replace(/\s+/g,' ').trim();}
 function requireEnv(env,names){const missing=names.filter(x=>!env[x]);if(missing.length)throw httpError(503,`Missing server configuration: ${missing.join(', ')}`);}
 function httpError(status,message){const error=new Error(message);error.status=status;return error;}
