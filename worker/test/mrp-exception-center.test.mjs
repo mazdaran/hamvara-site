@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {syncMrpExceptions,assignMrpException,resolveMrpException,verifyMrpException,mrpExceptionSummary} from '../../mrp/mrp-exception-center.js';
+import {collectMrpExceptions,syncMrpExceptions,assignMrpException,resolveMrpException,verifyMrpException,mrpExceptionSummary} from '../../mrp/mrp-exception-center.js';
 
 const base=()=>({products:[],skus:[],orders:[],plannedSupplyOrders:[],auditTrail:[],mpsSnapshots:[{status:'FROZEN',versionNo:'MPS-1',exceptions:[{code:'OVERLOAD',reference:'WC-1',message:'Capacity overloaded'}]}],productionSchedules:[]});
 
@@ -16,3 +16,5 @@ test('recurrence reopens a verified exception and preserves history',()=>{const 
 test('summary counts overdue open actions but not verified actions',()=>{const state=base();syncMrpExceptions(state,{asOf:'2026-09-11',defaultOwner:'planner',dueDate:'2026-09-12'});assert.equal(mrpExceptionSummary(state,{asOf:'2026-09-13'}).overdue,1)});
 
 test('exception center interface identifiers are unique',()=>{const html=readFileSync(new URL('../../mrp/index.html',import.meta.url),'utf8');for(const id of ['mrpActionLastSync','mrpActionOwner','mrpActionDue','mrpActionDecision','mrpActionResolver','mrpActionResolution','mrpActionVerifier','mrpActionEvidence','mrpActionCleared','syncMrpExceptionCenter','mrpActionKpis','mrpActionTable'])assert.equal((html.match(new RegExp(`id="${id}"`,'g'))||[]).length,1)});
+
+test('late supplier commitments feed the central MRP exception register',()=>{const state={...base(),supplierSchedules:[{id:'SS-1',scheduleNo:'SS-00001',poNo:'PO-1',supplierCode:'SUP-1',sku:'RM-1',requestedDate:'2026-09-10',requestedQty:10,committedDate:'2026-09-10',committedQty:10,status:'CONFIRMED'}],receipts:[]};const rows=collectMrpExceptions(state,{asOf:'2026-09-11'});assert.ok(rows.some(row=>row.source==='SUPPLIER_SCHEDULE'&&row.reference==='SS-00001'))});
