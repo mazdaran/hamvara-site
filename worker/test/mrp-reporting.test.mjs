@@ -61,7 +61,7 @@ test('interface is English-only while translation infrastructure remains availab
   assert.doesNotMatch(html,/<select id="language">/);
   assert.match(html,/id="interfaceLanguage" value="English" readonly/);
   assert.match(html,/data-i18n="productionExecution"/);
-  assert.match(html,/app\.js\?v=0\.16\.0/);
+  assert.match(html,/app\.js\?v=0\.18\.0/);
   assert.match(html,/id="lotTraceQuery"/);
   assert.match(html,/id="lotTraceInputs"/);
   assert.match(html,/id="lotTraceOutputs"/);
@@ -69,6 +69,8 @@ test('interface is English-only while translation infrastructure remains availab
   assert.match(html,/id="plannedSupplyOrderTable"/);
   assert.match(html,/id="mrpExceptionTable"/);
   assert.match(html,/id="demandForecastTable"/);
+  assert.match(html,/id="mpsTimeFenceTable"/);
+  assert.match(html,/id="promiseMaterialTable"/);
   const app=await readFile(new URL('../../mrp/app.js',import.meta.url),'utf8');
   assert.match(app,/data-submit-planned/);
   assert.match(app,/data-approve-planned/);
