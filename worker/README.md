@@ -10,15 +10,17 @@ The repository-root `wrangler.toml` is the only Worker configuration. Do not add
 2. Confirm the production D1 binding in `../wrangler.toml`.
 3. Apply the base schema with `npx wrangler d1 execute hamvara-growth-production --config ../wrangler.toml --file schema.sql --remote`.
 4. Add secrets with `npx wrangler secret put NAME --config ../wrangler.toml`.
-5. Run `npm run dev` or `npm run deploy`.
+5. Run `npm run dev` for local development or `npm run deploy` for production.
 
-`npm run deploy` first verifies the root config contains the production `DB` binding, then deploys with that exact config.
+`npm run dev` adds localhost origins only for the local Wrangler process. They are not stored in the production configuration.
+
+`npm run deploy` is the only supported production path. It verifies the root config and production-only CORS allowlist, runs the test suite, applies all required MRP D1 migrations to `hamvara-growth-production`, and only then deploys the Worker with that exact config. If validation, tests, or any migration fails, the Worker is not deployed.
 
 ## MRP SaaS setup
 
-Apply the MRP migration:
+Apply the MRP migrations without deploying only when you explicitly need a database-only operation:
 
-`npm run db:mrp`
+`npm run migrate:production`
 
 Create a separate Cloudflare secret named `MRP_ADMIN_TOKEN`, then provision the first company workspace:
 
