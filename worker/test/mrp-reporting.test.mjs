@@ -62,7 +62,7 @@ test('interface is English-only while translation infrastructure remains availab
   assert.doesNotMatch(html,/<select id="language">/);
   assert.match(html,/id="interfaceLanguage" value="English" readonly/);
   assert.match(html,/data-i18n="productionExecution"/);
-  assert.match(html,/app\.js\?v=0\.19\.0/);
+  assert.match(html,/app\.js\?v=0\.20\.0/);
   assert.match(html,/id="lotTraceQuery"/);
   assert.match(html,/id="lotTraceInputs"/);
   assert.match(html,/id="lotTraceOutputs"/);
