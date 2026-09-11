@@ -1,6 +1,7 @@
 import {appendAudit,appendInventoryMovement} from './audit-workflow.js';
 import {bomSnapshot} from './bom-workflow.js';
 import {allocateTrackedLots,consumeLotAllocations,recordProductionGenealogy,releaseOutputBatch} from './lot-genealogy.js';
+import {initializeBackflush} from './controlled-backflush.js';
 
 const ACTIVE_STATUSES=new Set(['PLANNED','RELEASED','IN_PRODUCTION','AWAITING_FQC','QUALITY_HOLD']);
 
@@ -41,18 +42,20 @@ export function releaseProductionJob(state,jobId,releasedAt=new Date().toISOStri
 
 export function issueProductionJob(state,jobId,issuedAt=new Date().toISOString(),meta={}){
   const job=findJob(state,jobId);if(job.status!=='RELEASED')throw new Error('Release and reserve materials first.');
+  if(state.settings)state.settings.controlledBackflush??=true;
   for(const material of job.materials){if(number(state.stock[material.sku]?.[material.warehouse]||0)+1e-9<material.required)throw new Error(`Insufficient stock for ${material.sku} in ${material.warehouse}.`)}
   const issuePlans=job.materials.map(material=>{const item=state.skus.find(value=>value.code===material.sku);return{material,allocations:allocateTrackedLots(state,{sku:material.sku,warehouse:material.warehouse,quantity:material.required,policy:item?.issuePolicy||'FIFO',onDate:issuedAt.slice(0,10)})}});
   for(const {material,allocations} of issuePlans){const stock=state.stock[material.sku];consumeLotAllocations(state,allocations);material.lotAllocations=allocations;stock[material.warehouse]=number(stock[material.warehouse]||0)-material.required;stock.reserved=Math.max(0,number(stock.reserved||0)-material.required);stock['WH-SF']=number(stock['WH-SF']||0)+material.required;appendInventoryMovement(state,{...metaFields(meta),sku:material.sku,warehouse:material.warehouse,qty:material.required,direction:'OUT',type:'PRODUCTION_ISSUE',reference:job.workOrderNo,batchNo:job.batchNo,lotNo:allocations.map(value=>value.lotNo).filter(Boolean).join(','),serialNo:allocations.map(value=>value.serialNo).filter(Boolean).join(','),at:issuedAt,note:allocations.map(value=>`${value.lotNo||value.serialNo}:${value.quantity}`).join(', ')});appendInventoryMovement(state,{...metaFields(meta),sku:material.sku,warehouse:'WH-SF',qty:material.required,direction:'IN',type:'SHOP_FLOOR_RECEIPT',reference:job.workOrderNo,batchNo:job.batchNo,at:issuedAt})}
-  job.status='IN_PRODUCTION';job.issuedAt=issuedAt;job.issuedBy=metaFields(meta);setOrderStatus(state,job,'IN_PRODUCTION');recordAudit(state,job,'MATERIALS_ISSUED',meta,issuedAt);return job;
+  initializeBackflush(job,issuedAt);job.status='IN_PRODUCTION';job.issuedAt=issuedAt;job.issuedBy=metaFields(meta);setOrderStatus(state,job,'IN_PRODUCTION');recordAudit(state,job,'MATERIALS_ISSUED',meta,issuedAt);return job;
 }
 
 export function completeProductionJob(state,jobId,{completedQty,scrapQty=0,completedAt=new Date().toISOString(),inspectionId,inspectionNo,meta={}}={}){
   const job=findJob(state,jobId);if(job.status!=='IN_PRODUCTION')throw new Error('Issue materials to the shop floor first.');
+  if(state.settings?.controlledBackflush&&job.backflush?.status!=='APPROVED')throw new Error('Controlled backflush requires independent approval before completion.');
   const completed=number(completedQty),scrap=number(scrapQty);if(completed<0||scrap<0||!Number.isFinite(completed)||!Number.isFinite(scrap))throw new Error('Completed and scrap quantities must be zero or positive.');
   if(Math.abs(completed+scrap-job.plannedQty)>1e-7)throw new Error('Completed plus scrap quantity must equal the planned quantity.');
-  for(const material of job.materials){if(number(state.stock[material.sku]?.['WH-SF']||0)+1e-9<material.required)throw new Error(`Insufficient issued material for ${material.sku}.`)}
-  for(const material of job.materials){state.stock[material.sku]['WH-SF']=number(state.stock[material.sku]['WH-SF']||0)-material.required;appendInventoryMovement(state,{...metaFields(meta),sku:material.sku,warehouse:'WH-SF',qty:material.required,direction:'OUT',type:'PRODUCTION_CONSUMPTION',reference:job.workOrderNo,batchNo:job.batchNo,at:completedAt})}
+  for(const material of job.materials){const actual=job.backflush.lines.find(line=>line.sku===material.sku)?.actualQty??material.required;if(number(state.stock[material.sku]?.['WH-SF']||0)+1e-9<actual)throw new Error(`Insufficient issued material for ${material.sku}.`)}
+  for(const material of job.materials){const line=job.backflush.lines.find(value=>value.sku===material.sku),actual=number(line?.actualQty??material.required);material.actualQuantity=actual;state.stock[material.sku]['WH-SF']=number(state.stock[material.sku]['WH-SF']||0)-actual;appendInventoryMovement(state,{...metaFields(meta),sku:material.sku,warehouse:'WH-SF',qty:actual,direction:'OUT',type:'CONTROLLED_BACKFLUSH',reference:job.workOrderNo,batchNo:job.batchNo,at:completedAt,note:`Standard ${line?.standardQty??material.required}; variance ${line?.varianceQty||0}`})}job.backflush.status='POSTED';job.backflush.postedAt=completedAt;job.backflush.postedBy=metaFields(meta);
   const product=state.products.find(item=>item.code===job.productCode);if(!product)throw new Error('Product not found.');
   product.outputSku=job.outputSku;
   let output=state.skus.find(item=>item.code===job.outputSku);
