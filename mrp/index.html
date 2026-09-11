@@ -2,11 +2,11 @@
 <html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Hamvara MRP Industrial</title><link rel="stylesheet" href="styles.css?v=0.6.26"><link rel="stylesheet" href="project-workspaces.css?v=0.6.26"><link rel="stylesheet" href="shop-floor-live.css?v=0.6.26">
+  <title>Hamvara MRP Industrial</title><link rel="stylesheet" href="styles.css?v=0.7.0"><link rel="stylesheet" href="project-workspaces.css?v=0.7.0"><link rel="stylesheet" href="shop-floor-live.css?v=0.7.0">
 </head>
 <body>
 <header class="topbar">
-  <div><h1>HAMVARA <span class="brand-sub">MRP INDUSTRIAL</span></h1><span id="version">Version 0.6.26</span></div>
+  <div><h1>HAMVARA <span class="brand-sub">MRP INDUSTRIAL</span></h1><span id="version">Version 0.7.0</span></div>
   <div class="top-actions">
     <span id="saveState" class="badge ok" data-i18n="saved">Saved</span>
     <button id="backupBtn" data-i18n="backup">Backup</button>
@@ -25,6 +25,7 @@
   <button data-page="bom" data-i18n="productBom">Product BOM</button>
   <button data-page="orders" data-i18n="orders">Orders</button>
   <button data-page="requirements" data-i18n="requirements">Requirements</button>
+  <button data-page="planningStandards">Planning &amp; Standards</button>
   <button data-page="reports" data-i18n="reportsAnalytics">Reports & Analytics</button>
   <button data-page="projects">Projects & KPI</button>
   <button data-page="importCenter" data-i18n="universalImport">Universal Import</button>
@@ -77,6 +78,7 @@
       <label><span data-i18n="receiptDate">Receipt Date</span><input id="receiptDate" type="date"></label>
       <label><span data-i18n="referenceNo">Reference / Document No.</span><input id="receiptReference"></label>
       <label><span data-i18n="supplier">Supplier</span><input id="receiptSupplier"></label>
+      <label><span>Lot / Batch No.</span><input id="receiptLotNo"></label><label><span>Expiry date</span><input id="receiptExpiryDate" type="date"></label><label><span>Serial No.</span><input id="receiptSerialNo"></label>
       <label class="wide"><span data-i18n="notes">Notes</span><input id="receiptNotes"></label>
     </div>
     <button id="postReceipt" class="primary">Submit for QC</button>
@@ -125,6 +127,14 @@
     <article class="panel"><h2>Continuous Improvement Queue</h2><div class="table-wrap live-table"><table id="improvementTable"></table></div></article>
   </div>
   <article class="panel live-history-panel"><h2>Operation History</h2><div class="table-wrap"><table id="operationHistoryTable"></table></div></article>
+</section>
+<section id="planningStandards" class="page">
+  <div class="page-head"><div><h2>Production Planning &amp; Standards</h2><small>MPS, MRP II capacity, multi-level BOM, inventory policy, traceability and GS1 logistics</small></div><button id="refreshAdvancedPlanning" class="primary">Recalculate Plan</button></div>
+  <div id="advancedPlanningKpis" class="kpis"></div>
+  <article class="panel"><div class="project-section-head"><div><h2>Master Production Schedule &amp; Capacity</h2><small>MTS replenishes target stock; MTO, ATO and ETO follow demand. Capacity is finite and raises overload warnings.</small></div></div><div class="form-grid advanced-capacity"><label><span>Daily hours</span><input id="capacityDailyHours" data-number="true"></label><label><span>Work days / horizon</span><input id="capacityWorkDays" data-number="true"></label><label><span>Efficiency %</span><input id="capacityEfficiency" data-number="true"></label><label><span>Horizon days</span><input id="mpsHorizonDays" data-number="true" value="30"></label></div><div class="table-wrap"><table id="mpsTable"></table></div></article>
+  <article class="panel"><div class="project-section-head"><div><h2>Multi-level BOM Explosion</h2><small>Explodes saved BOM revisions recursively and passes through Phantom BOM levels without stocking the phantom assembly.</small></div></div><div class="advanced-inline"><select id="advancedBomProduct"></select><input id="advancedBomQty" data-number="true" value="1" aria-label="Planning quantity"><button id="explodeAdvancedBom">Calculate Requirements</button></div><div class="table-wrap"><table id="advancedBomTable"></table></div></article>
+  <article class="panel"><div class="project-section-head"><div><h2>Inventory Policy &amp; Cycle Counting</h2><small>ABC by annual consumption value; XYZ by demand variability. A/B/C count recommendations are 30/90/180 days.</small></div><button id="classifyInventory">Run ABC / XYZ</button></div><div class="table-wrap"><table id="inventoryPolicyTable"></table></div></article>
+  <article class="panel"><div class="project-section-head"><div><h2>GS1 Logistics Label</h2><small>Creates GTIN-14, Lot, expiry, serial and SSCC data using GS1 Application Identifiers.</small></div><span class="status-chip warn">LICENSED PREFIX REQUIRED</span></div><div class="form-grid"><label><span>Label name</span><input id="gs1LabelName" value="Logistics Unit"></label><label><span>GTIN-14</span><input id="gs1Gtin" inputmode="numeric"></label><label><span>Lot / Batch</span><input id="gs1Lot"></label><label><span>Expiry (YYMMDD)</span><input id="gs1Expiry" inputmode="numeric"></label><label><span>Serial</span><input id="gs1Serial"></label><label><span>Licensed GS1 company prefix</span><input id="gs1CompanyPrefix" inputmode="numeric"></label><label><span>SSCC extension</span><input id="gs1Extension" value="0" maxlength="1" inputmode="numeric"></label><label><span>SSCC serial reference</span><input id="gs1SerialReference" inputmode="numeric"></label></div><div class="terminal-actions"><button id="generateSscc">Generate SSCC</button><button id="printGs1Label" class="gate-action">Print GS1-128 / Save PDF</button></div><div id="gs1Preview" class="summary">Enter a GTIN or a licensed company prefix for SSCC.</div></article>
 </section>
 <section id="documents" class="page">
   <div class="page-head"><div><h2>Production Documents, Labels & Scan</h2><small>Printable work-order documents, carton labels and controlled shop-floor receipt</small></div><select id="documentJobSelect"></select></div>
@@ -201,7 +211,7 @@
 <div class="accounting-fields"><label><span>Accounting profile</span><select id="accountingProfile"><option value="IFRS_TFRS">IFRS / TFRS</option><option value="US_GAAP">US GAAP</option><option value="MANAGEMENT_ONLY">Management only</option></select></label><label><span>Base currency (ISO)</span><input id="accountingBaseCurrency" maxlength="3" placeholder="TRY"></label><label><span>Fiscal year start (MM-DD)</span><input id="fiscalYearStart" maxlength="5" placeholder="01-01"></label></div>
 <div id="accountingControlStatus" class="summary"></div><div id="accountingPolicySummary" class="accounting-policy-grid"></div>
 <h3>SKU Cost Methods</h3><p class="section-hint">A method is locked while valued inventory exists. LIFO is available only under US GAAP.</p><div class="table-wrap accounting-cost-table"><table id="skuCostMethodTable"></table></div></div>
-<p><span data-i18n="appVersion">App Version</span>: <b>0.6.26</b></p><p><span data-i18n="publisher">Publisher</span>: <b>Hamvara</b></p><p>Copyright: <b>© 2026 Hamvara. All rights reserved.</b></p>
+<p><span data-i18n="appVersion">App Version</span>: <b>0.7.0</b></p><p><span data-i18n="publisher">Publisher</span>: <b>Hamvara</b></p><p>Copyright: <b>© 2026 Hamvara. All rights reserved.</b></p>
 <p><span data-i18n="dataSchema">Data Schema</span>: <b id="schemaVersion"></b></p>
 <p data-i18n="dataLocation">Operational data is stored in the Data folder beside the EXE.</p>
 <div id="automaticBackupStatus" class="summary">Automatic full backup: twice daily at 06:00 and 18:00 UTC.</div>
@@ -218,4 +228,4 @@
 </div><p class="section-hint">After creation, the BOM opens automatically with its first material row ready for entry.</p><div class="modal-actions"><button id="cancelNewBom" type="button">Cancel</button><button type="submit" class="primary">Create &amp; Open BOM</button></div></form></div>
 <div id="importReview" class="modal" hidden><div class="modal-card"><div class="page-head"><div><h2>Import Validation</h2><small id="importSummary"></small></div><button id="closeImportReview">×</button></div><div class="table-wrap import-review"><table id="importReviewTable"></table></div><div class="modal-actions import-pagination"><span id="importPageStatus"></span><button id="importPrev">Previous</button><button id="importNext">Next</button><button id="cancelImport">Cancel</button><button id="postImport" class="primary">Post READY Rows</button></div></div></div>
 <datalist id="skuOptions"></datalist><datalist id="productOptions"></datalist><div id="toast"></div>
-<script src="config.js?v=0.6.26"></script><script src="cloud.js?v=0.6.26"></script><script src="qrcode.min.js?v=0.6.26"></script><script type="module" src="app.js?v=0.6.26"></script></body></html>
+<script src="config.js?v=0.7.0"></script><script src="cloud.js?v=0.7.0"></script><script src="qrcode.min.js?v=0.7.0"></script><script type="module" src="app.js?v=0.7.0"></script></body></html>

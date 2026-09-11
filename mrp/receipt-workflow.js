@@ -15,6 +15,7 @@ export function queueReceiptForApproval(state,data,meta={}){
   const qty=Number(data.qty);
   if(!data.sku||!Number.isFinite(qty)||qty<=0)throw new Error('Valid SKU and quantity are required.');
   if(!data.targetWarehouse||data.targetWarehouse==='WH-QA')throw new Error('A destination warehouse is required.');
+  const item=(state.skus||[]).find(value=>value.code===data.sku);if(item?.lotTracked&&!String(data.lotNo||'').trim())throw new Error('Lot number is required for this SKU.');if(item?.serialTracked&&(!String(data.serialNo||'').trim()||qty!==1))throw new Error('A unique serial number and quantity 1 are required for this SKU.');if(data.expiryDate&&data.expiryDate<data.date)throw new Error('Expired stock cannot be received.');
   state.stock[data.sku]??={};
   const before=Number(state.stock[data.sku]['WH-QA']||0);
   state.stock[data.sku]['WH-QA']=before+qty;
@@ -86,6 +87,7 @@ export function applyManagerReceiptDecision(state,receiptId,approved,ncrNo='',me
   receipt.managerStatus='APPROVED';
   receipt.status='POSTED';
   receipt.approvedAt=new Date().toISOString();
+  state.inventoryLots??=[];if(receipt.lotNo||receipt.serialNo){if(receipt.serialNo&&state.inventoryLots.some(item=>item.serialNo===receipt.serialNo&&item.quantity>0))throw new Error('Serial number already exists in inventory.');state.inventoryLots.push({id:`LOT-${receipt.id}`,sku:receipt.sku,warehouse:destination,lotNo:receipt.lotNo||'',serialNo:receipt.serialNo||'',expiryDate:receipt.expiryDate||'',receivedAt:receipt.approvedAt,quantity:receipt.qty,reference:receipt.reference})}
   if(inspection)inspection.stockReleased=true;
   appendInventoryMovement(state,{...metaFields(meta),sku:receipt.sku,warehouse:'WH-QA',qty:receipt.qty,direction:'OUT',type:'QC_RELEASE',reference:receipt.reference,at:receipt.approvedAt});
   appendInventoryMovement(state,{...metaFields(meta),sku:receipt.sku,warehouse:destination,qty:receipt.qty,direction:'IN',type:'GOODS_RECEIPT',reference:receipt.reference,at:receipt.approvedAt});

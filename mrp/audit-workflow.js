@@ -9,9 +9,9 @@ export function appendAudit(state,{action,entity='SYSTEM',reference='',user='unk
   return entry;
 }
 
-export function appendInventoryMovement(state,{sku,warehouse,qty,direction,type,reference='',batchNo='',user='unknown',device='unknown',at=new Date().toISOString(),note=''}={}){
+export function appendInventoryMovement(state,{sku,warehouse,qty,direction,type,reference='',batchNo='',lotNo='',serialNo='',expiryDate='',user='unknown',device='unknown',at=new Date().toISOString(),note=''}={}){
   state.inventoryMovements??=[];
-  const movement={id:`MOV-${at}-${state.inventoryMovements.length+1}`,at,sku,warehouse,qty:Math.abs(validNumber(qty)),direction,type,reference,batchNo,user,device,note};
+  const movement={id:`MOV-${at}-${state.inventoryMovements.length+1}`,at,sku,warehouse,qty:Math.abs(validNumber(qty)),direction,type,reference,batchNo,lotNo,serialNo,expiryDate,user,device,note};
   state.inventoryMovements.unshift(movement);
   if(state.inventoryMovements.length>3000)state.inventoryMovements.length=3000;
   return movement;
