@@ -24,10 +24,7 @@ jobs:
         with:
           node-version: 22
       - run: npm install
-      - run: npm run check
-      - name: Apply MRP D1 migration
-        run: npm run db:mrp
-      - name: Deploy Worker
+      - name: Verify, migrate production D1, and deploy Worker
         run: npm run deploy
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
