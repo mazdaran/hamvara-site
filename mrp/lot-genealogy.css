@@ -1,0 +1,7 @@
+.lot-trace-controls{display:flex;gap:8px;align-items:center;margin:12px 0}
+.lot-trace-controls input{flex:1;min-width:0}
+.lot-genealogy-panel h3{margin-top:18px}
+.lot-genealogy-panel .summary{overflow-wrap:anywhere}
+@media(max-width:700px){.lot-trace-controls{align-items:stretch;flex-direction:column}.lot-trace-controls button{width:100%}}
+.mrp-run-controls{grid-template-columns:minmax(150px,220px) minmax(150px,220px) auto;align-items:end}.mrp-run-controls button{margin-bottom:1px}.mrp-register-head{margin-top:20px}.time-phased-mrp-panel small{line-height:1.4}@media(max-width:700px){.mrp-run-controls{grid-template-columns:1fr}.mrp-run-controls button{width:100%}}
+.planned-order-actions{display:flex;gap:6px;flex-wrap:wrap}.planned-order-actions button{white-space:nowrap}
