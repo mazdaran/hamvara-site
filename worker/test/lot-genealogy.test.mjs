@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import {createProductionJob,releaseProductionJob,issueProductionJob,completeProductionJob,applyProductionQualityDecision} from '../../mrp/production-workflow.js';
 import {allocateTrackedLots,lotGenealogyReport} from '../../mrp/lot-genealogy.js';
 import {ensureBomProfile,saveBomRevision} from '../../mrp/bom-workflow.js';
+import {createAccountingPeriod,normalizeFinancialState} from '../../mrp/financial-core.js';
 
 function sampleState(){
   const state={products:[{code:'P1',name:'Finished Product',unit:'PCS'}],skus:[{code:'RM1',name:'Tracked Resin',unit:'KG',cost:2,warehouse:'WH-RM',lotTracked:true,issuePolicy:'FIFO'}],warehouses:[{code:'WH-RM'},{code:'WH-FG'},{code:'WH-QA'},{code:'WH-SF'}],orders:[{id:'O1',orderNo:'ORD-1',productCode:'P1',qty:5}],boms:{P1:[{sku:'RM1',warehouse:'WH-RM',qty:2,wastePercent:0}]},bomProfiles:{},bomHistory:{},stock:{RM1:{'WH-RM':12,'WH-SF':0,reserved:0}},productionJobs:[],qualityInspections:[],auditTrail:[],inventoryMovements:[],inventoryLots:[{id:'L1',sku:'RM1',warehouse:'WH-RM',lotNo:'RAW-A',receivedAt:'2026-08-01T00:00:00Z',quantity:6},{id:'L2',sku:'RM1',warehouse:'WH-RM',lotNo:'RAW-B',receivedAt:'2026-08-02T00:00:00Z',quantity:6}],lotGenealogy:[]};
-  ensureBomProfile(state,'P1').effectiveDate='2026-01-01';saveBomRevision(state,'P1',{at:'2026-01-01T00:00:00Z'});return state;
+  normalizeFinancialState(state);createAccountingPeriod(state,{id:'P1',code:'2026',startDate:'2026-01-01',endDate:'2026-12-31'});ensureBomProfile(state,'P1').effectiveDate='2026-01-01';saveBomRevision(state,'P1',{at:'2026-01-01T00:00:00Z'});return state;
 }
 
 test('production records FIFO source lots against the finished batch in both trace directions',()=>{
