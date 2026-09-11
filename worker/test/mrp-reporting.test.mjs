@@ -62,7 +62,7 @@ test('interface is English-only while translation infrastructure remains availab
   assert.doesNotMatch(html,/<select id="language">/);
   assert.match(html,/id="interfaceLanguage" value="English" readonly/);
   assert.match(html,/data-i18n="productionExecution"/);
-  assert.match(html,/app\.js\?v=0\.21\.0/);
+  assert.match(html,/app\.js\?v=0\.22\.0/);
   assert.match(html,/id="lotTraceQuery"/);
   assert.match(html,/id="lotTraceInputs"/);
   assert.match(html,/id="lotTraceOutputs"/);
@@ -91,7 +91,7 @@ test('interface is English-only while translation infrastructure remains availab
 
 test('browser module entry parses as an ES module',async()=>{const app=await readFile(new URL('../../mrp/app.js',import.meta.url),'utf8'),result=spawnSync(process.execPath,['--input-type=module','--check'],{input:app,encoding:'utf8'});assert.equal(result.status,0,result.stderr)});
 
-test('report center exposes dedicated IFRS and US GAAP engine outputs',async()=>{const html=await readFile(new URL('../../mrp/index.html',import.meta.url),'utf8');assert.match(html,/option value="financialStatements"/);assert.match(html,/option value="accountingControls"/)});
+test('report center exposes dedicated financial and service-level outputs',async()=>{const html=await readFile(new URL('../../mrp/index.html',import.meta.url),'utf8');assert.match(html,/option value="financialStatements"/);assert.match(html,/option value="accountingControls"/);assert.match(html,/option value="serviceLevel"/)});
 
 test('shop floor exposes smart camera and hardware-scanner identification with confirmation',async()=>{const html=await readFile(new URL('../../mrp/index.html',import.meta.url),'utf8'),app=await readFile(new URL('../../mrp/app.js',import.meta.url),'utf8');const live=html.match(/<section id="shopFloorLive"[\s\S]*?<\/section>/)?.[0]||'';assert.match(live,/id="liveSmartScan"/);assert.match(live,/id="startLiveCamera"/);assert.match(live,/id="liveScannerVideo"/);assert.match(live,/VERIFY BEFORE APPLY/);assert.match(app,/identifyShopFloorCode/);assert.match(app,/SHOP_FLOOR_BARCODE_CONFIRMED/)});
 

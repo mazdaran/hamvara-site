@@ -1,4 +1,5 @@
 import {buildAccountingControlReport,buildStatutoryReport} from './accounting-engines.js';
+import {serviceLevelKpis} from './service-level-kpis.js';
 
 const num=value=>Number(value)||0;
 const dateOf=value=>String(value||'').slice(0,10);
@@ -77,6 +78,11 @@ function salesReport(state,filters){
   return{title:'Sales, Invoice & Shipping',columns:['date','order','customer','sku','description','quantity','unitPrice','total','due','payment','invoice','shipment','shippingStatus','status'],rows,kpis:[['Sales orders',rows.length],['Order value',rows.reduce((s,x)=>s+x.total,0)],['Invoiced',rows.filter(x=>x.invoice).length],['Shipped',rows.filter(x=>x.shippingStatus==='SHIPPED').length],['Open',rows.filter(x=>!['SHIPPED','CANCELLED'].includes(x.status)).length]]};
 }
 
+function serviceLevelReport(state,filters){
+  const result=serviceLevelKpis(state,filters),rows=filterRows(result.rows,filters,'due');
+  return{title:'Service Level & Inventory Performance',columns:['order','customer','sku','due','orderedQty','shippedQty','fillRate','shippedDate','deliveryStatus'],rows,kpis:[['OTIF %',result.otifRate],['Fill Rate %',result.fillRate],['Inventory Turnover',result.inventoryTurnover],['Days Inventory',result.daysInventory],['COGS',result.cogs],['Average Inventory',result.averageInventoryValue]]};
+}
+
 function receiptReport(state,filters){
   let rows=(state.receipts||[]).map(item=>({date:item.date||item.postedAt||'',reference:item.reference||'',sku:item.sku||'',description:item.description||skuName(state,item.sku),destination:warehouseName(state,item.targetWarehouse||item.warehouse),quantity:num(item.qty),supplier:item.supplier||'',qc:item.qcStatus||'',manager:item.managerStatus||'',status:item.status||'',type:item.transactionType||'',user:item.postedBy?.user||''}));
   if(filters.warehouse)rows=rows.filter(item=>item.destination===warehouseName(state,filters.warehouse));
@@ -95,6 +101,6 @@ function accountingControlReport(state,filters){const report=buildAccountingCont
 
 export function buildBusinessReport(state,rawFilters={}){
   const filters={type:rawFilters.type||'overview',from:rawFilters.from||'',to:rawFilters.to||'',warehouse:rawFilters.warehouse||'',query:String(rawFilters.query||'').trim().toLowerCase()};
-  const builders={overview:overviewReport,financialStatements:statutoryFinancialReport,accountingControls:accountingControlReport,inventory:inventoryReport,movements:movementReport,production:productionReport,quality:qualityReport,procurement:procurementReport,sales:salesReport,receipts:receiptReport,audit:auditReport};
+  const builders={overview:overviewReport,financialStatements:statutoryFinancialReport,accountingControls:accountingControlReport,inventory:inventoryReport,movements:movementReport,production:productionReport,quality:qualityReport,procurement:procurementReport,sales:salesReport,serviceLevel:serviceLevelReport,receipts:receiptReport,audit:auditReport};
   return(builders[filters.type]||overviewReport)(state,filters);
 }
