@@ -1,6 +1,7 @@
 import {appendAudit} from './audit-workflow.js';
 import {timePhasedMaterialPlan,plannedSupplyExceptions} from './time-phased-mrp.js';
 import {supplierScheduleSummary} from './supplier-scheduling.js';
+import {planningCycleSummary} from './planning-cycle-control.js';
 
 const text=value=>String(value??'').trim();
 const date=value=>text(value).slice(0,10);
@@ -25,6 +26,7 @@ export function collectMrpExceptions(state,{asOf=new Date().toISOString().slice(
   const schedule=(state.productionSchedules||[]).find(item=>item.status==='RELEASED');
   for(const row of schedule?.exceptions||[])add('PRODUCTION_SCHEDULE',row.code,row.reference,`${schedule.scheduleNo||schedule.id}: ${row.message}`,'ACTION_REQUIRED');
   for(const row of supplierScheduleSummary(state,{asOf}).rows.filter(item=>item.status==='REJECTED'||item.status==='RESCHEDULE_PENDING'||['LATE','LATE_PARTIAL','LATE_RECEIPT'].includes(item.executionStatus)))add('SUPPLIER_SCHEDULE',row.executionStatus,row.scheduleNo,`${row.poNo} · ${row.supplierCode} · ${row.sku}: committed ${row.committedQty||row.requestedQty} by ${row.committedDate||row.requestedDate}; received ${row.receivedQty}.`,'ACTION_REQUIRED');
+  for(const row of planningCycleSummary(state,{asOf}).rows.filter(item=>item.executionStatus==='OVERDUE'))add('PLANNING_CYCLE','OVERDUE_GATE',`${row.cycleNo}|${row.code}`,`${row.name} was due ${row.dueDate} and has no accepted completion evidence.`,'ACTION_REQUIRED');
   return rows;
 }
 
