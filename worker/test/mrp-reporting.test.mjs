@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
+import {spawnSync} from 'node:child_process';
 import {buildBusinessReport} from '../../mrp/reporting.js';
 import {readOpeningStockRow,resolveOpeningWarehouse,resolveOpeningUnit} from '../../mrp/opening-stock-import.js';
 import {IMPORT_SCHEMAS,detectImportEntity,suggestMapping,canonicalizeRow,validateCanonicalRow,analyzeCanonicalRows} from '../../mrp/universal-import.js';
@@ -61,7 +62,7 @@ test('interface is English-only while translation infrastructure remains availab
   assert.doesNotMatch(html,/<select id="language">/);
   assert.match(html,/id="interfaceLanguage" value="English" readonly/);
   assert.match(html,/data-i18n="productionExecution"/);
-  assert.match(html,/app\.js\?v=0\.18\.0/);
+  assert.match(html,/app\.js\?v=0\.18\.1/);
   assert.match(html,/id="lotTraceQuery"/);
   assert.match(html,/id="lotTraceInputs"/);
   assert.match(html,/id="lotTraceOutputs"/);
@@ -87,6 +88,8 @@ test('interface is English-only while translation infrastructure remains availab
   assert.equal(translateUiText('Page 2 / 4 · rows 101–200 of 350','fa'),'صفحه 2 از 4 · ردیف 101 تا 200 از 350');
   assert.equal(hasUiTranslation('Line Cost / Unit'),true);
 });
+
+test('browser module entry parses as an ES module',async()=>{const app=await readFile(new URL('../../mrp/app.js',import.meta.url),'utf8'),result=spawnSync(process.execPath,['--input-type=module','--check'],{input:app,encoding:'utf8'});assert.equal(result.status,0,result.stderr)});
 
 test('report center exposes dedicated IFRS and US GAAP engine outputs',async()=>{const html=await readFile(new URL('../../mrp/index.html',import.meta.url),'utf8');assert.match(html,/option value="financialStatements"/);assert.match(html,/option value="accountingControls"/)});
 
