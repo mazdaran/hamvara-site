@@ -3,7 +3,7 @@ main = "src/index.js"
 compatibility_date = "2026-08-01"
 
 [vars]
-ALLOWED_ORIGINS = "https://hamvara.com,https://www.hamvara.com,https://mazdaran.github.io,http://localhost:8080,http://127.0.0.1:8080"
+ALLOWED_ORIGINS = "https://hamvara.com,https://www.hamvara.com"
 META_GRAPH_VERSION = "v23.0"
 
 [[d1_databases]]
