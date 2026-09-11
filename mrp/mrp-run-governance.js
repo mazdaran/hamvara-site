@@ -1,5 +1,6 @@
 import {appendAudit} from './audit-workflow.js';
 import {timePhasedMaterialPlan} from './time-phased-mrp.js';
+import {assertCurrentMasterDataGate} from './master-data-quality.js';
 
 const text=value=>String(value??'').trim();
 const num=value=>Number.isFinite(Number(value))?Number(value):0;
@@ -21,7 +22,7 @@ export function buildMrpRun(state,{asOf=new Date().toISOString().slice(0,10),hor
 }
 
 export function createMrpRun(state,input={},meta={}){
-  normalizeMrpRunGovernance(state);const frozen=(state.mpsSnapshots||[]).find(item=>item.status==='FROZEN');if(!frozen)throw new Error('Freeze an MPS version before creating a governed MRP run.');const planner=text(input.plannedBy);if(!planner)throw new Error('MRP planner identity is required.');const snapshot=buildMrpRun(state,input),at=meta.at||new Date().toISOString(),item={id:`MRPR-${Date.now()}-${state.mrpRuns.length+1}`,runNo:`MRP-${String(state.mrpRuns.length+1).padStart(5,'0')}`,status:'DRAFT',plannedBy:planner,createdAt:at,...snapshot,history:[{action:'CREATED',at,user:planner,details:`${snapshot.mode}; ${snapshot.totals.requirements} requirement lines`} ]};state.mrpRuns.unshift(item);audit(state,'MRP_RUN_CREATED',item,{...meta,user:planner},`${item.mode}; ${item.totals.changes} change(s)`);return item
+  normalizeMrpRunGovernance(state);const frozen=(state.mpsSnapshots||[]).find(item=>item.status==='FROZEN');if(!frozen)throw new Error('Freeze an MPS version before creating a governed MRP run.');const planner=text(input.plannedBy);if(!planner)throw new Error('MRP planner identity is required.');const qualityGate=assertCurrentMasterDataGate(state),snapshot=buildMrpRun(state,input),at=meta.at||new Date().toISOString(),item={id:`MRPR-${Date.now()}-${state.mrpRuns.length+1}`,runNo:`MRP-${String(state.mrpRuns.length+1).padStart(5,'0')}`,status:'DRAFT',plannedBy:planner,createdAt:at,masterDataGateNo:qualityGate.gateNo,...snapshot,history:[{action:'CREATED',at,user:planner,details:`${snapshot.mode}; ${snapshot.totals.requirements} requirement lines`} ]};state.mrpRuns.unshift(item);audit(state,'MRP_RUN_CREATED',item,{...meta,user:planner},`${item.mode}; ${item.totals.changes} change(s); ${qualityGate.gateNo}`);return item
 }
 
 export function reviewMrpRun(state,id,{reviewedBy,decision,at=new Date().toISOString()}={},meta={}){const item=find(state,id),reviewer=text(reviewedBy),note=text(decision);if(item.status!=='DRAFT')throw new Error('Only a draft MRP run can be reviewed.');if(!reviewer||note.length<10)throw new Error('Independent reviewer and a decision of at least 10 characters are required.');if(reviewer.toLowerCase()===item.plannedBy.toLowerCase())throw new Error('MRP reviewer must be independent from the planner.');Object.assign(item,{status:'REVIEWED',reviewedBy:reviewer,reviewDecision:note,reviewedAt:at});item.history.push({action:'REVIEWED',at,user:reviewer,details:note});audit(state,'MRP_RUN_REVIEWED',item,{...meta,user:reviewer},note);return item}
