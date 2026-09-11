@@ -1,0 +1,15 @@
+/* Responsive containment for wide ERP tables and nested grid panels. */
+html,body{max-width:100%;overflow-x:hidden}
+.layout{grid-template-columns:245px minmax(0,1fr)}
+main,.page,.panel{min-width:0;max-width:100%}
+main{width:100%;overflow-x:hidden}
+.section-title,.page-head,.project-section-head{min-width:0;flex-wrap:wrap;gap:10px}
+.section-title>*,.page-head>*,.project-section-head>*{min-width:0;max-width:100%}
+.form-grid>*,.process-grid>*,.barcode-generator-grid>*,.project-layout>*,.shop-floor-grid>*{min-width:0}
+.panel input,.panel select{max-width:100%}
+.table-wrap{width:100%;max-width:100%;min-width:0;overflow-x:auto;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-inline:contain;scrollbar-gutter:stable}
+.table-wrap table{width:max-content;min-width:100%}
+.live-master-data{min-width:0;max-width:100%;overflow:hidden}
+.live-master-table{width:100%;max-width:100%;overflow-x:auto}
+@media(max-width:1400px){.shop-floor-grid,.shop-floor-grid.lower{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:1100px){.layout{grid-template-columns:205px minmax(0,1fr)}}
