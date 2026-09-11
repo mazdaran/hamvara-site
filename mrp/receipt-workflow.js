@@ -79,6 +79,8 @@ export function applyManagerReceiptDecision(state,receiptId,approved,ncrNo='',me
   if(quarantine<receipt.qty)throw new Error('Insufficient matching quarantine stock.');
   const destination=receipt.targetWarehouse;
   const before=Number(stock[destination]||0);
+  state.inventoryLots??=[];if(receipt.serialNo&&state.inventoryLots.some(item=>item.serialNo===receipt.serialNo&&item.quantity>0))throw new Error('Serial number already exists in inventory.');
+  const item=(state.skus||[]).find(value=>value.code===receipt.sku),po=(state.purchaseOrders||[]).find(value=>value.poNo===receipt.purchaseOrderNo||value.grnNo===receipt.reference);if(item&&!receipt.costMovementId){const cost=receiveInventoryCost(state,{sku:receipt.sku,warehouse:destination,qty:receipt.qty,unitCost:Number(receipt.unitCost??po?.unitPrice??item.cost??item.standardCost)||0,date:receipt.date,at:new Date().toISOString(),reference:receipt.reference,source:'APPROVED_GOODS_RECEIPT'},meta);receipt.costMovementId=cost.id;receipt.costMethod=cost.method;receipt.costValue=cost.value}
   stock['WH-QA']=quarantine-receipt.qty;
   stock[destination]=before+receipt.qty;
   receipt.warehouse=destination;
@@ -87,7 +89,7 @@ export function applyManagerReceiptDecision(state,receiptId,approved,ncrNo='',me
   receipt.managerStatus='APPROVED';
   receipt.status='POSTED';
   receipt.approvedAt=new Date().toISOString();
-  state.inventoryLots??=[];if(receipt.lotNo||receipt.serialNo){if(receipt.serialNo&&state.inventoryLots.some(item=>item.serialNo===receipt.serialNo&&item.quantity>0))throw new Error('Serial number already exists in inventory.');state.inventoryLots.push({id:`LOT-${receipt.id}`,sku:receipt.sku,warehouse:destination,lotNo:receipt.lotNo||'',serialNo:receipt.serialNo||'',expiryDate:receipt.expiryDate||'',receivedAt:receipt.approvedAt,quantity:receipt.qty,reference:receipt.reference})}
+  if(receipt.lotNo||receipt.serialNo)state.inventoryLots.push({id:`LOT-${receipt.id}`,sku:receipt.sku,warehouse:destination,lotNo:receipt.lotNo||'',serialNo:receipt.serialNo||'',expiryDate:receipt.expiryDate||'',receivedAt:receipt.approvedAt,quantity:receipt.qty,reference:receipt.reference});
   if(inspection)inspection.stockReleased=true;
   appendInventoryMovement(state,{...metaFields(meta),sku:receipt.sku,warehouse:'WH-QA',qty:receipt.qty,direction:'OUT',type:'QC_RELEASE',reference:receipt.reference,at:receipt.approvedAt});
   appendInventoryMovement(state,{...metaFields(meta),sku:receipt.sku,warehouse:destination,qty:receipt.qty,direction:'IN',type:'GOODS_RECEIPT',reference:receipt.reference,at:receipt.approvedAt});
@@ -95,5 +97,6 @@ export function applyManagerReceiptDecision(state,receiptId,approved,ncrNo='',me
   return receipt;
 }
 import {appendAudit,appendInventoryMovement} from './audit-workflow.js';
+import {receiveInventoryCost} from './inventory-costing.js';
 
 function metaFields(meta={}){return{user:meta.user||'unknown',role:meta.role||'',workspace:meta.workspace||'',device:meta.device||'unknown'}}
