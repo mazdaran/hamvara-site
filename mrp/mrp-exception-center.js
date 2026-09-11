@@ -27,6 +27,7 @@ export function collectMrpExceptions(state,{asOf=new Date().toISOString().slice(
   for(const row of schedule?.exceptions||[])add('PRODUCTION_SCHEDULE',row.code,row.reference,`${schedule.scheduleNo||schedule.id}: ${row.message}`,'ACTION_REQUIRED');
   for(const row of supplierScheduleSummary(state,{asOf}).rows.filter(item=>item.status==='REJECTED'||item.status==='RESCHEDULE_PENDING'||['LATE','LATE_PARTIAL','LATE_RECEIPT'].includes(item.executionStatus)))add('SUPPLIER_SCHEDULE',row.executionStatus,row.scheduleNo,`${row.poNo} · ${row.supplierCode} · ${row.sku}: committed ${row.committedQty||row.requestedQty} by ${row.committedDate||row.requestedDate}; received ${row.receivedQty}.`,'ACTION_REQUIRED');
   for(const row of planningCycleSummary(state,{asOf}).rows.filter(item=>item.executionStatus==='OVERDUE'))add('PLANNING_CYCLE','OVERDUE_GATE',`${row.cycleNo}|${row.code}`,`${row.name} was due ${row.dueDate} and has no accepted completion evidence.`,'ACTION_REQUIRED');
+  const assessment=(state.mrp2Assessments||[]).find(item=>item.status==='APPROVED');for(const row of assessment?.controls?.filter(item=>item.status==='FAIL')||[])add('MRP2_ASSESSMENT',row.code,`${assessment.assessmentNo}|${row.code}`,`${row.title}: ${row.evidence}. Required action: ${row.action}`,'ACTION_REQUIRED');
   return rows;
 }
 
