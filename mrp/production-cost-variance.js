@@ -16,15 +16,15 @@ export function normalizeProductionCostVariance(state){
   return state;
 }
 
+export function productionActualConversionCost(state,jobId){const job=(state.productionJobs||[]).find(item=>item.id===jobId);if(!job)throw Error('Work order not found.');const sessions=(state.operationSessions||[]).filter(item=>item.jobId===jobId&&item.status==='COMPLETED'),labor=money(sessions.reduce((sum,session)=>{const worker=(state.operators||[]).find(item=>item.id===session.operatorId);return sum+num(session.actualMinutes)/60*num(worker?.hourlyRate)},0)),overhead=money(sessions.reduce((sum,session)=>{const center=(state.workCenters||[]).find(item=>item.id===session.workCenterId);return sum+num(session.actualMinutes)/60*(num(center?.hourlyRate)+num(center?.overheadRate))},0));return{labor,overhead,total:money(labor+overhead)}}
+
 export function productionCostVariance(state,jobId){
   normalizeProductionCostVariance(state);
   const job=(state.productionJobs||[]).find(item=>item.id===jobId);if(!job)throw Error('Work order not found.');
-  const sessions=(state.operationSessions||[]).filter(item=>item.jobId===jobId&&item.status==='COMPLETED');
   const goodQty=num(job.completedQty),scrapQty=num(job.scrapQty),processedQty=goodQty+scrapQty||num(job.plannedQty),plannedQty=Math.max(1,num(job.plannedQty));
   const materials=(job.materials||[]).map(line=>{const standardQty=num(line.required)*processedQty/plannedQty,actualQty=num(line.actualQuantity),standardRate=num(line.standardUnitCost),actualRate=num(line.actualUnitCost),priceVariance=money(actualQty*(actualRate-standardRate)),usageVariance=money((actualQty-standardQty)*standardRate);return{sku:line.sku,name:line.name||'',warehouse:line.warehouse,standardQty,actualQty,standardRate,actualRate,standardCost:money(standardQty*standardRate),actualCost:money(actualQty*actualRate),priceVariance,usageVariance,totalVariance:money(priceVariance+usageVariance)}});
   const standardLabor=money(num(job.laborCost)*processedQty),standardOverhead=money((num(job.overheadCost)+num(job.otherCost))*processedQty);
-  const actualLabor=money(sessions.reduce((sum,session)=>{const worker=(state.operators||[]).find(item=>item.id===session.operatorId);return sum+num(session.actualMinutes)/60*num(worker?.hourlyRate)},0));
-  const actualOverhead=money(sessions.reduce((sum,session)=>{const center=(state.workCenters||[]).find(item=>item.id===session.workCenterId);return sum+num(session.actualMinutes)/60*(num(center?.hourlyRate)+num(center?.overheadRate))},0));
+  const conversion=productionActualConversionCost(state,jobId),actualLabor=conversion.labor,actualOverhead=conversion.overhead;
   const materialPriceVariance=money(materials.reduce((sum,row)=>sum+row.priceVariance,0)),materialUsageVariance=money(materials.reduce((sum,row)=>sum+row.usageVariance,0));
   const laborVariance=money(actualLabor-standardLabor),overheadVariance=money(actualOverhead-standardOverhead),scrapReworkVariance=money(num(job.scrapLoss)+num(job.reworkCost)),downtimeVariance=money(num(job.downtimeCost));
   const totalVariance=money(materialPriceVariance+materialUsageVariance+laborVariance+overheadVariance+scrapReworkVariance+downtimeVariance),standardGoodOutput=money(goodQty*num(job.standardUnitCost)),actualProductionCost=money(standardGoodOutput+totalVariance);
