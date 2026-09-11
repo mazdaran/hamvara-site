@@ -11,9 +11,22 @@ const productionBinding = d1Blocks.find((block) =>
 );
 
 const errors = [];
+const expectedProductionOrigins = ["https://hamvara.com", "https://www.hamvara.com"];
 
 if (!/^\s*main\s*=\s*["']worker\/src\/index\.js["']\s*$/m.test(config)) {
   errors.push('main must be "worker/src/index.js"');
+}
+
+const originsMatch = config.match(/^\s*ALLOWED_ORIGINS\s*=\s*["']([^"']*)["']\s*$/m);
+const productionOrigins = originsMatch?.[1]
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean) ?? [];
+
+if (JSON.stringify(productionOrigins) !== JSON.stringify(expectedProductionOrigins)) {
+  errors.push(
+    `ALLOWED_ORIGINS must contain only the production origins: ${expectedProductionOrigins.join(", ")}`,
+  );
 }
 
 if (!productionBinding) {
