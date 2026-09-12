@@ -16,7 +16,7 @@
     <section class="notice"><strong>Production lock active</strong><span>Candidate review is available; production promotion and scheduled tariff collection are disabled.</span></section>
     <section class="controls">
       <article><h2>1 · Credentials</h2><label>Sync credential<input id="syncToken" type="password" autocomplete="off" placeholder="Used only to fetch"></label><label>Reviewer credential<input id="reviewToken" type="password" autocomplete="off" placeholder="Used only to review"></label><p>Credentials stay in this browser tab and are never saved.</p></article>
-      <article><h2>2 · Manual collection</h2><p>Download the source and create an immutable staged comparison.</p><button id="sync">Check for updates</button><button id="status" class="secondary">Refresh status</button><p id="connection">Not connected.</p></article>
+      <article><h2>2 · Manual collection</h2><p>Download the source chapter by chapter and create an immutable staged comparison.</p><button id="sync">Check for updates</button><button id="resume" class="secondary">Resume run</button><button id="status" class="secondary">Refresh status</button><progress id="progress" max="97" value="0" hidden></progress><p id="connection">Not connected.</p></article>
       <article><h2>3 · Candidate run</h2><label>Staged run<select id="runId"><option value="">Select a run</option></select></label><button id="runs">Load candidate runs</button><button id="changes" class="secondary">Load changes</button></article>
     </section>
     <section class="worklist">

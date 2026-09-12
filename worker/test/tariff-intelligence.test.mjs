@@ -64,6 +64,19 @@ test('phase 1 migration stores review disposition and acknowledgment evidence', 
   for (const field of ['disposition','disposition_at','disposition_by','disposition_reason','acknowledged_at','acknowledged_by']) assert.match(schema, new RegExp(field));
 });
 
+test('resumable tariff migration stores cursor heartbeat and lease fields', async()=>{
+  const fs=await import('node:fs/promises');
+  const schema=await fs.readFile(new URL('../migrations/0009_tariff_resumable_sync.sql',import.meta.url),'utf8');
+  for(const field of ['progress_current','progress_total','heartbeat_at','lease_token','lease_expires_at'])assert.match(schema,new RegExp(field));
+});
+
+test('manual tariff UI supports resumable chapter steps',async()=>{
+  const fs=await import('node:fs/promises');
+  const [source,ui]=await Promise.all([fs.readFile(new URL('../src/tariff.js',import.meta.url),'utf8'),fs.readFile(new URL('../../tariff-control/app.js',import.meta.url),'utf8')]);
+  assert.match(source,/startTariffSync/);assert.match(source,/stepTariffSync/);assert.match(source,/lease_expires_at/);assert.match(source,/chapterSourceUrl/);
+  assert.match(ui,/continueSync/);assert.match(ui,/resume/);
+});
+
 test('reference BOM independently reconciles material and duty totals', async () => {
   const fs = await import('node:fs/promises');
   const csv = await fs.readFile(new URL('../../tariff-impact/bom-template-v2.csv', import.meta.url), 'utf8');

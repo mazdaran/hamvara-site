@@ -1,5 +1,8 @@
 const USITC_EXPORT_URL = 'https://hts.usitc.gov/reststop/exportList?from=0100000000&to=9799999999&format=JSON&styles=false';
 const MAX_HTS_CODES_PER_REQUEST = 100;
+const HTS_CHAPTERS = 97;
+const SYNC_STALE_MS = 10 * 60 * 1000;
+const SYNC_LEASE_MS = 90 * 1000;
 
 export async function handleTariffRequest(request, env, url) {
   if (!env.DB) throw httpError(503, 'Tariff database is not configured.');
@@ -7,7 +10,12 @@ export async function handleTariffRequest(request, env, url) {
   if (url.pathname === '/api/tariff/rules' && request.method === 'GET') return publishedRules(env, url);
   if (url.pathname === '/api/tariff/admin/sync' && request.method === 'POST') {
     requireRole(request, env, 'sync');
-    return json(await runTariffSync(env));
+    return json(await startTariffSync(env), 202);
+  }
+  const syncStep = /^\/api\/tariff\/admin\/sync-runs\/([A-Za-z0-9._-]+)\/step\/?$/.exec(url.pathname);
+  if (syncStep && request.method === 'POST') {
+    requireRole(request, env, 'sync');
+    return json(await stepTariffSync(env, syncStep[1]));
   }
   if (url.pathname === '/api/tariff/admin/sync-runs' && request.method === 'GET') {
     requireRole(request, env, 'reviewer');
@@ -45,6 +53,88 @@ export async function handleTariffRequest(request, env, url) {
   }
   throw httpError(404, 'Tariff endpoint not found.');
 }
+
+export async function startTariffSync(env, options = {}) {
+  const now = options.startedAt || new Date().toISOString();
+  const active = await env.DB.prepare(`SELECT id,status,progress_current,progress_total,heartbeat_at,started_at
+    FROM tariff_sync_runs WHERE status='RUNNING' ORDER BY started_at DESC LIMIT 1`).first();
+  if (active && !isStaleSync(active, now)) return syncProgress(active, true);
+  if (active) {
+    await env.DB.batch([
+      env.DB.prepare(`UPDATE tariff_sync_runs SET status='FAILED',error_message='Interrupted sync expired and was safely superseded.',completed_at=?,lease_token=NULL,lease_expires_at=NULL WHERE id=? AND status='RUNNING'`).bind(now, active.id),
+      env.DB.prepare('DELETE FROM tariff_hts_changes WHERE run_id=?').bind(active.id),
+      env.DB.prepare('DELETE FROM tariff_hts_stage WHERE run_id=?').bind(active.id)
+    ]);
+  }
+  const runId = options.runId || crypto.randomUUID();
+  const sourceUrl = env.USITC_HTS_EXPORT_URL || USITC_EXPORT_URL;
+  await env.DB.prepare(`INSERT INTO tariff_sync_runs
+    (id,source,status,started_at,heartbeat_at,progress_current,progress_total)
+    VALUES (?,?,'RUNNING',?,?,0,?)`).bind(runId, sourceUrl, now, now, HTS_CHAPTERS).run();
+  return { ok:true, runId, status:'RUNNING', progressCurrent:0, progressTotal:HTS_CHAPTERS, resumed:false };
+}
+
+export async function stepTariffSync(env, runId, options = {}) {
+  const fetchImpl = options.fetchImpl || fetch;
+  const now = options.now || new Date().toISOString();
+  let run = await env.DB.prepare(`SELECT id,source,status,source_revision,rows_received,progress_current,progress_total,heartbeat_at,lease_token,lease_expires_at
+    FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
+  if (!run) throw httpError(404, 'Sync run not found.');
+  if (run.status === 'STAGED') return syncProgress(run, true);
+  if (run.status !== 'RUNNING') throw httpError(409, `Sync run is ${run.status}.`);
+  const leaseToken = crypto.randomUUID();
+  const leaseExpiresAt = new Date(Date.parse(now) + SYNC_LEASE_MS).toISOString();
+  const claim = await env.DB.prepare(`UPDATE tariff_sync_runs SET lease_token=?,lease_expires_at=?,heartbeat_at=?
+    WHERE id=? AND status='RUNNING' AND (lease_expires_at IS NULL OR lease_expires_at<?)`).bind(leaseToken, leaseExpiresAt, now, runId, now).run();
+  if (Number(claim.meta?.changes ?? claim.changes ?? 1) === 0) return { ...syncProgress(run, true), busy:true };
+  try {
+    run = await env.DB.prepare(`SELECT id,source,status,source_revision,rows_received,progress_current,progress_total,heartbeat_at FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
+    const chapter = Number(run.progress_current || 0) + 1;
+    if (chapter > HTS_CHAPTERS) return finalizeTariffSync(env, runId, run.source_revision, now);
+    const response = await fetchImpl(chapterSourceUrl(run.source || USITC_EXPORT_URL, chapter), { headers:{ Accept:'application/json', 'User-Agent':'Hamvara-Tariff-Change-Monitor/1.1 (info@hamvara.com)' } });
+    if (!response.ok) throw new Error(`USITC chapter ${chapter} export failed with HTTP ${response.status}.`);
+    const payload = await response.json();
+    const sourceRevision = clean(response.headers?.get?.('etag') || response.headers?.get?.('last-modified') || payload.revision || run.source_revision || now, 180);
+    const records = (await Promise.all(extractRecords(payload).map(record => normalizeHtsRecord(record, sourceRevision)))).filter(record => record && Number(record.hts10.slice(0,2)) === chapter);
+    if (!records.length && !options.allowEmptyChapter) throw new Error(`USITC chapter ${chapter} returned no usable HTS rows.`);
+    const unique = [...new Map(records.map(record => [record.hts10,record])).values()];
+    const prefix = String(chapter).padStart(2,'0');
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM tariff_hts_changes WHERE run_id=? AND substr(hts10,1,2)=?').bind(runId,prefix),
+      env.DB.prepare('DELETE FROM tariff_hts_stage WHERE run_id=? AND substr(hts10,1,2)=?').bind(runId,prefix)
+    ]);
+    for (let offset=0;offset<unique.length;offset+=75) await env.DB.batch(unique.slice(offset,offset+75).map(record=>env.DB.prepare(`INSERT INTO tariff_hts_stage
+      (run_id,hts10,description,general_rate_raw,special_rate_raw,units_json,source_revision,content_hash) VALUES (?,?,?,?,?,?,?,?)`).bind(runId,record.hts10,record.description,record.generalRateRaw,record.specialRateRaw,JSON.stringify(record.units),sourceRevision,record.contentHash)));
+    await detectChapterChanges(env,runId,prefix,now);
+    const received=Number(run.rows_received||0)+unique.length;
+    await env.DB.prepare(`UPDATE tariff_sync_runs SET source_revision=?,rows_received=?,progress_current=?,heartbeat_at=?,lease_token=NULL,lease_expires_at=NULL WHERE id=? AND lease_token=?`).bind(sourceRevision,received,chapter,now,runId,leaseToken).run();
+    if(chapter===HTS_CHAPTERS)return finalizeTariffSync(env,runId,sourceRevision,now);
+    return{ok:true,runId,status:'RUNNING',chapter,rowsInChapter:unique.length,rowsReceived:received,progressCurrent:chapter,progressTotal:HTS_CHAPTERS};
+  } catch(error) {
+    await env.DB.prepare(`UPDATE tariff_sync_runs SET error_message=?,heartbeat_at=?,lease_token=NULL,lease_expires_at=NULL WHERE id=? AND lease_token=?`).bind(clean(error.message,500),now,runId,leaseToken).run();
+    throw error;
+  }
+}
+
+async function detectChapterChanges(env,runId,prefix,detectedAt){
+  await env.DB.batch([
+    env.DB.prepare(`INSERT INTO tariff_hts_changes (run_id,hts10,change_type,old_value_json,new_value_json,detected_at) SELECT ?,s.hts10,'ADDED',NULL,json_object('description',s.description,'general_rate_raw',s.general_rate_raw,'special_rate_raw',s.special_rate_raw,'units_json',s.units_json),? FROM tariff_hts_stage s LEFT JOIN tariff_hts_lines h ON h.hts10=s.hts10 WHERE s.run_id=? AND substr(s.hts10,1,2)=? AND h.hts10 IS NULL`).bind(runId,detectedAt,runId,prefix),
+    env.DB.prepare(`INSERT INTO tariff_hts_changes (run_id,hts10,change_type,old_value_json,new_value_json,detected_at) SELECT ?,s.hts10,'CHANGED',json_object('description',h.description,'general_rate_raw',h.general_rate_raw,'special_rate_raw',h.special_rate_raw,'units_json',h.units_json),json_object('description',s.description,'general_rate_raw',s.general_rate_raw,'special_rate_raw',s.special_rate_raw,'units_json',s.units_json),? FROM tariff_hts_stage s JOIN tariff_hts_lines h ON h.hts10=s.hts10 WHERE s.run_id=? AND substr(s.hts10,1,2)=? AND s.content_hash<>h.content_hash`).bind(runId,detectedAt,runId,prefix),
+    env.DB.prepare(`INSERT INTO tariff_hts_changes (run_id,hts10,change_type,old_value_json,new_value_json,detected_at) SELECT ?,h.hts10,'REMOVED',json_object('description',h.description,'general_rate_raw',h.general_rate_raw,'special_rate_raw',h.special_rate_raw,'units_json',h.units_json),NULL,? FROM tariff_hts_lines h LEFT JOIN tariff_hts_stage s ON s.run_id=? AND s.hts10=h.hts10 WHERE h.valid_to IS NULL AND substr(h.hts10,1,2)=? AND s.hts10 IS NULL`).bind(runId,detectedAt,runId,prefix)
+  ]);
+}
+
+async function finalizeTariffSync(env,runId,sourceRevision,completedAt){
+  const counts=await env.DB.prepare(`SELECT change_type,COUNT(*) AS count FROM tariff_hts_changes WHERE run_id=? GROUP BY change_type`).bind(runId).all();
+  const totals=Object.fromEntries((counts.results||[]).map(row=>[row.change_type,Number(row.count||0)]));
+  await env.DB.prepare(`UPDATE tariff_sync_runs SET status='STAGED',source_revision=?,rows_added=?,rows_changed=?,rows_removed=?,progress_current=?,heartbeat_at=?,completed_at=?,lease_token=NULL,lease_expires_at=NULL,error_message=NULL WHERE id=?`).bind(sourceRevision,totals.ADDED||0,totals.CHANGED||0,totals.REMOVED||0,HTS_CHAPTERS,completedAt,completedAt,runId).run();
+  const row=await env.DB.prepare(`SELECT id,status,source_revision,rows_received,rows_added,rows_changed,rows_removed,progress_current,progress_total,heartbeat_at,completed_at FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
+  return syncProgress(row);
+}
+
+function chapterSourceUrl(source,chapter){const url=new URL(source),prefix=String(chapter).padStart(2,'0');url.searchParams.set('from',`${prefix}00000000`);url.searchParams.set('to',`${prefix}99999999`);return url.toString()}
+function isStaleSync(run,now){const timestamp=Date.parse(run.heartbeat_at||run.started_at||'');return !Number.isFinite(timestamp)||Date.parse(now)-timestamp>SYNC_STALE_MS}
+function syncProgress(run,resumed=false){return{ok:true,runId:run.id,status:run.status,rowsReceived:Number(run.rows_received||0),progressCurrent:Number(run.progress_current||0),progressTotal:Number(run.progress_total||HTS_CHAPTERS),heartbeatAt:run.heartbeat_at||null,completedAt:run.completed_at||null,resumed}}
 
 export async function runTariffSync(env, options = {}) {
   if (!env.DB) throw new Error('Tariff database is not configured.');
@@ -119,7 +209,7 @@ async function listSyncRuns(env, url) {
   const allowed = ['RUNNING','STAGED','REJECTED','FAILED'];
   const limit = boundedInt(url.searchParams.get('limit'), 25, 1, 100);
   const where = status && allowed.includes(status) ? 'WHERE status=?' : '';
-  const statement = env.DB.prepare(`SELECT id,source_revision,status,rows_received,rows_added,rows_changed,rows_removed,started_at,completed_at,decision_reason,error_message
+  const statement = env.DB.prepare(`SELECT id,source_revision,status,rows_received,rows_added,rows_changed,rows_removed,progress_current,progress_total,heartbeat_at,started_at,completed_at,decision_reason,error_message
     FROM tariff_sync_runs ${where} ORDER BY started_at DESC LIMIT ?`);
   const result = where ? await statement.bind(status, limit).all() : await statement.bind(limit).all();
   return json({ runs: result.results || [], limit });
@@ -168,7 +258,7 @@ async function reviewSyncChange(request, env, id, action, actor) {
 }
 
 async function tariffStatus(env) {
-  const run = await env.DB.prepare(`SELECT id,source_revision,status,rows_received,rows_added,rows_changed,rows_removed,started_at,completed_at,error_message
+  const run = await env.DB.prepare(`SELECT id,source_revision,status,rows_received,rows_added,rows_changed,rows_removed,progress_current,progress_total,heartbeat_at,started_at,completed_at,error_message
     FROM tariff_sync_runs ORDER BY started_at DESC LIMIT 1`).first();
   const changes = await env.DB.prepare(`SELECT COUNT(*) AS count,MAX(detected_at) AS latest FROM tariff_hts_changes WHERE acknowledged_at IS NULL`).first();
   const published = await env.DB.prepare(`SELECT id,name,effective_from,effective_to,published_at FROM tariff_rule_sets WHERE status='PUBLISHED' ORDER BY published_at DESC LIMIT 1`).first();
