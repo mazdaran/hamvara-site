@@ -16,5 +16,6 @@ crons = [ "0 6 * * *", "0 18 * * *" ]
 binding = "DB"
 database_name = "hamvara-growth-production"
 database_id = "bc036eef-2f9d-46cf-a468-cd9a0fb42a87"
+migrations_dir = "worker/migrations"
 
 # OAuth credentials and encryption keys are configured as runtime secrets.

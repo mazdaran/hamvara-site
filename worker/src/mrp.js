@@ -119,22 +119,26 @@ async function safeJson(request){try{return await request.json()}catch{throw htt
 export async function runScheduledMrpBackups(env, scheduledAt = new Date().toISOString()) {
   if (!env.DB) throw new Error('MRP database is not configured.');
   await ensureBackupTable(env);
-  await env.DB.prepare(`INSERT INTO mrp_state_backups (id, workspace_id, state_json, revision, source, created_at)
-    SELECT lower(hex(randomblob(16))), workspace_id, state_json, revision, 'SCHEDULED', ? FROM mrp_state WHERE state_json IS NOT NULL`).bind(scheduledAt).run();
+  await env.DB.prepare(`INSERT INTO mrp_state_backups (id, workspace_id, state_json, revision, source, status, created_at)
+    SELECT lower(hex(randomblob(16))), workspace_id, state_json, revision, 'SCHEDULED', 'PENDING', ? FROM mrp_state WHERE state_json IS NOT NULL`).bind(scheduledAt).run();
   const created=await env.DB.prepare("SELECT id,workspace_id,state_json FROM mrp_state_backups WHERE source='SCHEDULED' AND created_at=?").bind(scheduledAt).all();
-  for(const backup of created.results||[])await snapshotMrpArtifactsForBackup(env,backup.id,backup.workspace_id,backup.state_json);
+  let complete=0,failed=0;
+  for(const backup of created.results||[]){try{const result=await snapshotMrpArtifactsForBackup(env,backup.id,backup.workspace_id,backup.state_json);await markMrpBackupComplete(env,backup.id,result.artifacts);complete++}catch(error){await markMrpBackupFailed(env,backup.id,error);failed++}}
   await env.DB.prepare("DELETE FROM mrp_state_backups WHERE created_at < datetime('now','-90 days')").run();
   await cleanupOrphanedMrpArtifacts(env);
-  return { ok: true, scheduledAt };
+  return { ok: failed===0, scheduledAt, created:(created.results||[]).length, complete, failed };
 }
 
 async function backupStatus(env, actor) {
   await ensureBackupTable(env);
-  const row = await env.DB.prepare('SELECT COUNT(*) AS count, MAX(created_at) AS last_backup_at FROM mrp_state_backups WHERE workspace_id = ?').bind(actor.workspace.id).first();
-  return json({ count: Number(row?.count || 0), lastBackupAt: row?.last_backup_at || null, scheduleUtc: ['06:00','18:00'], retentionDays: 90 });
+  const row = await env.DB.prepare("SELECT SUM(CASE WHEN status='COMPLETE' THEN 1 ELSE 0 END) AS count, MAX(CASE WHEN status='COMPLETE' THEN completed_at END) AS last_backup_at, SUM(CASE WHEN status='FAILED' THEN 1 ELSE 0 END) AS failed_count, SUM(CASE WHEN status='PENDING' THEN 1 ELSE 0 END) AS pending_count FROM mrp_state_backups WHERE workspace_id = ?").bind(actor.workspace.id).first();
+  return json({ count: Number(row?.count || 0), lastBackupAt: row?.last_backup_at || null, failedCount:Number(row?.failed_count||0),pendingCount:Number(row?.pending_count||0),scheduleUtc: ['06:00','18:00'], retentionDays: 90 });
 }
 
-async function createManualBackup(env,actor){await ensureBackupTable(env);const row=await env.DB.prepare('SELECT state_json, revision FROM mrp_state WHERE workspace_id = ?').bind(actor.workspace.id).first();if(!row?.state_json)throw httpError(409,'No workspace state is available to back up.');const id=crypto.randomUUID(),createdAt=new Date().toISOString();await env.DB.prepare("INSERT INTO mrp_state_backups (id,workspace_id,state_json,revision,source,created_at) VALUES (?,?,?,?, 'MANUAL',?)").bind(id,actor.workspace.id,row.state_json,Number(row.revision||0),createdAt).run();await snapshotMrpArtifactsForBackup(env,id,actor.workspace.id,row.state_json);return json({ok:true,id,createdAt,revision:Number(row.revision||0)})}
+async function createManualBackup(env,actor){await ensureBackupTable(env);const row=await env.DB.prepare('SELECT state_json, revision FROM mrp_state WHERE workspace_id = ?').bind(actor.workspace.id).first();if(!row?.state_json)throw httpError(409,'No workspace state is available to back up.');const id=crypto.randomUUID(),createdAt=new Date().toISOString();await env.DB.prepare("INSERT INTO mrp_state_backups (id,workspace_id,state_json,revision,source,status,created_at) VALUES (?,?,?,?, 'MANUAL','PENDING',?)").bind(id,actor.workspace.id,row.state_json,Number(row.revision||0),createdAt).run();try{const result=await snapshotMrpArtifactsForBackup(env,id,actor.workspace.id,row.state_json);await markMrpBackupComplete(env,id,result.artifacts);return json({ok:true,id,createdAt,revision:Number(row.revision||0),artifactCount:result.artifacts,status:'COMPLETE'})}catch(error){await markMrpBackupFailed(env,id,error);throw error}}
+
+async function markMrpBackupComplete(env,backupId,artifactCount){await env.DB.prepare("UPDATE mrp_state_backups SET status='COMPLETE',artifact_count=?,completed_at=datetime('now'),failure_reason=NULL WHERE id=? AND status='PENDING'").bind(artifactCount,backupId).run()}
+async function markMrpBackupFailed(env,backupId,error){const reason=String(error?.message||'MRP artifact snapshot failed.').slice(0,500);await env.DB.prepare("UPDATE mrp_state_backups SET status='FAILED',failure_reason=?,completed_at=NULL WHERE id=? AND status='PENDING'").bind(reason,backupId).run()}
 
 export async function snapshotMrpArtifactsForBackup(env,backupId,workspaceId,stateJson){
   let state;try{state=JSON.parse(stateJson||'{}')}catch{throw httpError(500,'MRP backup source state is invalid.')}
@@ -160,8 +164,9 @@ export async function cleanupOrphanedMrpArtifacts(env){
 }
 
 async function ensureBackupTable(env) {
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS mrp_state_backups (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, state_json TEXT NOT NULL, revision INTEGER NOT NULL, source TEXT NOT NULL DEFAULT 'SCHEDULED', created_at TEXT NOT NULL, FOREIGN KEY (workspace_id) REFERENCES mrp_workspaces(id) ON DELETE CASCADE)`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS mrp_state_backups (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, state_json TEXT NOT NULL, revision INTEGER NOT NULL, source TEXT NOT NULL DEFAULT 'SCHEDULED', status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','COMPLETE','FAILED','LEGACY_UNVERIFIED')), artifact_count INTEGER NOT NULL DEFAULT 0 CHECK (artifact_count >= 0), completed_at TEXT, failure_reason TEXT, created_at TEXT NOT NULL, FOREIGN KEY (workspace_id) REFERENCES mrp_workspaces(id) ON DELETE CASCADE)`).run();
   await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_mrp_backups_workspace_created ON mrp_state_backups(workspace_id, created_at DESC)').run();
+  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_mrp_backups_workspace_status_created ON mrp_state_backups(workspace_id, status, created_at DESC)').run();
 }
 
 async function analyzeWaybill(request, env, actor) {
