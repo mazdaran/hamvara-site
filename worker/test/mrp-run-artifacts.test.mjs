@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {externalizeMrpRunPayloads,mrpRunArtifactId,rehydrateMrpRunPayloads} from '../../mrp/mrp-run-artifacts.js';
+
+const state=rows=>({schemaVersion:6,settings:{name:'Factory'},mrpRuns:[{id:'R1',runNo:'MRP-1',status:'RELEASED',resultFingerprint:'abc',rows,timeBucketCheckpoints:{schemaVersion:3,headHash:'head',checkpoints:[{index:0,records:rows.map(row=>[row.key,row.plannedQuantity])}]}}]});
+test('large MRP run payload is externalized without mutating caller state',()=>{const original=state(Array.from({length:1000},(_,index)=>({key:`K${index}`,plannedQuantity:index}))),before=JSON.stringify(original),result=externalizeMrpRunPayloads(original,{thresholdBytes:100});assert.equal(JSON.stringify(original),before);assert.equal(result.externalizedRuns,1);assert.equal(result.coreState.mrpRuns[0].rows.length,0);assert.equal(result.coreState.mrpRuns[0].storageArtifact.artifactId,'R1:abc');assert.ok(result.coreBytes<result.artifacts[0].byteLength);});
+test('artifact rehydration is lossless',()=>{const original=state([{key:'A',plannedQuantity:2},{key:'B',plannedQuantity:3}]),result=externalizeMrpRunPayloads(original,{thresholdBytes:1}),restored=rehydrateMrpRunPayloads(result.coreState,result.artifacts);assert.deepEqual(restored,original);});
+test('small run stays inline for backward compatibility',()=>{const original=state([]),result=externalizeMrpRunPayloads(original,{thresholdBytes:1_000_000});assert.equal(result.externalizedRuns,0);assert.deepEqual(result.coreState,original);});
+test('missing or length-mismatched artifact fails closed',()=>{const result=externalizeMrpRunPayloads(state([{key:'A'}]),{thresholdBytes:1});assert.throws(()=>rehydrateMrpRunPayloads(result.coreState,[]),/missing/);assert.throws(()=>rehydrateMrpRunPayloads(result.coreState,[{...result.artifacts[0],payloadJson:'{}'}]),/length mismatch/);});
+test('artifact identity requires controlled run identity',()=>{assert.throws(()=>mrpRunArtifactId({id:'R1'}),/fingerprint/);});
