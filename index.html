@@ -296,7 +296,7 @@ footer{background:#fff;border-color:#dfe8ee}
   .topbar{background:rgba(255,255,255,.96);border-bottom-color:#dbe5ea}
   .topbar-in{height:68px;gap:10px}.brand{font-size:22px}.brand-mark{width:25px;height:25px}.site-menu summary{width:40px;height:40px}.lang{margin-inline-start:auto}
   .hero{padding:32px 18px 30px}.hero-grid{gap:29px}.eyebrow{font-size:10px;margin-bottom:15px;padding:6px 10px}.hero h1{font-size:clamp(38px,11.2vw,48px);line-height:1.01;letter-spacing:-1px}.hero-tagline{font-size:18px;line-height:1.45;margin-top:18px;color:#087f8c}.hero p.lead{font-size:16px;line-height:1.65;margin-top:13px}.hero-cta{display:grid;grid-template-columns:1fr;margin-top:22px}.hero-cta .btn{text-align:center;width:100%;padding:13px 18px}.hero-points{display:grid;gap:11px;margin-top:22px;font-size:13px}.hero-points i{width:7px;height:7px}
-  .command-shell{padding:10px;border-radius:18px;box-shadow:0 25px 50px -28px rgba(5,31,51,.72)}.command-top{padding:3px 4px 12px}.command-brand{font-size:13px}.command-live{font-size:8px}.command-main{grid-template-columns:1fr;min-height:0;border-radius:12px}.command-nav{display:flex;overflow-x:auto;gap:6px;padding:9px;background:#102c45;scrollbar-width:none}.command-nav::-webkit-scrollbar{display:none}.command-nav strong{display:none}.command-nav button{flex:none;padding:7px 10px;font-size:9px}.command-view{padding:12px}.command-stage{min-height:287px}.command-view-head{margin-bottom:11px}.command-view-head strong{font-size:14px}.command-view-head span{font-size:7px}.metric-row{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.metric:nth-child(n){display:block}.metric{padding:8px 7px}.metric small{font-size:7px;line-height:1.3;min-height:19px}.metric b{font-size:15px}.metric em{font-size:7px;white-space:nowrap}.ops-board{padding:10px;margin-top:8px}.bar-set{gap:8px;margin-top:10px}.bar-line{grid-template-columns:55px 1fr 24px;font-size:8px}.command-alerts{grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}.mini-card{padding:9px 8px;font-size:8px;line-height:1.45}.mini-card b{font-size:10px}.list-head,.list-row{grid-template-columns:1.45fr .65fr .7fr;padding:9px 8px}.list-head span:nth-child(3),.list-row span:nth-child(3){display:none}.work-grid{gap:6px}.work-card{padding:9px}
+  .command-shell{padding:10px;border-radius:18px;box-shadow:0 25px 50px -28px rgba(5,31,51,.72);touch-action:pan-y}.command-top{padding:3px 4px 12px}.command-brand{font-size:13px}.command-live{font-size:8px}.command-main{grid-template-columns:1fr;min-height:0;border-radius:12px}.command-nav{display:flex;overflow-x:auto;gap:6px;padding:9px;background:#102c45;scrollbar-width:none;scroll-snap-type:x proximity}.command-nav::-webkit-scrollbar{display:none}.command-nav strong{display:none}.command-nav button{flex:none;padding:7px 10px;font-size:9px;scroll-snap-align:center}.command-view{padding:12px;overflow:hidden}.command-stage{height:302px;min-height:302px;overflow:hidden}.command-slide{transform:translateX(28px)}html[dir="rtl"] .command-slide{transform:translateX(-28px)}.command-slide.on{transform:none}.command-view-head{margin-bottom:11px}.command-view-head strong{font-size:14px}.command-view-head span{font-size:7px}.metric-row{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.metric:nth-child(n){display:block}.metric{padding:8px 7px}.metric small{font-size:7px;line-height:1.3;min-height:19px}.metric b{font-size:15px}.metric em{font-size:7px;white-space:nowrap}.ops-board{padding:10px;margin-top:8px}.bar-set{gap:8px;margin-top:10px}.bar-line{grid-template-columns:55px 1fr 24px;font-size:8px}.command-alerts{grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}.mini-card{padding:9px 8px;font-size:8px;line-height:1.45}.mini-card b{font-size:10px}.list-head,.list-row{grid-template-columns:1.45fr .65fr .7fr;padding:9px 8px}.list-head span:nth-child(3),.list-row span:nth-child(3){display:none}.work-grid{gap:6px}.work-card{padding:9px}
   .proof{padding:16px 18px 2px}.proof-in{grid-template-columns:1fr 1fr;border-radius:14px;overflow:hidden}.proof-item{padding:15px 9px;font-size:11px;line-height:1.45;border-top:0;border-inline-start:1px solid #dfe8ee}.proof-item:nth-child(odd){border-inline-start:0}.proof-item:nth-child(n+3){border-top:1px solid #dfe8ee}.proof-item strong{font-size:13px}
   #products{padding-top:58px}.sec-head{margin-bottom:28px}.sec-head h2{font-size:34px;line-height:1.08}.sec-head p{font-size:15px}.prods{gap:15px}.prods .prod:first-child,.prods .prod:nth-child(2),.prods .prod:nth-child(n+3){grid-column:1/-1}.prods .prod:first-child{min-height:0}.prod{padding:22px;border-radius:15px}.prod h3{font-size:22px}.prod .what{font-size:14px}.prod li{font-size:13px}
   .flow-section{padding:62px 0}.factory-flow,.outcomes{grid-template-columns:1fr}.factory-flow{gap:12px}.flow-card{min-height:0;padding:19px 17px}.flow-card h3{margin-top:16px}.flow-card:not(:last-child):after{content:"↓";display:grid;right:18px;top:auto;bottom:-19px;transform:none;width:26px;height:26px}
@@ -1027,6 +1027,11 @@ footer{background:#fff;border-color:#dfe8ee}
     activeScene = (index + scenePanels.length) % scenePanels.length;
     sceneButtons.forEach(function (button, i) { button.classList.toggle('on', i === activeScene); });
     scenePanels.forEach(function (panel, i) { panel.classList.toggle('on', i === activeScene); });
+    if (window.innerWidth <= 680 && sceneButtons[activeScene]) {
+      var sceneNav = sceneButtons[activeScene].parentElement;
+      var sceneButton = sceneButtons[activeScene];
+      sceneNav.scrollTo({ left: sceneButton.offsetLeft - (sceneNav.clientWidth - sceneButton.offsetWidth) / 2, behavior: 'smooth' });
+    }
     if (commandShell) {
       commandShell.classList.remove('playing');
       void commandShell.offsetWidth;
@@ -1047,6 +1052,16 @@ footer{background:#fff;border-color:#dfe8ee}
   if (commandShell) {
     commandShell.addEventListener('mouseenter', function () { window.clearInterval(sceneTimer); commandShell.classList.remove('playing'); });
     commandShell.addEventListener('mouseleave', startSceneTour);
+    var swipeStartX = 0;
+    commandShell.addEventListener('touchstart', function (event) {
+      swipeStartX = event.changedTouches[0].clientX;
+      window.clearInterval(sceneTimer);
+    }, { passive: true });
+    commandShell.addEventListener('touchend', function (event) {
+      var distance = event.changedTouches[0].clientX - swipeStartX;
+      if (Math.abs(distance) > 42) showScene(activeScene + (distance < 0 ? 1 : -1));
+      startSceneTour();
+    }, { passive: true });
   }
   startSceneTour();
 
