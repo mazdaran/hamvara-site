@@ -30,6 +30,12 @@ The command returns the workspace Access Key once. Store it securely and use it 
 
 The MRP API stores each company's state under a separate workspace ID, hashes user access keys, keeps an audit log and uses revision checks to prevent accidental overwrites from concurrent sessions.
 
+Create a high-entropy server-only secret of at least 32 characters for released MRP audit seals:
+
+`npx wrangler secret put MRP_AUDIT_HMAC_SECRET --config ../wrangler.toml`
+
+The Worker refuses to persist a newly released MRP run unless the authenticated saver is a Factory Manager or CEO and this secret is configured. The HMAC key is never stored in workspace state or returned to the browser.
+
 ## Tariff intelligence
 
 - Public rules API: `/api/tariff/rules?as_of=YYYY-MM-DD&hts=CODE1,CODE2`

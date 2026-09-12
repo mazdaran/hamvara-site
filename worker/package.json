@@ -8,7 +8,7 @@
     "dev": "wrangler dev --config ../wrangler.toml --var ALLOWED_ORIGINS:https://hamvara.com,https://www.hamvara.com,http://localhost:8080,http://127.0.0.1:8080",
     "predeploy": "node scripts/verify-deploy-config.mjs",
     "deploy": "npm run check && wrangler deploy --config ../wrangler.toml",
-    "migrate:production": "wrangler d1 execute hamvara-growth-production --config ../wrangler.toml --file migrations/0003_mrp_backups.sql --remote && wrangler d1 execute hamvara-growth-production --config ../wrangler.toml --file migrations/0004_mrp_mobile_scan.sql --remote && wrangler d1 execute hamvara-growth-production --config ../wrangler.toml --file migrations/0005_tariff_intelligence.sql --remote",
+    "migrate:production": "wrangler d1 execute hamvara-growth-production --config ../wrangler.toml --file migrations/0003_mrp_backups.sql --remote && wrangler d1 execute hamvara-growth-production --config ../wrangler.toml --file migrations/0004_mrp_mobile_scan.sql --remote && wrangler d1 execute hamvara-growth-production --config ../wrangler.toml --file migrations/0005_tariff_intelligence.sql --remote && wrangler d1 execute hamvara-growth-production --config ../wrangler.toml --file migrations/0006_mrp_audit_seals.sql --remote",
     "db:mrp": "npm run migrate:production",
     "mrp:provision": "node scripts/create-mrp-workspace.mjs"
   },

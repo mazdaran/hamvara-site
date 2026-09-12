@@ -35,6 +35,7 @@
         method: 'PUT',
         body: JSON.stringify({ state, expectedRevision: revision })
       });
+      for(const seal of payload.auditSeals||[]){const run=(state.mrpRuns||[]).find(item=>item.id===seal.runId);if(run)run.serverAuditSeal=seal}
       revision = Number(payload.revision);
       updateCloudBadge('Cloud saved', 'ok');
       return payload;

@@ -1,4 +1,5 @@
-import {explodeRequirements,effectiveDemandSchedule} from './advanced-manufacturing.js';
+import {effectiveDemandSchedule} from './advanced-manufacturing.js';
+import {llcMaterialPlanRows} from './llc-planning-engine.js';
 
 const num=value=>Number.isFinite(Number(value))?Number(value):0;
 const round=value=>Number(num(value).toFixed(6));
@@ -9,21 +10,12 @@ const openStatus=status=>!['CLOSED','CANCELLED','REJECTED','COMPLETED','RECEIVED
 
 export function normalizeTimePhasedMrp(state){state.plannedSupplyOrders??=[];state.mrpPlanningSettings??={horizonDays:90};state.mrpPlanningSettings.horizonDays=Math.max(1,num(state.mrpPlanningSettings.horizonDays)||90);return state}
 
-function orderMultiple(quantity,item){const multiple=Math.max(0,num(item?.orderMultiple)),minimum=Math.max(0,num(item?.minimumOrderQty));let result=Math.max(quantity,minimum);if(multiple)result=Math.ceil(result/multiple)*multiple;return round(result)}
-function supplyDate(row){return date(row.dueDate||row.needDate||row.due||row.date)}
-function plannedSupplies(state,sku,warehouse){
-  const purchase=(state.purchaseOrders||[]).filter(row=>row.sku===sku&&openStatus(row.status)).map(row=>({date:supplyDate(row)||'9999-12-31',qty:num(row.qty),source:row.poNo||'Open PO'}));
-  const planned=(state.plannedSupplyOrders||[]).filter(row=>row.sku===sku&&row.warehouse===warehouse&&['FIRM','SUBMITTED','APPROVED','RELEASED'].includes(row.status)).map(row=>({date:row.needDate,qty:num(row.quantity),source:row.plannedOrderNo}));
-  return[...purchase,...planned].sort((a,b)=>a.date.localeCompare(b.date));
-}
 function makeProduct(state,sku){return(state.products||[]).find(product=>product.code===sku||product.outputSku===sku)}
 
-export function timePhasedMaterialPlan(state,{asOf=new Date().toISOString().slice(0,10),horizonDays}={}){
-  normalizeTimePhasedMrp(state);const horizon=Math.max(1,num(horizonDays)||state.mrpPlanningSettings.horizonDays),cutoff=addDays(asOf,horizon),demands=[];
-  const orders=effectiveDemandSchedule(state,{cutoff}).sort((a,b)=>(a.due||cutoff).localeCompare(b.due||cutoff)||(a.orderNo||'').localeCompare(b.orderNo||''));
-  for(const order of orders){try{for(const row of explodeRequirements(state,order.productCode,num(order.qty),{onDate:order.due||asOf}))demands.push({...row,orderNo:order.orderNo,productCode:order.productCode,priority:order.priority||'NORMAL',needDate:order.due||cutoff})}catch(error){demands.push({orderNo:order.orderNo,productCode:order.productCode,priority:order.priority||'NORMAL',needDate:order.due||cutoff,sku:'',name:'',warehouse:'',grossRequired:0,error:error.message})}}
-  demands.sort((a,b)=>a.needDate.localeCompare(b.needDate)||(a.sku||'').localeCompare(b.sku||''));const balances=new Map(),supplyQueues=new Map(),rows=[];
-  for(const demand of demands){if(demand.error){rows.push({...demand,status:'BLOCKED',action:'FIX_BOM',projectedAvailable:0,scheduledReceipts:0,netRequired:0,plannedQuantity:0,releaseDate:''});continue}const key=`${demand.sku}|${demand.warehouse}`,item=(state.skus||[]).find(row=>row.code===demand.sku);if(!balances.has(key))balances.set(key,Math.max(0,num(state.stock?.[demand.sku]?.[demand.warehouse])-num(state.stock?.[demand.sku]?.reserved)));if(!supplyQueues.has(key))supplyQueues.set(key,plannedSupplies(state,demand.sku,demand.warehouse));let available=balances.get(key),scheduledReceipts=0;const queue=supplyQueues.get(key);while(queue.length&&queue[0].date<=demand.needDate){const receipt=queue.shift();available+=receipt.qty;scheduledReceipts+=receipt.qty}const safety=num(item?.safetyStock),gross=round(demand.grossRequired),shortage=Math.max(0,gross+safety-available),plannedQuantity=shortage?orderMultiple(shortage,item):0,projected=round(available+plannedQuantity-gross),leadDays=Math.max(0,num(item?.leadTime)),releaseDate=plannedQuantity?addDays(demand.needDate,-leadDays):'',action=makeProduct(state,demand.sku)?'MAKE':'BUY';balances.set(key,projected);rows.push({...demand,grossRequired:gross,safetyStock:safety,availableBefore:round(available),scheduledReceipts:round(scheduledReceipts),projectedAvailable:projected,netRequired:round(shortage),plannedQuantity,leadTimeDays:leadDays,releaseDate,action,status:plannedQuantity?(releaseDate<asOf?'PAST_DUE':'PLANNED'):'COVERED'})}
+export function timePhasedMaterialPlan(state,{asOf=new Date().toISOString().slice(0,10),horizonDays,demandSchedule}={}){
+  normalizeTimePhasedMrp(state);const horizon=Math.max(1,num(horizonDays)||state.mrpPlanningSettings.horizonDays),cutoff=addDays(asOf,horizon);
+  const orders=[...(demandSchedule||effectiveDemandSchedule(state,{cutoff}))].sort((a,b)=>(a.due||cutoff).localeCompare(b.due||cutoff)||(a.orderNo||'').localeCompare(b.orderNo||''));
+  const rows=llcMaterialPlanRows(state,orders,{asOf,cutoff});
   return{asOf,horizonDays:horizon,cutoff,rows,exceptions:rows.filter(row=>['PAST_DUE','BLOCKED'].includes(row.status)),plannedBuy:round(rows.filter(row=>row.action==='BUY').reduce((sum,row)=>sum+row.plannedQuantity,0)),plannedMake:round(rows.filter(row=>row.action==='MAKE').reduce((sum,row)=>sum+row.plannedQuantity,0))};
 }
 

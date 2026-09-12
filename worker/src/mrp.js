@@ -297,6 +297,16 @@ async function saveState(request, env, actor) {
   if (Number(body.state.schemaVersion || 0) < 6) throw httpError(400, 'MRP schema version 6 or newer is required.');
   const expectedRevision = Number(body.expectedRevision);
   if (!Number.isInteger(expectedRevision) || expectedRevision < 0) throw httpError(400, 'A valid expectedRevision is required.');
+  const stored=await env.DB.prepare('SELECT state_json FROM mrp_state WHERE workspace_id = ?').bind(actor.workspace.id).first();let previousState={};try{previousState=JSON.parse(stored?.state_json||'{}')}catch{}
+  const priorReleased=new Set((previousState.mrpRuns||[]).filter(item=>item.status==='RELEASED'||item.status==='SUPERSEDED').map(item=>`${item.id}|${item.resultFingerprint}`)),newReleases=(body.state.mrpRuns||[]).filter(item=>item.status==='RELEASED'&&!priorReleased.has(`${item.id}|${item.resultFingerprint}`));
+  if(newReleases.length&&!['FACTORY_MANAGER','CEO'].includes(actor.user.role))throw httpError(403,'Factory Manager or CEO role is required to persist a newly released MRP run.');
+  if(newReleases.length&&String(env.MRP_AUDIT_HMAC_SECRET||'').length<32)throw httpError(503,'MRP audit sealing requires a server secret of at least 32 characters.');
+  if(newReleases.length)await ensureAuditSealTable(env);
+
+  // Persist an idempotent seal before the release state. A failed seal write therefore
+  // cannot leave a newly released run without server-held authenticity evidence.
+  const seals=[];
+  if(newReleases.length){for(const run of newReleases){const sealedAt=new Date().toISOString(),payload={workspaceId:actor.workspace.id,runId:String(run.id||''),runNo:String(run.runNo||''),resultFingerprint:String(run.resultFingerprint||''),checkpointHeadHash:String(run.timeBucketCheckpoints?.headHash||''),deltaHeadHash:String(run.deltaAnchor?.headHash||''),releasedAt:String(run.releasedAt||'')},signature=await createMrpAuditSeal(payload,env.MRP_AUDIT_HMAC_SECRET),id=`MRPSEAL-${signature}`;await env.DB.prepare('INSERT OR IGNORE INTO mrp_audit_seals (id,workspace_id,run_id,payload_json,signature,algorithm,created_by,created_at) VALUES (?,?,?,?,?,\'HMAC-SHA-256\',?,?)').bind(id,actor.workspace.id,payload.runId,JSON.stringify(payload),signature,actor.user.id,sealedAt).run();seals.push({id,runId:payload.runId,signature,algorithm:'HMAC-SHA-256',sealedAt})}}
 
   const result = await env.DB.prepare(`
     UPDATE mrp_state
@@ -311,9 +321,14 @@ async function saveState(request, env, actor) {
 
   const revision = expectedRevision + 1;
   await env.DB.prepare("INSERT INTO mrp_audit_log (workspace_id, user_id, action, details_json, created_at) VALUES (?, ?, 'state.saved', ?, datetime('now'))")
-    .bind(actor.workspace.id, actor.user.id, JSON.stringify({ revision, schemaVersion: body.state.schemaVersion, appVersion: body.state.appVersion })).run();
-  return json({ ok: true, revision, savedAt: new Date().toISOString() });
+    .bind(actor.workspace.id, actor.user.id, JSON.stringify({ revision, schemaVersion: body.state.schemaVersion, appVersion: body.state.appVersion, sealedMrpRuns:seals.map(item=>item.runId) })).run();
+  return json({ ok: true, revision, savedAt: new Date().toISOString(), auditSeals:seals });
 }
+
+async function ensureAuditSealTable(env){await env.DB.prepare(`CREATE TABLE IF NOT EXISTS mrp_audit_seals (id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL,run_id TEXT NOT NULL,payload_json TEXT NOT NULL,signature TEXT NOT NULL,algorithm TEXT NOT NULL,created_by TEXT NOT NULL,created_at TEXT NOT NULL,UNIQUE(workspace_id,run_id,signature))`).run()}
+async function hmacSha256(value,secret){const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']),signature=await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(value));return base64url(new Uint8Array(signature))}
+export async function createMrpAuditSeal(payload,secret){if(String(secret||'').length<32)throw new Error('Audit HMAC secret must contain at least 32 characters.');return hmacSha256(JSON.stringify(payload),secret)}
+export async function verifyMrpAuditSeal(payload,signature,secret){return constantTimeEqual(signature,await createMrpAuditSeal(payload,secret))}
 
 function normalizeSlug(value) {
   const slug = String(value || '').trim().toLowerCase();

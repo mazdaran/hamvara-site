@@ -15,6 +15,7 @@ database_id = "REPLACE_WITH_D1_DATABASE_ID"
 # PAGESPEED_API_KEY (recommended, optional for low-volume tests)
 # OAUTH_STATE_SECRET
 # TOKEN_ENCRYPTION_KEY (32 random bytes encoded as base64url)
+# MRP_AUDIT_HMAC_SECRET (server-only, at least 32 high-entropy characters)
 # GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET
 # META_APP_ID / META_APP_SECRET
 # LINKEDIN_CLIENT_ID / LINKEDIN_CLIENT_SECRET
