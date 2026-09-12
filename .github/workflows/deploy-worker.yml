@@ -7,6 +7,13 @@ on:
       - "worker/**"
       - "wrangler.toml"
       - ".github/workflows/*.yml"
+  workflow_dispatch:
+    inputs:
+      storage_stress:
+        description: "Run the 50k and 100k MRP artifact storage stress gate"
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -27,3 +34,6 @@ jobs:
         run: npm run check
       - name: Enforce MRP performance budgets
         run: npm run check:performance
+      - name: Enforce large MRP artifact storage budgets
+        if: github.event_name == 'workflow_dispatch' && inputs.storage_stress
+        run: npm run check:storage-stress
