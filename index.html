@@ -254,6 +254,41 @@ section{padding:88px 0}.sec-head{margin-bottom:42px}.sec-head h2{font-size:clamp
 footer{background:#fff;border-color:#dfe8ee}
 @media(max-width:1000px){.prod{grid-column:span 6}.hero h1{font-size:clamp(34px,5.3vw,48px)}.launch-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.proof-in{grid-template-columns:repeat(2,1fr)}.proof-item:nth-child(3){border-inline-start:0;border-top:1px solid #dfe8ee}.proof-item:nth-child(4){border-top:1px solid #dfe8ee}}
 @media(max-width:680px){.topbar-in{height:66px}.topbar .btn{display:none}.hero{padding-top:38px;padding-bottom:12px}.hero h1{font-size:38px;letter-spacing:-1.2px;white-space:normal}.launchpad{margin-top:20px;padding:14px}.launch-grid{grid-template-columns:1fr}.launch-card{min-height:78px}.sheet{transform:none}.prod{grid-column:1/-1}.proof-in{grid-template-columns:1fr}.proof-item{border-inline-start:0;border-top:1px solid #dfe8ee}.proof-item:first-child{border-top:0}.sec-head h2{font-size:34px}section{padding:64px 0}#products{padding-top:16px}.axis-in{grid-template-columns:repeat(2,1fr)}.axis-item{padding:10px;font-size:13px}.tree-link{align-items:flex-start;flex-direction:column;gap:3px}}
+
+/* 2026 desktop command-center homepage */
+.hero-grid{display:grid;grid-template-columns:minmax(0,.9fr) minmax(540px,1.1fr);gap:62px;align-items:center}
+.hero{padding-top:58px;padding-bottom:46px}
+.hero-copy{min-width:0}
+.hero h1{white-space:normal;font-size:clamp(48px,4.7vw,68px);line-height:.98;max-width:720px}
+.hero-tagline{margin-top:22px;color:#10263c;font:700 clamp(18px,1.55vw,22px)/1.45 var(--body);max-width:630px}
+.hero p.lead{margin-top:14px;max-width:60ch}
+.hero-points{display:flex;gap:18px 24px;flex-wrap:wrap;margin-top:25px;color:#536678;font-size:14px;font-weight:600}
+.hero-points span{display:flex;align-items:center;gap:8px}
+.hero-points i{width:8px;height:8px;border-radius:2px;background:#43d5d0;box-shadow:0 0 0 4px rgba(67,213,208,.15)}
+.command-shell{position:relative;background:#081d33;border:1px solid #25445d;border-radius:24px;padding:17px;box-shadow:0 36px 70px -32px rgba(5,31,51,.62);overflow:hidden}
+.command-shell:before{content:"";position:absolute;width:330px;height:330px;border-radius:50%;background:rgba(67,213,208,.13);filter:blur(55px);right:-160px;top:-190px}
+.command-top{position:relative;display:flex;justify-content:space-between;align-items:center;padding:1px 3px 14px;color:#fff}
+.command-brand{display:flex;align-items:center;gap:9px;font-weight:700}.command-dot{width:9px;height:9px;border-radius:50%;background:#43d5d0;box-shadow:0 0 0 5px rgba(67,213,208,.12)}
+.command-live{font:600 10px var(--mono);letter-spacing:.8px;color:#91a8b9}.command-live b{color:#69dfda}
+.command-main{position:relative;display:grid;grid-template-columns:148px 1fr;min-height:355px;background:#f5f8fa;border-radius:16px;overflow:hidden}
+.command-nav{background:#102c45;color:#a9bdcb;padding:18px 12px;display:grid;align-content:start;gap:7px}
+.command-nav strong{color:#fff;font:700 12px var(--body);padding:0 8px 10px}
+.command-nav span{padding:9px 10px;border-radius:8px;font-size:11px;font-weight:600}.command-nav span.on{background:#43d5d0;color:#092238}
+.command-view{padding:20px;min-width:0}
+.command-view-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}.command-view-head strong{color:#10263c;font-size:17px}.command-view-head span{font:600 9px var(--mono);color:#087f8c;background:#e2f6f5;border-radius:99px;padding:5px 8px}
+.metric-row{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.metric{background:#fff;border:1px solid #dbe5ea;border-radius:10px;padding:11px}.metric small{display:block;color:#718293;font-size:9px}.metric b{display:block;margin-top:3px;color:#10263c;font-size:18px}.metric em{font:600 9px var(--mono);font-style:normal;color:#087f8c}
+.ops-board{margin-top:11px;background:#fff;border:1px solid #dbe5ea;border-radius:12px;padding:14px}.ops-title{display:flex;justify-content:space-between;color:#10263c;font-size:12px;font-weight:700}.ops-title span{color:#80909f;font:500 9px var(--mono)}
+.bar-set{display:grid;gap:10px;margin-top:14px}.bar-line{display:grid;grid-template-columns:74px 1fr 28px;gap:8px;align-items:center;color:#5f7182;font-size:9px}.bar{height:7px;background:#e8eff3;border-radius:99px;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,#087f8c,#43d5d0);border-radius:inherit}
+.command-alerts{display:grid;grid-template-columns:1.1fr .9fr;gap:9px;margin-top:11px}.mini-card{background:#fff;border:1px solid #dbe5ea;border-radius:10px;padding:11px;color:#536678;font-size:9px}.mini-card b{display:block;color:#10263c;font-size:12px;margin-bottom:3px}.mini-card.alert{border-color:#f0c8a6;background:#fffaf4}.mini-card.alert b{color:#9b4b1d}
+.proof{padding:0 20px}.proof-in{max-width:1280px;background:#fff;border:1px solid #dfe8ee;border-radius:16px;box-shadow:0 12px 35px rgba(16,38,60,.055)}
+#products{padding-top:88px}
+.prods .prod:first-child{grid-column:span 8;background:linear-gradient(135deg,#0b263e,#123b58);color:#fff;min-height:385px}.prods .prod:first-child h3,.prods .prod:first-child .what{color:#fff}.prods .prod:first-child .what{max-width:56ch;color:#c1d0da}.prods .prod:first-child li{color:#c1d0da;border-color:rgba(255,255,255,.13)}.prods .prod:first-child .prod-code{background:rgba(67,213,208,.15)}.prods .prod:first-child .prod-price{color:#a9bdcb}
+.prods .prod:nth-child(2){grid-column:span 4;background:#e9f7f7}.prods .prod:nth-child(n+3){grid-column:span 4}
+.flow-section{background:#0b263e;color:#fff;position:relative;overflow:hidden}.flow-section:before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(67,213,208,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(67,213,208,.045) 1px,transparent 1px);background-size:34px 34px}.flow-section .wrap{position:relative}.flow-section .sec-head h2{color:#fff}.flow-section .sec-head p{color:#aec0cb}.factory-flow{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}.flow-card{position:relative;background:#102f49;border:1px solid #315069;border-radius:15px;padding:22px 17px;min-height:172px}.flow-card:not(:last-child):after{content:"→";position:absolute;right:-13px;top:50%;z-index:2;width:25px;height:25px;display:grid;place-items:center;border-radius:50%;background:#43d5d0;color:#082037;font-weight:800;transform:translateY(-50%)}.flow-n{font:600 11px var(--mono);color:#60dbd6}.flow-card h3{margin-top:25px;font-size:17px}.flow-card p{margin-top:8px;color:#aebfca;font-size:13px;line-height:1.55}
+.outcomes{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}.outcome{border:1px solid #dfe8ee;border-radius:18px;background:#fff;padding:25px}.outcome-label{font:600 10px var(--mono);letter-spacing:.8px;color:#087f8c}.outcome h3{margin-top:11px;color:#10263c;font-size:21px}.outcome p{margin-top:10px;color:#617386;font-size:15px}.outcome-result{margin-top:20px;padding-top:16px;border-top:1px solid #e3ebef;color:#10263c;font-weight:700}.outcome-result:before{content:"↗";display:inline-grid;place-items:center;width:25px;height:25px;margin-inline-end:9px;border-radius:7px;background:#e2f6f5;color:#087f8c}
+.steps-wrap{padding-top:78px}.steps{border-radius:18px;overflow:hidden}
+@media(max-width:1080px){.hero-grid{grid-template-columns:1fr;gap:35px}.command-shell{max-width:760px}.factory-flow{grid-template-columns:repeat(2,1fr)}.flow-card:not(:last-child):after{display:none}.prods .prod:first-child{grid-column:span 12}.prods .prod:nth-child(2),.prods .prod:nth-child(n+3){grid-column:span 6}}
+@media(max-width:680px){.hero{padding-top:38px}.hero h1{font-size:38px}.hero-tagline{font-size:17px}.hero-points{display:grid;gap:12px}.command-shell{padding:11px;border-radius:18px}.command-main{grid-template-columns:1fr;min-height:0}.command-nav{display:none}.command-view{padding:13px}.metric-row{grid-template-columns:1fr}.metric:nth-child(n+2){display:none}.command-alerts{grid-template-columns:1fr}.proof{padding:18px 20px 0}.proof-in{border-radius:14px}.prods .prod:first-child,.prods .prod:nth-child(2),.prods .prod:nth-child(n+3){grid-column:1/-1}.factory-flow,.outcomes{grid-template-columns:1fr}.flow-card{min-height:145px}.steps-wrap{padding-top:62px}}
 </style>
 </head>
 <body>
@@ -294,43 +329,35 @@ footer{background:#fff;border-color:#dfe8ee}
 
 <main id="top">
 
-  <section class="work-axis" id="how" aria-label="How Hamvara works">
-    <div class="wrap axis-in">
-      <div class="axis-item"><b>01</b><span data-t="s1Title">Talk</span></div>
-      <div class="axis-item"><b>02</b><span data-t="s2Title">Estimate</span></div>
-      <div class="axis-item"><b>03</b><span data-t="s3Title">Build and install</span></div>
-      <div class="axis-item"><b>04</b><span data-t="s4Title">Support</span></div>
-    </div>
-  </section>
-
   <section class="hero wrap">
     <div class="hero-grid">
       <div class="hero-copy">
         <span class="eyebrow" data-t="eyebrow">Manufacturing software</span>
         <h1 data-t-html="heroTitle">Practical software for the work you still do <mark>by hand</mark></h1>
-
-        <div class="launchpad" aria-label="Featured Hamvara products">
-          <div class="launch-head"><strong data-t="launchTitle">Start with a solution</strong><span data-t="launchHint">OPEN A PRODUCT</span></div>
-          <div class="launch-grid">
-            <a class="launch-card" href="/mrp/"><span class="launch-arrow">↗</span><span class="launch-icon">MRP</span><span><strong>Hamvara MRP</strong><small data-t="treeMrp">MANUFACTURING CORE</small></span></a>
-            <a class="launch-card" href="/decision-center/"><span class="launch-arrow">↗</span><span class="launch-icon">DC</span><span><strong>Decision Center</strong><small data-t="launchDecision">DECISION SUPPORT</small></span></a>
-            <a class="launch-card" href="/inventory-intelligence/"><span class="launch-arrow">↗</span><span class="launch-icon">AI</span><span><strong>Inventory Intelligence</strong><small data-t="launchInventory">INVENTORY RISK</small></span></a>
-            <a class="launch-card" href="/deadlineguard/"><span class="launch-arrow">↗</span><span class="launch-icon">DG</span><span><strong>DeadlineGuard AI</strong><small data-t="launchDeadline">TRADE DEADLINES</small></span></a>
-            <a class="launch-card" href="/bom-costwatch/"><span class="launch-arrow">↗</span><span class="launch-icon">BC</span><span><strong>BOM CostWatch</strong><small>COST &amp; MARGIN</small></span></a>
-            <a class="launch-card" href="/tariff-impact/"><span class="launch-arrow">↗</span><span class="launch-icon">TI</span><span><strong>Tariff Impact</strong><small>US DUTY &amp; MARGIN</small></span></a>
-            <a class="launch-card" href="/bidcompare/"><span class="launch-arrow">↗</span><span class="launch-icon">BQ</span><span><strong>BidCompare AI</strong><small>SUPPLIER QUOTATIONS</small></span></a>
-          </div>
-        </div>
-
+        <p class="hero-tagline" data-t="heroTagline">Know Your Stock. Make What You Need. Deliver On Time.</p>
         <p class="lead" data-t="heroLead"></p>
         <div class="hero-cta">
-          <a class="btn" href="#products" data-t="ctaProducts">See the products</a>
-          <a class="btn btn-ghost" href="#contact" data-t="ctaTalk">Talk to me</a>
+          <a class="btn" href="#contact" data-t="ctaDemo">Request a demo</a>
+          <a class="btn btn-ghost" href="/mrp/" data-t="ctaExploreMrp">Explore Hamvara MRP</a>
+        </div>
+        <div class="hero-points"><span><i></i><b data-t="point1">Live inventory visibility</b></span><span><i></i><b data-t="point2">Production and BOM control</b></span><span><i></i><b data-t="point3">Faster operational decisions</b></span></div>
+      </div>
+      <div class="command-shell" aria-label="Hamvara MRP operations dashboard preview">
+        <div class="command-top"><span class="command-brand"><i class="command-dot"></i>Hamvara MRP</span><span class="command-live"><b>● LIVE</b> · OPERATIONS</span></div>
+        <div class="command-main">
+          <div class="command-nav"><strong>OPERATIONS</strong><span class="on">Overview</span><span>Inventory</span><span>Production</span><span>Purchasing</span><span>Warehouses</span><span>Reports</span></div>
+          <div class="command-view">
+            <div class="command-view-head"><strong>Production control</strong><span>UPDATED NOW</span></div>
+            <div class="metric-row"><div class="metric"><small>Inventory accuracy</small><b>97.8%</b><em>↑ 2.4%</em></div><div class="metric"><small>Work orders</small><b>24</b><em>18 on track</em></div><div class="metric"><small>Critical items</small><b>12</b><em>Needs action</em></div></div>
+            <div class="ops-board"><div class="ops-title">Production plan <span>THIS WEEK</span></div><div class="bar-set"><div class="bar-line"><span>Line A</span><div class="bar"><i style="width:88%"></i></div><b>88%</b></div><div class="bar-line"><span>Line B</span><div class="bar"><i style="width:71%"></i></div><b>71%</b></div><div class="bar-line"><span>Packaging</span><div class="bar"><i style="width:56%"></i></div><b>56%</b></div></div></div>
+            <div class="command-alerts"><div class="mini-card"><b>Warehouse balance</b>Raw, WIP and finished goods in one view.</div><div class="mini-card alert"><b>4 orders at risk</b>Material shortage detected.</div></div>
+          </div>
         </div>
       </div>
-
     </div>
   </section>
+
+  <div class="proof" aria-label="Hamvara product strengths"><div class="wrap proof-in"><div class="proof-item"><strong data-t="proof1Title">Built for operations</strong><span data-t="proof1Body">Inventory, purchasing and production</span></div><div class="proof-item"><strong data-t="proof2Title">Your data stays yours</strong><span data-t="proof2Body">Portable and dedicated options</span></div><div class="proof-item"><strong data-t="proof3Title">Start without disruption</strong><span data-t="proof3Body">Guided setup and practical training</span></div><div class="proof-item"><strong data-t="proof4Title">Human support</strong><span data-t="proof4Body">From workflow mapping to launch</span></div></div></div>
 
   <section id="products" class="wrap">
     <div class="sec-head">
@@ -506,7 +533,29 @@ footer{background:#fff;border-color:#dfe8ee}
     </div>
   </section>
 
-  <section class="wrap">
+  <section class="flow-section" aria-labelledby="flow-title">
+    <div class="wrap">
+      <div class="sec-head"><h2 id="flow-title" data-t="flowTitle">One connected manufacturing flow</h2><p data-t="flowLead">From the first receipt to the final shipment, every team works from the same operational picture.</p></div>
+      <div class="factory-flow">
+        <article class="flow-card"><span class="flow-n">01 · RECEIVE</span><h3 data-t="flow1Title">Receive materials</h3><p data-t="flow1Body">Capture quantities, supplier documents and barcodes at the door.</p></article>
+        <article class="flow-card"><span class="flow-n">02 · CONTROL</span><h3 data-t="flow2Title">Know your stock</h3><p data-t="flow2Body">See available, reserved, quarantine and WIP stock by warehouse.</p></article>
+        <article class="flow-card"><span class="flow-n">03 · PLAN</span><h3 data-t="flow3Title">Plan production</h3><p data-t="flow3Body">Check BOM demand and material shortages before releasing work.</p></article>
+        <article class="flow-card"><span class="flow-n">04 · TRACK</span><h3 data-t="flow4Title">Track the floor</h3><p data-t="flow4Body">Follow output, time, scrap and movements while work happens.</p></article>
+        <article class="flow-card"><span class="flow-n">05 · DELIVER</span><h3 data-t="flow5Title">Ship on time</h3><p data-t="flow5Body">Move finished goods, prepare shipments and protect due dates.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" aria-labelledby="outcomes-title">
+    <div class="sec-head"><h2 id="outcomes-title" data-t="outcomesTitle">Turn daily friction into operational control</h2><p data-t="outcomesLead">Hamvara connects the decisions that spreadsheets leave apart.</p></div>
+    <div class="outcomes">
+      <article class="outcome"><span class="outcome-label">INVENTORY</span><h3 data-t="out1Title">Stock data is scattered</h3><p data-t="out1Body">Replace disconnected files with one live view of items, locations and movements.</p><div class="outcome-result" data-t="out1Result">Fewer shortages and surprises</div></article>
+      <article class="outcome"><span class="outcome-label">PRODUCTION</span><h3 data-t="out2Title">Production status is unclear</h3><p data-t="out2Body">Connect demand, BOM availability, work orders and shop-floor progress.</p><div class="outcome-result" data-t="out2Result">Faster, better-informed decisions</div></article>
+      <article class="outcome"><span class="outcome-label">COST &amp; DELIVERY</span><h3 data-t="out3Title">Costs and deadlines move</h3><p data-t="out3Body">Monitor material cost, margin exposure and delivery risk before they become losses.</p><div class="outcome-result" data-t="out3Result">Protected margin and due dates</div></article>
+    </div>
+  </section>
+
+  <section class="wrap steps-wrap" id="how">
     <div class="sec-head">
       <h2 data-t="howTitle">From first message to installed</h2>
       <p data-t="howLead"></p>
@@ -595,7 +644,10 @@ footer{background:#fff;border-color:#dfe8ee}
 
       eyebrow: 'Manufacturing software',
       heroTitle: 'Manufacturing operations, <mark>under control.</mark>',
+      heroTagline: 'Know Your Stock. Make What You Need. Deliver On Time.',
       heroLead: 'One clear view of inventory, purchasing and production — plus focused tools that turn operational data into confident decisions.',
+      ctaExploreMrp: 'Explore Hamvara MRP',
+      point1: 'Live inventory visibility', point2: 'Production and BOM control', point3: 'Faster operational decisions',
       proof1Title: 'Built for operations', proof1Body: 'Inventory, purchasing and production',
       proof2Title: 'Your data stays yours', proof2Body: 'Portable and self-hosted options',
       proof3Title: 'Start without friction', proof3Body: 'Free tools and guided demos',
@@ -654,6 +706,18 @@ footer{background:#fff;border-color:#dfe8ee}
       p4Cta: 'Open Growth',
       p4Price: 'Live technical audit available',
 
+      flowTitle: 'One connected manufacturing flow',
+      flowLead: 'From the first receipt to the final shipment, every team works from the same operational picture.',
+      flow1Title: 'Receive materials', flow1Body: 'Capture quantities, supplier documents and barcodes at the door.',
+      flow2Title: 'Know your stock', flow2Body: 'See available, reserved, quarantine and WIP stock by warehouse.',
+      flow3Title: 'Plan production', flow3Body: 'Check BOM demand and material shortages before releasing work.',
+      flow4Title: 'Track the floor', flow4Body: 'Follow output, time, scrap and movements while work happens.',
+      flow5Title: 'Ship on time', flow5Body: 'Move finished goods, prepare shipments and protect due dates.',
+      outcomesTitle: 'Turn daily friction into operational control', outcomesLead: 'Hamvara connects the decisions that spreadsheets leave apart.',
+      out1Title: 'Stock data is scattered', out1Body: 'Replace disconnected files with one live view of items, locations and movements.', out1Result: 'Fewer shortages and surprises',
+      out2Title: 'Production status is unclear', out2Body: 'Connect demand, BOM availability, work orders and shop-floor progress.', out2Result: 'Faster, better-informed decisions',
+      out3Title: 'Costs and deadlines move', out3Body: 'Monitor material cost, margin exposure and delivery risk before they become losses.', out3Result: 'Protected margin and due dates',
+
       howTitle: 'From first message to installed',
       howLead: 'Four steps, no surprises in the middle.',
       s1Title: 'Talk', s1Body: 'You describe the work you repeat by hand. Usually one call is enough.',
@@ -677,7 +741,10 @@ footer{background:#fff;border-color:#dfe8ee}
 
       eyebrow: 'نرم‌افزار تولید',
       heroTitle: 'عملیات تولید، <mark>کاملاً تحت کنترل.</mark>',
+      heroTagline: 'موجودی را بشناسید. به‌اندازه نیاز تولید کنید. به‌موقع تحویل دهید.',
       heroLead: 'یک نمای روشن از موجودی، خرید و تولید؛ همراه با ابزارهای تخصصی که داده‌های عملیاتی را به تصمیم‌های مطمئن تبدیل می‌کنند.',
+      ctaExploreMrp: 'مشاهده Hamvara MRP',
+      point1: 'دید زنده موجودی', point2: 'کنترل تولید و BOM', point3: 'تصمیم‌های عملیاتی سریع‌تر',
       proof1Title: 'ساخته‌شده برای عملیات', proof1Body: 'انبار، خرید و تولید',
       proof2Title: 'مالک داده‌های خودتان هستید', proof2Body: 'نسخهٔ پرتابل و نصب اختصاصی',
       proof3Title: 'شروع ساده و سریع', proof3Body: 'ابزار رایگان و دموی راهنما',
@@ -736,6 +803,17 @@ footer{background:#fff;border-color:#dfe8ee}
       p4Cta: 'ورود به Growth',
       p4Price: 'تحلیل فنی زنده فعال است',
 
+      flowTitle: 'یک جریان یکپارچه تولید', flowLead: 'از نخستین دریافت تا آخرین ارسال، همه تیم‌ها با یک تصویر عملیاتی مشترک کار می‌کنند.',
+      flow1Title: 'دریافت مواد', flow1Body: 'مقدار، اسناد تأمین‌کننده و بارکد را هنگام ورود ثبت کنید.',
+      flow2Title: 'شناخت دقیق موجودی', flow2Body: 'موجودی آزاد، رزروشده، قرنطینه و WIP هر انبار را ببینید.',
+      flow3Title: 'برنامه‌ریزی تولید', flow3Body: 'پیش از صدور کار، نیاز BOM و کمبود مواد را کنترل کنید.',
+      flow4Title: 'کنترل کف کارگاه', flow4Body: 'خروجی، زمان، ضایعات و جابه‌جایی‌ها را هنگام کار دنبال کنید.',
+      flow5Title: 'تحویل به‌موقع', flow5Body: 'کالای ساخته‌شده را منتقل و موعد ارسال را محافظت کنید.',
+      outcomesTitle: 'اصطکاک روزانه را به کنترل عملیاتی تبدیل کنید', outcomesLead: 'Hamvara تصمیم‌هایی را به هم متصل می‌کند که فایل‌های اکسل از هم جدا نگه می‌دارند.',
+      out1Title: 'اطلاعات موجودی پراکنده است', out1Body: 'فایل‌های جدا را با نمای زنده کالا، مکان و گردش موجودی جایگزین کنید.', out1Result: 'کمبود و غافلگیری کمتر',
+      out2Title: 'وضعیت تولید روشن نیست', out2Body: 'تقاضا، دسترسی BOM، سفارش‌های تولید و پیشرفت کارگاه را متصل کنید.', out2Result: 'تصمیم‌های سریع‌تر و مطمئن‌تر',
+      out3Title: 'هزینه و موعد تغییر می‌کند', out3Body: 'هزینه مواد، ریسک حاشیه سود و تحویل را پیش از تبدیل‌شدن به زیان پایش کنید.', out3Result: 'حفاظت از سود و موعد تحویل',
+
       howTitle: 'از اولین پیام تا نصب',
       howLead: 'چهار مرحله، بدون غافلگیری در میانهٔ راه.',
       s1Title: 'گفت‌وگو', s1Body: 'کاری را که دستی تکرار می‌کنید توضیح می‌دهید. معمولاً یک تماس کافی است.',
@@ -759,7 +837,10 @@ footer{background:#fff;border-color:#dfe8ee}
 
       eyebrow: 'Üretim yazılımı',
       heroTitle: 'Üretim operasyonları, <mark>kontrol altında.</mark>',
+      heroTagline: 'Stokunuzu Bilin. İhtiyacınız Kadar Üretin. Zamanında Teslim Edin.',
       heroLead: 'Stok, satın alma ve üretimin tek ve net görünümü; operasyonel verileri güvenli kararlara dönüştüren odaklı araçlarla birlikte.',
+      ctaExploreMrp: 'Hamvara MRP’yi inceleyin',
+      point1: 'Canlı stok görünürlüğü', point2: 'Üretim ve BOM kontrolü', point3: 'Daha hızlı operasyon kararları',
       proof1Title: 'Operasyon için tasarlandı', proof1Body: 'Stok, satın alma ve üretim',
       proof2Title: 'Veriniz size aittir', proof2Body: 'Taşınabilir ve şirket içi seçenekler',
       proof3Title: 'Kolayca başlayın', proof3Body: 'Ücretsiz araçlar ve rehberli demo',
@@ -817,6 +898,17 @@ footer{background:#fff;border-color:#dfe8ee}
       p4f3: 'İnsan onaylı içerik ve uygulama akışı',
       p4Cta: 'Growth\u2019u aç',
       p4Price: 'Canlı teknik analiz hazır',
+
+      flowTitle: 'Tek ve bağlantılı üretim akışı', flowLead: 'İlk mal kabulden son sevkiyata kadar tüm ekipler aynı operasyon görünümüyle çalışır.',
+      flow1Title: 'Malzeme kabulü', flow1Body: 'Miktarları, tedarikçi belgelerini ve barkodları girişte kaydedin.',
+      flow2Title: 'Stokunuzu bilin', flow2Body: 'Kullanılabilir, rezerve, karantina ve WIP stoklarını depo bazında görün.',
+      flow3Title: 'Üretimi planlayın', flow3Body: 'İşi başlatmadan önce BOM talebini ve malzeme eksiklerini kontrol edin.',
+      flow4Title: 'Sahayı takip edin', flow4Body: 'Üretim sürerken çıktı, süre, fire ve hareketleri izleyin.',
+      flow5Title: 'Zamanında sevk edin', flow5Body: 'Mamulleri taşıyın, sevkiyatı hazırlayın ve teslim tarihlerini koruyun.',
+      outcomesTitle: 'Günlük sorunları operasyon kontrolüne dönüştürün', outcomesLead: 'Hamvara, elektronik tabloların ayrı bıraktığı kararları birbirine bağlar.',
+      out1Title: 'Stok verileri dağınık', out1Body: 'Ayrı dosyaları ürün, konum ve hareketlerin tek canlı görünümüyle değiştirin.', out1Result: 'Daha az eksik ve sürpriz',
+      out2Title: 'Üretim durumu belirsiz', out2Body: 'Talep, BOM uygunluğu, iş emirleri ve saha ilerlemesini bağlayın.', out2Result: 'Daha hızlı, daha doğru kararlar',
+      out3Title: 'Maliyet ve tarihler değişiyor', out3Body: 'Malzeme maliyetini, marj ve teslimat riskini kayba dönüşmeden izleyin.', out3Result: 'Korunan marj ve teslim tarihleri',
 
       howTitle: 'İlk mesajdan kuruluma',
       howLead: 'Dört adım, arada sürpriz yok.',
