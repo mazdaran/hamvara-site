@@ -1,5 +1,7 @@
 const text=value=>String(value??'').trim();
 const number=value=>Number.isFinite(Number(value))?Number(value):0;
+const heapPush=(heap,value)=>{heap.push(value);let index=heap.length-1;while(index){const parent=(index-1)>>1;if(heap[parent]<=value)break;heap[index]=heap[parent];index=parent}heap[index]=value};
+const heapPop=heap=>{const first=heap[0],last=heap.pop();if(heap.length){let index=0;while(true){const left=index*2+1,right=left+1;if(left>=heap.length)break;const child=right<heap.length&&heap[right]<heap[left]?right:left;if(heap[child]>=last)break;heap[index]=heap[child];index=child}heap[index]=last}return first};
 
 function activeRevision(state,productCode,onDate){
   const profile=state.bomProfiles?.[productCode];
@@ -57,8 +59,8 @@ export function buildBomGraph(state,{onDate=new Date().toISOString().slice(0,10)
       indegree.set(childItem,(indegree.get(childItem)||0)+1);
     }
   }
-  const queue=[...nodes].filter(node=>!indegree.get(node)).sort(),topological=[],remaining=new Map(indegree);
-  while(queue.length){const node=queue.shift();topological.push(node);for(const edge of outgoing.get(node)||[]){const next=remaining.get(edge.childItem)-1;remaining.set(edge.childItem,next);if(next===0){queue.push(edge.childItem);queue.sort()}}}
+  const queue=[],topological=[],remaining=new Map(indegree);for(const node of nodes)if(!indegree.get(node))heapPush(queue,node);
+  while(queue.length){const node=heapPop(queue);topological.push(node);for(const edge of outgoing.get(node)||[]){const next=remaining.get(edge.childItem)-1;remaining.set(edge.childItem,next);if(next===0)heapPush(queue,edge.childItem)}}
   if(topological.length!==nodes.size){const path=cyclePath(nodes,outgoing);throw new Error(`Circular BOM detected: ${path.join(' → ')||'unresolved cycle'}.`)}
   const lowLevelCode=new Map([...nodes].map(node=>[node,0]));
   for(const parent of topological)for(const edge of outgoing.get(parent)||[])lowLevelCode.set(edge.childItem,Math.max(lowLevelCode.get(edge.childItem)||0,(lowLevelCode.get(parent)||0)+1));

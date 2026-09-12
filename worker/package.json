@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "check": "node --check src/index.js && node --check src/mrp.js && npm test",
+    "check:performance": "node scripts/check-mrp-performance.mjs",
     "test": "node --test test/*.test.mjs",
     "dev": "wrangler dev --config ../wrangler.toml --var ALLOWED_ORIGINS:https://hamvara.com,https://www.hamvara.com,http://localhost:8080,http://127.0.0.1:8080",
     "predeploy": "node scripts/verify-deploy-config.mjs",
