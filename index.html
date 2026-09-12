@@ -197,6 +197,7 @@ html[lang="fa"] .prod h3{font-weight:400;font-size:26px;letter-spacing:0}
 .chan-v{font-size:18px;direction:ltr;display:block;margin-top:2px;text-align:left}
 html[dir="rtl"] .chan-v{text-align:right}
 .note{font-size:14.5px;color:#A6B4C2;margin-top:22px}
+.contact-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-content:start}.contact-action{display:grid;grid-template-columns:44px minmax(0,1fr) 20px;align-items:center;gap:12px;padding:14px;border:1px solid #365067;border-radius:13px;background:#0b263e;color:#fff;text-decoration:none;transition:background .18s ease,border-color .18s ease,transform .18s ease}.contact-action:hover{background:#103653;border-color:#43d5d0;transform:translateY(-2px)}.contact-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:11px;background:rgba(67,213,208,.12);color:#43d5d0}.contact-icon svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.contact-icon .icon-fill{fill:currentColor;stroke:none}.contact-copy{min-width:0}.contact-copy small{display:block;color:#91a6b6;font:600 9px var(--mono);letter-spacing:.55px}.contact-copy strong{display:block;margin-top:3px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:ltr;text-align:left}.contact-arrow{color:#69dfda;font-size:18px}.contact-action.social .contact-copy strong{font-size:15px}.contact-action.social{grid-column:1/-1}
 
 footer{border-top:1px solid var(--rule);padding:26px 0;font-size:13.5px;color:var(--ink-2)}
 .foot-in{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
@@ -273,13 +274,15 @@ footer{background:#fff;border-color:#dfe8ee}
 .command-main{position:relative;display:grid;grid-template-columns:148px 1fr;min-height:355px;background:#f5f8fa;border-radius:16px;overflow:hidden}
 .command-nav{background:#102c45;color:#a9bdcb;padding:18px 12px;display:grid;align-content:start;gap:7px}
 .command-nav strong{color:#fff;font:700 12px var(--body);padding:0 8px 10px}
-.command-nav span{padding:9px 10px;border-radius:8px;font-size:11px;font-weight:600}.command-nav span.on{background:#43d5d0;color:#092238}
+.command-nav button{padding:9px 10px;border:0;border-radius:8px;background:transparent;color:inherit;text-align:start;font:600 11px var(--body);cursor:pointer}.command-nav button.on{background:#43d5d0;color:#092238}.command-nav button:hover:not(.on){background:rgba(255,255,255,.08);color:#fff}
 .command-view{padding:20px;min-width:0}
 .command-view-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}.command-view-head strong{color:#10263c;font-size:17px}.command-view-head span{font:600 9px var(--mono);color:#087f8c;background:#e2f6f5;border-radius:99px;padding:5px 8px}
+.command-stage{position:relative;min-height:304px}.command-slide{position:absolute;inset:0;opacity:0;transform:translateX(18px);pointer-events:none;transition:opacity .55s ease,transform .55s ease}.command-slide.on{opacity:1;transform:none;pointer-events:auto}.command-progress{height:2px;background:rgba(255,255,255,.13);margin:0 3px 13px;overflow:hidden}.command-progress i{display:block;width:0;height:100%;background:#43d5d0}.command-shell.playing .command-progress i{animation:tour-progress 4.6s linear infinite}@keyframes tour-progress{to{width:100%}}
 .metric-row{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.metric{background:#fff;border:1px solid #dbe5ea;border-radius:10px;padding:11px}.metric small{display:block;color:#718293;font-size:9px}.metric b{display:block;margin-top:3px;color:#10263c;font-size:18px}.metric em{font:600 9px var(--mono);font-style:normal;color:#087f8c}
 .ops-board{margin-top:11px;background:#fff;border:1px solid #dbe5ea;border-radius:12px;padding:14px}.ops-title{display:flex;justify-content:space-between;color:#10263c;font-size:12px;font-weight:700}.ops-title span{color:#80909f;font:500 9px var(--mono)}
 .bar-set{display:grid;gap:10px;margin-top:14px}.bar-line{display:grid;grid-template-columns:74px 1fr 28px;gap:8px;align-items:center;color:#5f7182;font-size:9px}.bar{height:7px;background:#e8eff3;border-radius:99px;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,#087f8c,#43d5d0);border-radius:inherit}
 .command-alerts{display:grid;grid-template-columns:1.1fr .9fr;gap:9px;margin-top:11px}.mini-card{background:#fff;border:1px solid #dbe5ea;border-radius:10px;padding:11px;color:#536678;font-size:9px}.mini-card b{display:block;color:#10263c;font-size:12px;margin-bottom:3px}.mini-card.alert{border-color:#f0c8a6;background:#fffaf4}.mini-card.alert b{color:#9b4b1d}
+.inventory-list,.purchase-list{background:#fff;border:1px solid #dbe5ea;border-radius:12px;overflow:hidden}.list-head,.list-row{display:grid;grid-template-columns:1.5fr .75fr .75fr .7fr;gap:8px;align-items:center;padding:10px 12px}.list-head{background:#edf3f6;color:#738494;font:600 8px var(--mono);letter-spacing:.3px}.list-row{border-top:1px solid #e6edf1;color:#536678;font-size:9px}.list-row strong{color:#10263c}.stock-pill{justify-self:start;border-radius:99px;padding:3px 6px;background:#e2f6f5;color:#087f8c;font:700 7px var(--mono)}.stock-pill.low{background:#fff1e6;color:#a54e1c}.stock-pill.hold{background:#eef0f8;color:#555f91}.work-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.work-card{background:#fff;border:1px solid #dbe5ea;border-radius:11px;padding:12px}.work-card-top{display:flex;justify-content:space-between;color:#10263c;font-size:10px;font-weight:700}.work-card-top span{color:#087f8c;font:600 8px var(--mono)}.work-meta{margin-top:7px;color:#718293;font-size:8px}.work-card .bar{margin-top:10px}.supplier-score{display:flex;align-items:center;gap:7px}.supplier-score i{width:7px;height:7px;border-radius:50%;background:#43d5d0}.supplier-score.warn i{background:#f0a260}
 .proof{padding:0 20px}.proof-in{max-width:1280px;background:#fff;border:1px solid #dfe8ee;border-radius:16px;box-shadow:0 12px 35px rgba(16,38,60,.055)}
 #products{padding-top:88px}
 .prods .prod:first-child{grid-column:span 8;background:linear-gradient(135deg,#0b263e,#123b58);color:#fff;min-height:385px}.prods .prod:first-child h3,.prods .prod:first-child .what{color:#fff}.prods .prod:first-child .what{max-width:56ch;color:#c1d0da}.prods .prod:first-child li{color:#c1d0da;border-color:rgba(255,255,255,.13)}.prods .prod:first-child .prod-code{background:rgba(67,213,208,.15)}.prods .prod:first-child .prod-price{color:#a9bdcb}
@@ -293,12 +296,12 @@ footer{background:#fff;border-color:#dfe8ee}
   .topbar{background:rgba(255,255,255,.96);border-bottom-color:#dbe5ea}
   .topbar-in{height:68px;gap:10px}.brand{font-size:22px}.brand-mark{width:25px;height:25px}.site-menu summary{width:40px;height:40px}.lang{margin-inline-start:auto}
   .hero{padding:32px 18px 30px}.hero-grid{gap:29px}.eyebrow{font-size:10px;margin-bottom:15px;padding:6px 10px}.hero h1{font-size:clamp(38px,11.2vw,48px);line-height:1.01;letter-spacing:-1px}.hero-tagline{font-size:18px;line-height:1.45;margin-top:18px;color:#087f8c}.hero p.lead{font-size:16px;line-height:1.65;margin-top:13px}.hero-cta{display:grid;grid-template-columns:1fr;margin-top:22px}.hero-cta .btn{text-align:center;width:100%;padding:13px 18px}.hero-points{display:grid;gap:11px;margin-top:22px;font-size:13px}.hero-points i{width:7px;height:7px}
-  .command-shell{padding:10px;border-radius:18px;box-shadow:0 25px 50px -28px rgba(5,31,51,.72)}.command-top{padding:3px 4px 12px}.command-brand{font-size:13px}.command-live{font-size:8px}.command-main{grid-template-columns:1fr;min-height:0;border-radius:12px}.command-nav{display:flex;overflow-x:auto;gap:6px;padding:9px;background:#102c45;scrollbar-width:none}.command-nav::-webkit-scrollbar{display:none}.command-nav strong{display:none}.command-nav span{flex:none;padding:7px 10px;font-size:9px}.command-view{padding:12px}.command-view-head{margin-bottom:11px}.command-view-head strong{font-size:14px}.command-view-head span{font-size:7px}.metric-row{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.metric:nth-child(n){display:block}.metric{padding:8px 7px}.metric small{font-size:7px;line-height:1.3;min-height:19px}.metric b{font-size:15px}.metric em{font-size:7px;white-space:nowrap}.ops-board{padding:10px;margin-top:8px}.bar-set{gap:8px;margin-top:10px}.bar-line{grid-template-columns:55px 1fr 24px;font-size:8px}.command-alerts{grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}.mini-card{padding:9px 8px;font-size:8px;line-height:1.45}.mini-card b{font-size:10px}
+  .command-shell{padding:10px;border-radius:18px;box-shadow:0 25px 50px -28px rgba(5,31,51,.72)}.command-top{padding:3px 4px 12px}.command-brand{font-size:13px}.command-live{font-size:8px}.command-main{grid-template-columns:1fr;min-height:0;border-radius:12px}.command-nav{display:flex;overflow-x:auto;gap:6px;padding:9px;background:#102c45;scrollbar-width:none}.command-nav::-webkit-scrollbar{display:none}.command-nav strong{display:none}.command-nav button{flex:none;padding:7px 10px;font-size:9px}.command-view{padding:12px}.command-stage{min-height:287px}.command-view-head{margin-bottom:11px}.command-view-head strong{font-size:14px}.command-view-head span{font-size:7px}.metric-row{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.metric:nth-child(n){display:block}.metric{padding:8px 7px}.metric small{font-size:7px;line-height:1.3;min-height:19px}.metric b{font-size:15px}.metric em{font-size:7px;white-space:nowrap}.ops-board{padding:10px;margin-top:8px}.bar-set{gap:8px;margin-top:10px}.bar-line{grid-template-columns:55px 1fr 24px;font-size:8px}.command-alerts{grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}.mini-card{padding:9px 8px;font-size:8px;line-height:1.45}.mini-card b{font-size:10px}.list-head,.list-row{grid-template-columns:1.45fr .65fr .7fr;padding:9px 8px}.list-head span:nth-child(3),.list-row span:nth-child(3){display:none}.work-grid{gap:6px}.work-card{padding:9px}
   .proof{padding:16px 18px 2px}.proof-in{grid-template-columns:1fr 1fr;border-radius:14px;overflow:hidden}.proof-item{padding:15px 9px;font-size:11px;line-height:1.45;border-top:0;border-inline-start:1px solid #dfe8ee}.proof-item:nth-child(odd){border-inline-start:0}.proof-item:nth-child(n+3){border-top:1px solid #dfe8ee}.proof-item strong{font-size:13px}
   #products{padding-top:58px}.sec-head{margin-bottom:28px}.sec-head h2{font-size:34px;line-height:1.08}.sec-head p{font-size:15px}.prods{gap:15px}.prods .prod:first-child,.prods .prod:nth-child(2),.prods .prod:nth-child(n+3){grid-column:1/-1}.prods .prod:first-child{min-height:0}.prod{padding:22px;border-radius:15px}.prod h3{font-size:22px}.prod .what{font-size:14px}.prod li{font-size:13px}
   .flow-section{padding:62px 0}.factory-flow,.outcomes{grid-template-columns:1fr}.factory-flow{gap:12px}.flow-card{min-height:0;padding:19px 17px}.flow-card h3{margin-top:16px}.flow-card:not(:last-child):after{content:"↓";display:grid;right:18px;top:auto;bottom:-19px;transform:none;width:26px;height:26px}
   .outcomes{gap:14px}.outcome{padding:21px;border-radius:15px}.outcome h3{font-size:19px}.outcome p{font-size:14px}.outcome-result{font-size:14px}
-  .steps-wrap{padding-top:58px}.steps{border-radius:15px}.step{padding:20px}.contact{margin-top:0}.contact-grid{gap:12px}
+  .steps-wrap{padding-top:58px}.steps{border-radius:15px}.step{padding:20px}.contact{margin-top:0}.contact-grid{gap:25px}.contact-actions{grid-template-columns:1fr;gap:9px}.contact-action,.contact-action.social{grid-column:1;padding:12px}.contact-icon{width:40px;height:40px}.contact-action{grid-template-columns:40px minmax(0,1fr) 18px}
 }
 </style>
 </head>
@@ -354,14 +357,17 @@ footer{background:#fff;border-color:#dfe8ee}
         <div class="hero-points"><span><i></i><b data-t="point1">Live inventory visibility</b></span><span><i></i><b data-t="point2">Production and BOM control</b></span><span><i></i><b data-t="point3">Faster operational decisions</b></span></div>
       </div>
       <div class="command-shell" aria-label="Hamvara MRP operations dashboard preview">
-        <div class="command-top"><span class="command-brand"><i class="command-dot"></i>Hamvara MRP</span><span class="command-live"><b>● LIVE</b> · OPERATIONS</span></div>
+        <div class="command-top"><span class="command-brand"><i class="command-dot"></i>Hamvara MRP</span><span class="command-live"><b>● AUTO TOUR</b> · OPERATIONS</span></div>
+        <div class="command-progress" aria-hidden="true"><i></i></div>
         <div class="command-main">
-          <div class="command-nav"><strong>OPERATIONS</strong><span class="on">Overview</span><span>Inventory</span><span>Production</span><span>Purchasing</span><span>Warehouses</span><span>Reports</span></div>
+          <div class="command-nav"><strong>OPERATIONS</strong><button class="on" type="button" data-scene="0">Overview</button><button type="button" data-scene="1">Inventory</button><button type="button" data-scene="2">Production</button><button type="button" data-scene="3">Purchasing</button></div>
           <div class="command-view">
-            <div class="command-view-head"><strong>Production control</strong><span>UPDATED NOW</span></div>
-            <div class="metric-row"><div class="metric"><small>Inventory accuracy</small><b>97.8%</b><em>↑ 2.4%</em></div><div class="metric"><small>Work orders</small><b>24</b><em>18 on track</em></div><div class="metric"><small>Critical items</small><b>12</b><em>Needs action</em></div></div>
-            <div class="ops-board"><div class="ops-title">Production plan <span>THIS WEEK</span></div><div class="bar-set"><div class="bar-line"><span>Line A</span><div class="bar"><i style="width:88%"></i></div><b>88%</b></div><div class="bar-line"><span>Line B</span><div class="bar"><i style="width:71%"></i></div><b>71%</b></div><div class="bar-line"><span>Packaging</span><div class="bar"><i style="width:56%"></i></div><b>56%</b></div></div></div>
-            <div class="command-alerts"><div class="mini-card"><b>Warehouse balance</b>Raw, WIP and finished goods in one view.</div><div class="mini-card alert"><b>4 orders at risk</b>Material shortage detected.</div></div>
+            <div class="command-stage">
+              <div class="command-slide on" data-scene-panel="0"><div class="command-view-head"><strong>Production control</strong><span>UPDATED NOW</span></div><div class="metric-row"><div class="metric"><small>Inventory accuracy</small><b>97.8%</b><em>↑ 2.4%</em></div><div class="metric"><small>Work orders</small><b>24</b><em>18 on track</em></div><div class="metric"><small>Critical items</small><b>12</b><em>Needs action</em></div></div><div class="ops-board"><div class="ops-title">Production plan <span>THIS WEEK</span></div><div class="bar-set"><div class="bar-line"><span>Line A</span><div class="bar"><i style="width:88%"></i></div><b>88%</b></div><div class="bar-line"><span>Line B</span><div class="bar"><i style="width:71%"></i></div><b>71%</b></div><div class="bar-line"><span>Packaging</span><div class="bar"><i style="width:56%"></i></div><b>56%</b></div></div></div><div class="command-alerts"><div class="mini-card"><b>Warehouse balance</b>Raw, WIP and finished goods in one view.</div><div class="mini-card alert"><b>4 orders at risk</b>Material shortage detected.</div></div></div>
+              <div class="command-slide" data-scene-panel="1"><div class="command-view-head"><strong>Live inventory</strong><span>5 WAREHOUSES</span></div><div class="metric-row"><div class="metric"><small>Total SKUs</small><b>1,363</b><em>All locations</em></div><div class="metric"><small>Below reorder</small><b>18</b><em>Review today</em></div><div class="metric"><small>Stock value</small><b>$284K</b><em>Live valuation</em></div></div><div class="inventory-list"><div class="list-head"><span>ITEM</span><span>LOCATION</span><span>ON HAND</span><span>STATUS</span></div><div class="list-row"><strong>Steel sheet 2mm</strong><span>RAW</span><span>2,480 kg</span><span class="stock-pill">HEALTHY</span></div><div class="list-row"><strong>Product labels</strong><span>PACK</span><span>720 pc</span><span class="stock-pill low">LOW</span></div><div class="list-row"><strong>Finished unit A</strong><span>PRODUCT</span><span>184 pc</span><span class="stock-pill">READY</span></div><div class="list-row"><strong>Batch Q-104</strong><span>QUARANTINE</span><span>24 pc</span><span class="stock-pill hold">HOLD</span></div></div><div class="command-alerts"><div class="mini-card"><b>Live SKU ledger</b>Latest movement posted 2 min ago.</div><div class="mini-card alert"><b>3 urgent shortages</b>Purchase suggestions ready.</div></div></div>
+              <div class="command-slide" data-scene-panel="2"><div class="command-view-head"><strong>Production execution</strong><span>SHOP FLOOR LIVE</span></div><div class="metric-row"><div class="metric"><small>Plan attainment</small><b>91%</b><em>↑ 6% this week</em></div><div class="metric"><small>WIP orders</small><b>8</b><em>3 lines active</em></div><div class="metric"><small>Scrap rate</small><b>2.1%</b><em>Within limit</em></div></div><div class="work-grid"><div class="work-card"><div class="work-card-top">WO-24091 <span>RUNNING</span></div><div class="work-meta">Line A · 880 / 1,000 units</div><div class="bar"><i style="width:88%"></i></div></div><div class="work-card"><div class="work-card-top">WO-24092 <span>RUNNING</span></div><div class="work-meta">Line B · 710 / 1,000 units</div><div class="bar"><i style="width:71%"></i></div></div><div class="work-card"><div class="work-card-top">WO-24093 <span>WAITING</span></div><div class="work-meta">Packaging · material check</div><div class="bar"><i style="width:34%"></i></div></div><div class="work-card"><div class="work-card-top">WO-24094 <span>READY</span></div><div class="work-meta">Line C · starts at 14:30</div><div class="bar"><i style="width:12%"></i></div></div></div><div class="command-alerts"><div class="mini-card"><b>Barcode connected</b>Operator scans sync in real time.</div><div class="mini-card"><b>Capacity available</b>Line C has 3.5 hours open.</div></div></div>
+              <div class="command-slide" data-scene-panel="3"><div class="command-view-head"><strong>Purchasing &amp; suppliers</strong><span>7 ACTIONS DUE</span></div><div class="metric-row"><div class="metric"><small>Open POs</small><b>14</b><em>$92K total</em></div><div class="metric"><small>Due this week</small><b>6</b><em>2 need follow-up</em></div><div class="metric"><small>Avg. lead time</small><b>11d</b><em>↓ 1.2 days</em></div></div><div class="purchase-list"><div class="list-head"><span>SUPPLIER</span><span>PO</span><span>DELIVERY</span><span>STATUS</span></div><div class="list-row"><strong class="supplier-score"><i></i>Marmara Metals</strong><span>PO-1084</span><span>Sep 14</span><span class="stock-pill">ON TIME</span></div><div class="list-row"><strong class="supplier-score warn"><i></i>Delta Pack</strong><span>PO-1086</span><span>Sep 13</span><span class="stock-pill low">AT RISK</span></div><div class="list-row"><strong class="supplier-score"><i></i>Atlas Labels</strong><span>PO-1088</span><span>Sep 17</span><span class="stock-pill">CONFIRMED</span></div><div class="list-row"><strong class="supplier-score"><i></i>North Components</strong><span>PO-1090</span><span>Sep 19</span><span class="stock-pill hold">REVIEW</span></div></div><div class="command-alerts"><div class="mini-card"><b>Purchase suggestions</b>6 recommendations ready to approve.</div><div class="mini-card alert"><b>PO-1086 at risk</b>Supplier response overdue.</div></div></div>
+            </div>
           </div>
         </div>
       </div>
@@ -605,27 +611,12 @@ footer{background:#fff;border-color:#dfe8ee}
           </div>
           <p class="note" data-t="contactNote"></p>
         </div>
-        <div>
-          <a class="chan" href="mailto:info@hamvara.com">
-            <span class="chan-k" data-t="chanEmailK">EMAIL</span>
-            <span class="chan-v">info@hamvara.com</span>
-          </a>
-          <a class="chan" href="tel:+905526281004">
-            <span class="chan-k" data-t="chanPhoneK">PHONE</span>
-            <span class="chan-v">+90 552 628 10 04</span>
-          </a>
-          <a class="chan" href="https://wa.me/18322398510" target="_blank" rel="noopener noreferrer">
-            <span class="chan-k" data-t="chanWaIntlK">WHATSAPP — INTERNATIONAL</span>
-            <span class="chan-v">+1 832 239 8510</span>
-          </a>
-          <a class="chan" href="https://wa.me/905526281004" target="_blank" rel="noopener noreferrer">
-            <span class="chan-k" data-t="chanWaTrK">WHATSAPP — TÜRKİYE</span>
-            <span class="chan-v">+90 552 628 10 04</span>
-          </a>
-          <a class="chan" href="https://www.instagram.com/hamvaramrp/" target="_blank" rel="noopener noreferrer">
-            <span class="chan-k" data-t="chanInstagramK">INSTAGRAM</span>
-            <span class="chan-v">@hamvaramrp</span>
-          </a>
+        <div class="contact-actions">
+          <a class="contact-action" href="mailto:info@hamvara.com" aria-label="Email Hamvara at info@hamvara.com"><span class="contact-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m4 7 8 6 8-6"></path></svg></span><span class="contact-copy"><small data-t="chanEmailK">EMAIL</small><strong>info@hamvara.com</strong></span><span class="contact-arrow" aria-hidden="true">↗</span></a>
+          <a class="contact-action" href="tel:+905526281004" aria-label="Call Hamvara Türkiye"><span class="contact-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6.6 3.5 9 8l-2 1.6c1.2 2.7 3.3 4.8 6 6l1.6-2 4.5 2.4c.4.2.6.7.5 1.1-.4 2-2.1 3.4-4.1 3.4C8.9 20.5 3.5 15.1 3.5 8.5c0-2 1.4-3.7 3.4-4.1.4-.1.9.1 1.1.5Z"></path></svg></span><span class="contact-copy"><small data-t="chanPhoneK">PHONE</small><strong>+90 552 628 10 04</strong></span><span class="contact-arrow" aria-hidden="true">↗</span></a>
+          <a class="contact-action" href="https://wa.me/18322398510" target="_blank" rel="noopener noreferrer" aria-label="Message Hamvara international on WhatsApp"><span class="contact-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20.5 11.5a8.5 8.5 0 0 1-12.6 7.4L3.5 20l1.2-4.2a8.5 8.5 0 1 1 15.8-4.3Z"></path><path d="M8.2 7.8c.5 3.7 2.3 5.5 6 6l1.1-1.5 2 .9c-.4 2-1.7 3-3.4 2.8-4.2-.5-7-3.3-7.5-7.5-.2-1.7.8-3 2.8-3.4l.9 2Z"></path></svg></span><span class="contact-copy"><small data-t="chanWaIntlK">WHATSAPP — INTERNATIONAL</small><strong>+1 832 239 8510</strong></span><span class="contact-arrow" aria-hidden="true">↗</span></a>
+          <a class="contact-action" href="https://wa.me/905526281004" target="_blank" rel="noopener noreferrer" aria-label="Message Hamvara Türkiye on WhatsApp"><span class="contact-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20.5 11.5a8.5 8.5 0 0 1-12.6 7.4L3.5 20l1.2-4.2a8.5 8.5 0 1 1 15.8-4.3Z"></path><path d="M8.2 7.8c.5 3.7 2.3 5.5 6 6l1.1-1.5 2 .9c-.4 2-1.7 3-3.4 2.8-4.2-.5-7-3.3-7.5-7.5-.2-1.7.8-3 2.8-3.4l.9 2Z"></path></svg></span><span class="contact-copy"><small data-t="chanWaTrK">WHATSAPP — TÜRKİYE</small><strong>+90 552 628 10 04</strong></span><span class="contact-arrow" aria-hidden="true">↗</span></a>
+          <a class="contact-action social" href="https://www.instagram.com/hamvaramrp/" target="_blank" rel="noopener noreferrer" aria-label="Open Hamvara on Instagram"><span class="contact-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"></rect><circle cx="12" cy="12" r="4"></circle><circle class="icon-fill" cx="17.4" cy="6.7" r="1"></circle></svg></span><span class="contact-copy"><small data-t="chanInstagramK">INSTAGRAM</small><strong data-t="socialFollow">Follow Hamvara</strong></span><span class="contact-arrow" aria-hidden="true">↗</span></a>
         </div>
       </div>
     </div>
@@ -739,7 +730,7 @@ footer{background:#fff;border-color:#dfe8ee}
       contactTitle: 'Request a demo',
       contactLead: 'Tell me what you are doing by hand right now. I will tell you honestly whether software is worth it.',
       contactNote: 'Usually a reply the same day. English, Persian and Turkish.',
-      chanEmailK: 'EMAIL', chanPhoneK: 'PHONE', chanWaIntlK: 'WHATSAPP — INTERNATIONAL', chanWaTrK: 'WHATSAPP — TÜRKİYE', chanInstagramK: 'INSTAGRAM',
+      chanEmailK: 'EMAIL', chanPhoneK: 'PHONE', chanWaIntlK: 'WHATSAPP — INTERNATIONAL', chanWaTrK: 'WHATSAPP — TÜRKİYE', chanInstagramK: 'INSTAGRAM', socialFollow: 'Follow Hamvara',
       footPlace: 'Istanbul, Türkiye',
     },
 
@@ -835,7 +826,7 @@ footer{background:#fff;border-color:#dfe8ee}
       contactTitle: 'درخواست دمو',
       contactLead: 'بگویید همین حالا چه کاری را دستی انجام می‌دهید. صادقانه می‌گویم که نرم‌افزار به آن می‌ارزد یا نه.',
       contactNote: 'معمولاً همان روز جواب می‌دهم. انگلیسی، فارسی و ترکی.',
-      chanEmailK: 'ایمیل', chanPhoneK: 'تلفن', chanWaIntlK: 'واتساپ — بین‌المللی', chanWaTrK: 'واتساپ — ترکیه', chanInstagramK: 'اینستاگرام',
+      chanEmailK: 'ایمیل', chanPhoneK: 'تلفن', chanWaIntlK: 'واتساپ — بین‌المللی', chanWaTrK: 'واتساپ — ترکیه', chanInstagramK: 'اینستاگرام', socialFollow: 'دنبال‌کردن Hamvara',
       footPlace: 'استانبول، ترکیه',
     },
 
@@ -931,7 +922,7 @@ footer{background:#fff;border-color:#dfe8ee}
       contactTitle: 'Demo isteyin',
       contactLead: 'Şu anda elle ne yaptığınızı anlatın. Yazılıma değip değmeyeceğini dürüstçe söyleyeyim.',
       contactNote: 'Genellikle aynı gün yanıt. İngilizce, Farsça ve Türkçe.',
-      chanEmailK: 'E-POSTA', chanPhoneK: 'TELEFON', chanWaIntlK: 'WHATSAPP — ULUSLARARASI', chanWaTrK: 'WHATSAPP — TÜRKİYE', chanInstagramK: 'INSTAGRAM',
+      chanEmailK: 'E-POSTA', chanPhoneK: 'TELEFON', chanWaIntlK: 'WHATSAPP — ULUSLARARASI', chanWaTrK: 'WHATSAPP — TÜRKİYE', chanInstagramK: 'INSTAGRAM', socialFollow: 'Hamvara’yı takip edin',
       footPlace: 'İstanbul, Türkiye',
     },
   };
@@ -1022,6 +1013,42 @@ footer{background:#fff;border-color:#dfe8ee}
     var siteMenu = document.querySelector('.site-menu');
     if (siteMenu) siteMenu.removeAttribute('open');
   });
+
+  /* Automatic command-center tour: a lightweight in-page video made from
+     four real product views. Visitors can also choose a frame manually. */
+  var commandShell = document.querySelector('.command-shell');
+  var sceneButtons = Array.prototype.slice.call(document.querySelectorAll('[data-scene]'));
+  var scenePanels = Array.prototype.slice.call(document.querySelectorAll('[data-scene-panel]'));
+  var activeScene = 0;
+  var sceneTimer = null;
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function showScene(index) {
+    activeScene = (index + scenePanels.length) % scenePanels.length;
+    sceneButtons.forEach(function (button, i) { button.classList.toggle('on', i === activeScene); });
+    scenePanels.forEach(function (panel, i) { panel.classList.toggle('on', i === activeScene); });
+    if (commandShell) {
+      commandShell.classList.remove('playing');
+      void commandShell.offsetWidth;
+      if (!reduceMotion) commandShell.classList.add('playing');
+    }
+  }
+
+  function startSceneTour() {
+    if (reduceMotion || scenePanels.length < 2) return;
+    window.clearInterval(sceneTimer);
+    sceneTimer = window.setInterval(function () { showScene(activeScene + 1); }, 4600);
+    if (commandShell) commandShell.classList.add('playing');
+  }
+
+  sceneButtons.forEach(function (button, index) {
+    button.addEventListener('click', function () { showScene(index); startSceneTour(); });
+  });
+  if (commandShell) {
+    commandShell.addEventListener('mouseenter', function () { window.clearInterval(sceneTimer); commandShell.classList.remove('playing'); });
+    commandShell.addEventListener('mouseleave', startSceneTour);
+  }
+  startSceneTour();
 
   document.getElementById('year').textContent = new Date().getFullYear();
 
