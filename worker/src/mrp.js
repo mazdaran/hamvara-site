@@ -1,4 +1,8 @@
+import {assembleMrpRunArtifacts,chunkMrpRunArtifacts,externalizeMrpRunPayloads,rehydrateMrpRunPayloads} from '../../mrp/mrp-run-artifacts.js';
+
 const MAX_STATE_BYTES = 5 * 1024 * 1024;
+const MAX_STATE_REQUEST_BYTES = 32 * 1024 * 1024;
+const MRP_ARTIFACT_THRESHOLD_BYTES = 256 * 1024;
 
 export async function handleMrpRequest(request, env, url) {
   if (!env.DB) throw httpError(503, 'MRP database is not configured.');
@@ -117,7 +121,10 @@ export async function runScheduledMrpBackups(env, scheduledAt = new Date().toISO
   await ensureBackupTable(env);
   await env.DB.prepare(`INSERT INTO mrp_state_backups (id, workspace_id, state_json, revision, source, created_at)
     SELECT lower(hex(randomblob(16))), workspace_id, state_json, revision, 'SCHEDULED', ? FROM mrp_state WHERE state_json IS NOT NULL`).bind(scheduledAt).run();
+  const created=await env.DB.prepare("SELECT id,workspace_id,state_json FROM mrp_state_backups WHERE source='SCHEDULED' AND created_at=?").bind(scheduledAt).all();
+  for(const backup of created.results||[])await snapshotMrpArtifactsForBackup(env,backup.id,backup.workspace_id,backup.state_json);
   await env.DB.prepare("DELETE FROM mrp_state_backups WHERE created_at < datetime('now','-90 days')").run();
+  await cleanupOrphanedMrpArtifacts(env);
   return { ok: true, scheduledAt };
 }
 
@@ -127,7 +134,30 @@ async function backupStatus(env, actor) {
   return json({ count: Number(row?.count || 0), lastBackupAt: row?.last_backup_at || null, scheduleUtc: ['06:00','18:00'], retentionDays: 90 });
 }
 
-async function createManualBackup(env,actor){await ensureBackupTable(env);const row=await env.DB.prepare('SELECT state_json, revision FROM mrp_state WHERE workspace_id = ?').bind(actor.workspace.id).first();if(!row?.state_json)throw httpError(409,'No workspace state is available to back up.');const createdAt=new Date().toISOString();await env.DB.prepare("INSERT INTO mrp_state_backups (id,workspace_id,state_json,revision,source,created_at) VALUES (?,?,?,?, 'MANUAL',?)").bind(crypto.randomUUID(),actor.workspace.id,row.state_json,Number(row.revision||0),createdAt).run();return json({ok:true,createdAt,revision:Number(row.revision||0)})}
+async function createManualBackup(env,actor){await ensureBackupTable(env);const row=await env.DB.prepare('SELECT state_json, revision FROM mrp_state WHERE workspace_id = ?').bind(actor.workspace.id).first();if(!row?.state_json)throw httpError(409,'No workspace state is available to back up.');const id=crypto.randomUUID(),createdAt=new Date().toISOString();await env.DB.prepare("INSERT INTO mrp_state_backups (id,workspace_id,state_json,revision,source,created_at) VALUES (?,?,?,?, 'MANUAL',?)").bind(id,actor.workspace.id,row.state_json,Number(row.revision||0),createdAt).run();await snapshotMrpArtifactsForBackup(env,id,actor.workspace.id,row.state_json);return json({ok:true,id,createdAt,revision:Number(row.revision||0)})}
+
+export async function snapshotMrpArtifactsForBackup(env,backupId,workspaceId,stateJson){
+  let state;try{state=JSON.parse(stateJson||'{}')}catch{throw httpError(500,'MRP backup source state is invalid.')}
+  const references=(state.mrpRuns||[]).map(run=>run.storageArtifact).filter(Boolean);
+  for(const reference of references){
+    const databaseId=storedArtifactId(workspaceId,reference.artifactId),manifest=await env.DB.prepare('SELECT * FROM mrp_run_artifacts WHERE id=? AND workspace_id=?').bind(databaseId,workspaceId).first();
+    if(!manifest)throw httpError(500,`MRP backup artifact is missing: ${reference.artifactId}.`);
+    const chunkResult=await env.DB.prepare('SELECT * FROM mrp_run_artifact_chunks WHERE artifact_id=? ORDER BY chunk_index ASC').bind(databaseId).all(),manifestValue=artifactManifest(manifest,reference.artifactId),chunkValues=(chunkResult.results||[]).map(item=>artifactChunk(item,reference.artifactId));
+    try{assembleMrpRunArtifacts([manifestValue],chunkValues)}catch(error){throw httpError(500,error.message||'MRP backup artifact integrity failed.')}
+    await env.DB.prepare('INSERT OR REPLACE INTO mrp_run_artifact_backups (backup_id,original_artifact_id,manifest_json) VALUES (?,?,?)').bind(backupId,databaseId,JSON.stringify(manifestValue)).run();
+    const statements=chunkValues.map(chunk=>env.DB.prepare('INSERT OR REPLACE INTO mrp_run_artifact_chunk_backups (backup_id,original_artifact_id,chunk_index,chunk_json) VALUES (?,?,?,?)').bind(backupId,databaseId,chunk.index,JSON.stringify(chunk)));
+    for(let offset=0;offset<statements.length;offset+=50){const batch=statements.slice(offset,offset+50);if(typeof env.DB.batch==='function')await env.DB.batch(batch);else for(const statement of batch)await statement.run()}
+  }
+  return{artifacts:references.length};
+}
+
+export async function cleanupOrphanedMrpArtifacts(env){
+  const states=await env.DB.prepare('SELECT workspace_id,state_json FROM mrp_state WHERE state_json IS NOT NULL').all(),referenced=new Set();
+  for(const row of states.results||[]){let state;try{state=JSON.parse(row.state_json)}catch{continue}for(const run of state.mrpRuns||[])if(run.storageArtifact?.artifactId)referenced.add(storedArtifactId(row.workspace_id,run.storageArtifact.artifactId))}
+  const candidates=await env.DB.prepare("SELECT id FROM mrp_run_artifacts WHERE created_at < datetime('now','-7 days')").all();let removed=0;
+  for(const row of candidates.results||[])if(!referenced.has(row.id)){const result=await env.DB.prepare('DELETE FROM mrp_run_artifacts WHERE id=?').bind(row.id).run();removed+=Number(result.meta?.changes||0)}
+  return{removed};
+}
 
 async function ensureBackupTable(env) {
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS mrp_state_backups (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, state_json TEXT NOT NULL, revision INTEGER NOT NULL, source TEXT NOT NULL DEFAULT 'SCHEDULED', created_at TEXT NOT NULL, FOREIGN KEY (workspace_id) REFERENCES mrp_workspaces(id) ON DELETE CASCADE)`).run();
@@ -277,19 +307,50 @@ async function authenticate(request, env) {
   };
 }
 
+const storedArtifactId=(workspaceId,artifactId)=>`${workspaceId}:${artifactId}`;
+const artifactManifest=(row,artifactId)=>({artifactId,runId:row.run_id,resultFingerprint:row.result_fingerprint,schemaVersion:Number(row.schema_version),byteLength:Number(row.byte_length),rowCount:Number(row.row_count),checkpointRecordCount:Number(row.checkpoint_record_count),chunkCount:Number(row.chunk_count),hashAlgorithm:row.hash_algorithm,headHash:row.head_hash,createdAt:row.created_at});
+const artifactChunk=(row,artifactId)=>({artifactId,index:Number(row.chunk_index),count:Number(row.chunk_count),byteLength:Number(row.byte_length),payloadBase64:row.payload_base64,payloadHash:row.payload_hash,previousHash:row.previous_hash,hash:row.chain_hash});
+
+export async function hydrateStoredState(env,workspaceId,storedState){
+  const references=(storedState?.mrpRuns||[]).map(run=>run.storageArtifact).filter(Boolean);
+  if(!references.length)return storedState;
+  const manifests=[],chunks=[];
+  for(const reference of references){
+    const databaseId=storedArtifactId(workspaceId,reference.artifactId),row=await env.DB.prepare('SELECT * FROM mrp_run_artifacts WHERE id=? AND workspace_id=?').bind(databaseId,workspaceId).first();
+    if(!row)throw httpError(500,`Stored MRP artifact is missing: ${reference.artifactId}.`);
+    manifests.push(artifactManifest(row,reference.artifactId));
+    const result=await env.DB.prepare('SELECT * FROM mrp_run_artifact_chunks WHERE artifact_id=? ORDER BY chunk_index ASC').bind(databaseId).all();
+    chunks.push(...(result.results||[]).map(item=>artifactChunk(item,reference.artifactId)));
+  }
+  try{return rehydrateMrpRunPayloads(storedState,assembleMrpRunArtifacts(manifests,chunks))}
+  catch(error){throw httpError(500,error.message||'Stored MRP artifact integrity failed.')}
+}
+
+export async function persistMrpArtifacts(env,actor,manifests,chunks){
+  const createdAt=new Date().toISOString();
+  for(const manifest of manifests){
+    const databaseId=storedArtifactId(actor.workspace.id,manifest.artifactId),existing=await env.DB.prepare('SELECT head_hash,byte_length,chunk_count FROM mrp_run_artifacts WHERE id=? AND workspace_id=?').bind(databaseId,actor.workspace.id).first();
+    if(existing&&(existing.head_hash!==manifest.headHash||Number(existing.byte_length)!==manifest.byteLength||Number(existing.chunk_count)!==manifest.chunkCount))throw httpError(409,`MRP artifact identity collision: ${manifest.artifactId}.`);
+    await env.DB.prepare(`INSERT OR IGNORE INTO mrp_run_artifacts (id,workspace_id,run_id,result_fingerprint,schema_version,byte_length,row_count,checkpoint_record_count,chunk_count,hash_algorithm,head_hash,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(databaseId,actor.workspace.id,manifest.runId,manifest.resultFingerprint,manifest.schemaVersion,manifest.byteLength,manifest.rowCount,manifest.checkpointRecordCount,manifest.chunkCount,manifest.hashAlgorithm,manifest.headHash,actor.user.id,createdAt).run();
+  }
+  const statements=chunks.map(chunk=>env.DB.prepare(`INSERT OR IGNORE INTO mrp_run_artifact_chunks (artifact_id,chunk_index,chunk_count,byte_length,payload_base64,payload_hash,previous_hash,chain_hash) VALUES (?,?,?,?,?,?,?,?)`).bind(storedArtifactId(actor.workspace.id,chunk.artifactId),chunk.index,chunk.count,chunk.byteLength,chunk.payloadBase64,chunk.payloadHash,chunk.previousHash,chunk.hash));
+  for(let offset=0;offset<statements.length;offset+=50){const batch=statements.slice(offset,offset+50);if(typeof env.DB.batch==='function')await env.DB.batch(batch);else for(const statement of batch)await statement.run()}
+}
+
 async function loadState(env, actor) {
   const row = await env.DB.prepare('SELECT state_json, revision, updated_at FROM mrp_state WHERE workspace_id = ?').bind(actor.workspace.id).first();
   let state = null;
   if (row?.state_json) {
     try { state = JSON.parse(row.state_json); }
     catch { throw httpError(500, 'Stored MRP data is invalid.'); }
+    state=await hydrateStoredState(env,actor.workspace.id,state);
   }
   return json({ state, revision: Number(row?.revision || 0), updatedAt: row?.updated_at || null, workspace: actor.workspace, user: actor.user });
 }
 
 async function saveState(request, env, actor) {
   const raw = await request.text();
-  if (new TextEncoder().encode(raw).byteLength > MAX_STATE_BYTES) throw httpError(413, 'MRP data exceeds the 5 MB workspace limit.');
+  if (new TextEncoder().encode(raw).byteLength > MAX_STATE_REQUEST_BYTES) throw httpError(413, 'MRP data exceeds the 32 MB request limit.');
   let body;
   try { body = JSON.parse(raw); }
   catch { throw httpError(400, 'Invalid JSON payload.'); }
@@ -297,7 +358,7 @@ async function saveState(request, env, actor) {
   if (Number(body.state.schemaVersion || 0) < 6) throw httpError(400, 'MRP schema version 6 or newer is required.');
   const expectedRevision = Number(body.expectedRevision);
   if (!Number.isInteger(expectedRevision) || expectedRevision < 0) throw httpError(400, 'A valid expectedRevision is required.');
-  const stored=await env.DB.prepare('SELECT state_json FROM mrp_state WHERE workspace_id = ?').bind(actor.workspace.id).first();let previousState={};try{previousState=JSON.parse(stored?.state_json||'{}')}catch{}
+  const stored=await env.DB.prepare('SELECT state_json FROM mrp_state WHERE workspace_id = ?').bind(actor.workspace.id).first();let previousState={};try{previousState=JSON.parse(stored?.state_json||'{}');previousState=await hydrateStoredState(env,actor.workspace.id,previousState)}catch(error){if(error?.status)throw error}
   const priorReleased=new Set((previousState.mrpRuns||[]).filter(item=>item.status==='RELEASED'||item.status==='SUPERSEDED').map(item=>`${item.id}|${item.resultFingerprint}`)),newReleases=(body.state.mrpRuns||[]).filter(item=>item.status==='RELEASED'&&!priorReleased.has(`${item.id}|${item.resultFingerprint}`));
   if(newReleases.length&&!['FACTORY_MANAGER','CEO'].includes(actor.user.role))throw httpError(403,'Factory Manager or CEO role is required to persist a newly released MRP run.');
   if(newReleases.length&&String(env.MRP_AUDIT_HMAC_SECRET||'').length<32)throw httpError(503,'MRP audit sealing requires a server secret of at least 32 characters.');
@@ -308,11 +369,16 @@ async function saveState(request, env, actor) {
   const seals=[];
   if(newReleases.length){for(const run of newReleases){const sealedAt=new Date().toISOString(),payload={workspaceId:actor.workspace.id,runId:String(run.id||''),runNo:String(run.runNo||''),resultFingerprint:String(run.resultFingerprint||''),checkpointHeadHash:String(run.timeBucketCheckpoints?.headHash||''),deltaHeadHash:String(run.deltaAnchor?.headHash||''),releasedAt:String(run.releasedAt||'')},signature=await createMrpAuditSeal(payload,env.MRP_AUDIT_HMAC_SECRET),id=`MRPSEAL-${signature}`;await env.DB.prepare('INSERT OR IGNORE INTO mrp_audit_seals (id,workspace_id,run_id,payload_json,signature,algorithm,created_by,created_at) VALUES (?,?,?,?,?,\'HMAC-SHA-256\',?,?)').bind(id,actor.workspace.id,payload.runId,JSON.stringify(payload),signature,actor.user.id,sealedAt).run();seals.push({id,runId:payload.runId,signature,algorithm:'HMAC-SHA-256',sealedAt})}}
 
+  const external=externalizeMrpRunPayloads(body.state,{thresholdBytes:MRP_ARTIFACT_THRESHOLD_BYTES});
+  if(external.coreBytes>MAX_STATE_BYTES)throw httpError(413,'MRP core data exceeds the 5 MB workspace limit after run artifacts are externalized.');
+  const chunked=chunkMrpRunArtifacts(external.artifacts);
+  await persistMrpArtifacts(env,actor,chunked.manifests,chunked.chunks);
+
   const result = await env.DB.prepare(`
     UPDATE mrp_state
     SET state_json = ?, revision = revision + 1, updated_by = ?, updated_at = datetime('now')
     WHERE workspace_id = ? AND revision = ?
-  `).bind(JSON.stringify(body.state), actor.user.id, actor.workspace.id, expectedRevision).run();
+  `).bind(JSON.stringify(external.coreState), actor.user.id, actor.workspace.id, expectedRevision).run();
 
   if (!result.meta?.changes) {
     const current = await env.DB.prepare('SELECT revision, updated_at FROM mrp_state WHERE workspace_id = ?').bind(actor.workspace.id).first();
@@ -321,8 +387,8 @@ async function saveState(request, env, actor) {
 
   const revision = expectedRevision + 1;
   await env.DB.prepare("INSERT INTO mrp_audit_log (workspace_id, user_id, action, details_json, created_at) VALUES (?, ?, 'state.saved', ?, datetime('now'))")
-    .bind(actor.workspace.id, actor.user.id, JSON.stringify({ revision, schemaVersion: body.state.schemaVersion, appVersion: body.state.appVersion, sealedMrpRuns:seals.map(item=>item.runId) })).run();
-  return json({ ok: true, revision, savedAt: new Date().toISOString(), auditSeals:seals });
+    .bind(actor.workspace.id, actor.user.id, JSON.stringify({ revision, schemaVersion: body.state.schemaVersion, appVersion: body.state.appVersion, sealedMrpRuns:seals.map(item=>item.runId),externalizedMrpRuns:external.externalizedRuns })).run();
+  return json({ ok: true, revision, savedAt: new Date().toISOString(), auditSeals:seals,externalizedMrpRuns:external.externalizedRuns });
 }
 
 async function ensureAuditSealTable(env){await env.DB.prepare(`CREATE TABLE IF NOT EXISTS mrp_audit_seals (id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL,run_id TEXT NOT NULL,payload_json TEXT NOT NULL,signature TEXT NOT NULL,algorithm TEXT NOT NULL,created_by TEXT NOT NULL,created_at TEXT NOT NULL,UNIQUE(workspace_id,run_id,signature))`).run()}
