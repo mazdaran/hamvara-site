@@ -5,6 +5,10 @@ compatibility_date = "2026-08-01"
 [vars]
 ALLOWED_ORIGINS = "https://hamvara.com,https://www.hamvara.com"
 META_GRAPH_VERSION = "v23.0"
+TARIFF_SYNC_ACTOR = "tariff-sync-service"
+TARIFF_PREPARER_ACTOR = "tariff-preparer"
+TARIFF_REVIEWER_ACTOR = "tariff-reviewer"
+TARIFF_PUBLISHER_ACTOR = "tariff-publisher"
 
 [ai]
 binding = "AI"
