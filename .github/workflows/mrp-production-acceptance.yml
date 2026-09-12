@@ -1,0 +1,35 @@
+name: MRP Production Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type RUN-MRP-ACCEPTANCE to create and remove an isolated test tenant"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    if: ${{ inputs.confirmation == 'RUN-MRP-ACCEPTANCE' }}
+    environment: production
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - name: Verify code before production acceptance
+        run: npm run check
+      - name: Exercise server HMAC seal on an isolated tenant
+        run: node scripts/run-mrp-production-acceptance.mjs
+        env:
+          MRP_ACCEPTANCE_API_BASE: https://hamvara-growth-api.yahya-mazdarani.workers.dev
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
