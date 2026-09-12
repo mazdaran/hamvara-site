@@ -1,4 +1,5 @@
 import { handleMrpRequest, runScheduledMrpBackups } from './mrp.js';
+import { handleTariffRequest } from './tariff.js';
 
 const PROVIDERS = {
   google: {
@@ -32,7 +33,7 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     try {
       let response;
-      if (url.pathname === '/health') response = json({ ok: true, service: 'hamvara-growth-api', pageSpeedApiKeyConfigured: Boolean(env.PAGESPEED_API_KEY), oauthConfigured: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.OAUTH_STATE_SECRET && env.TOKEN_ENCRYPTION_KEY), databaseConfigured: Boolean(env.DB), aiConfigured: Boolean(env.AI), time: new Date().toISOString() });
+      if (url.pathname === '/health') response = json({ ok: true, service: 'hamvara-growth-api', pageSpeedApiKeyConfigured: Boolean(env.PAGESPEED_API_KEY), oauthConfigured: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.OAUTH_STATE_SECRET && env.TOKEN_ENCRYPTION_KEY), databaseConfigured: Boolean(env.DB), tariffRolesConfigured: Boolean(env.TARIFF_SYNC_TOKEN && env.TARIFF_SYNC_ACTOR && env.TARIFF_PREPARER_TOKEN && env.TARIFF_PREPARER_ACTOR && env.TARIFF_REVIEWER_TOKEN && env.TARIFF_REVIEWER_ACTOR && env.TARIFF_PUBLISHER_TOKEN && env.TARIFF_PUBLISHER_ACTOR), aiConfigured: Boolean(env.AI), time: new Date().toISOString() });
       else if (url.pathname === '/api/audit' && request.method === 'POST') response = await audit(request, env);
       else if (url.pathname === '/api/sku-bridge/analyze' && request.method === 'POST') response = await analyzeSkuColumns(request, env);
       else if (url.pathname === '/api/claimpilot/analyze' && request.method === 'POST') response = await analyzeClaimDocuments(request, env);
@@ -43,6 +44,7 @@ export default {
       else if (/^\/api\/integrations\/(google|meta|linkedin|wordpress)\/test$/.test(url.pathname) && request.method === 'GET') response = await testIntegration(url.pathname.split('/')[3], env);
       else if (/^\/api\/oauth\/(google|meta|linkedin|wordpress)\/start$/.test(url.pathname)) response = await oauthStart(request, env);
       else if (/^\/api\/oauth\/(google|meta|linkedin|wordpress)\/callback$/.test(url.pathname)) response = await oauthCallback(request, env);
+      else if (url.pathname.startsWith('/api/tariff/')) response = await handleTariffRequest(request, env, url);
       else if (url.pathname.startsWith('/api/mrp/')) response = await handleMrpRequest(request, env, url);
       else response = json({ error: 'Not found' }, 404);
       const headers = new Headers(response.headers); Object.entries(cors).forEach(([k,v]) => headers.set(k,v));
@@ -53,7 +55,10 @@ export default {
     }
   },
   async scheduled(controller, env, ctx) {
-    ctx.waitUntil(runScheduledMrpBackups(env, new Date(controller.scheduledTime).toISOString()));
+    const scheduledAt = new Date(controller.scheduledTime).toISOString();
+    // Tariff collection is intentionally manual in phase 1. Scheduled events are
+    // reserved for operational MRP backups and must never mutate tariff staging.
+    ctx.waitUntil(runScheduledMrpBackups(env, scheduledAt));
   }
 };
 

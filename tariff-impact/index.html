@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tariff Impact — BOM duty and margin scenarios | Hamvara</title>
+  <meta name="description" content="Upload a multi-level BOM and trace estimated US tariff exposure from imported components to finished-product margin.">
+  <link rel="canonical" href="https://hamvara.com/tariff-impact/">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%2307182e'/%3E%3Cpath d='M13 17h38v9H37v25H27V26H13z' fill='%2322c7d6'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+  <script src="./config.js" defer></script>
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">HAMVARA <span>/ TARIFF IMPACT</span></a>
+    <div class="top-actions"><span class="privacy-chip">LOCAL-FIRST · BOM STAYS IN THIS BROWSER</span><a class="quiet-button" href="/">All products</a></div>
+  </header>
+
+  <main>
+    <section class="workbench" aria-labelledby="page-title">
+      <div class="intro">
+        <div><p class="kicker">US IMPORT EXPOSURE · DECISION SUPPORT</p><h1 id="page-title">See which finished products tariffs are costing you.</h1></div>
+        <p>Upload a single- or multi-level BOM. Trace estimated duties to each imported component, test sourcing and rate scenarios, and see the change in product margin.</p>
+      </div>
+
+      <div class="control-grid">
+        <section class="upload-panel" aria-labelledby="upload-title">
+          <div class="section-title"><div><span>01</span><h2 id="upload-title">Load BOM</h2></div><a href="./bom-template-v2.csv" download>Download template</a></div>
+          <label class="dropzone" id="dropzone">
+            <input id="fileInput" type="file" accept=".csv,.xlsx,.xls">
+            <strong>Drop CSV or Excel here</strong>
+            <small>Up to 5,000 rows · first sheet · values are processed locally</small>
+          </label>
+          <div class="button-row"><button class="primary" id="sampleButton">Try verified-format sample</button><button class="secondary" id="resetButton">Reset</button></div>
+          <div id="fileStatus" class="status-line" role="status">No BOM loaded.</div>
+        </section>
+
+        <section class="settings-panel" aria-labelledby="settings-title">
+          <div class="section-title"><div><span>02</span><h2 id="settings-title">Calculation basis</h2></div><span id="ruleBadge" class="badge warning">DEMO RULE SET</span></div>
+          <div class="form-grid">
+            <label>As-of date<input id="asOfDate" type="date" value="2026-09-11"></label>
+            <label>Average formal-entry value, USD<input id="entryValue" type="number" min="0" step="0.01" placeholder="Optional"></label>
+            <label>Scenario: additional duty delta<input id="rateDelta" type="number" step="0.1" value="0"><small>Percentage points</small></label>
+            <label>Scenario: change one origin<select id="originSku"><option value="">No component selected</option></select></label>
+            <label>New origin<select id="newOrigin"><option value="MX">Mexico</option><option value="CA">Canada</option><option value="US">United States</option><option value="VN">Vietnam</option><option value="KR">South Korea</option><option value="CN">China</option></select></label>
+            <label>Replacement additional duty %<input id="originRateOverride" type="number" min="0" step="0.1" placeholder="Required for origin scenario"><small>No rate is inferred from country alone</small></label>
+            <label class="check"><input id="includeEstimatedFees" type="checkbox" checked> Include estimated MPF/HMF allocation</label>
+          </div>
+          <button class="primary wide" id="calculateButton" disabled>Calculate tariff impact</button>
+        </section>
+      </div>
+
+      <section id="validationPanel" class="validation-panel hidden" aria-live="polite"></section>
+
+      <section id="results" class="results hidden" aria-labelledby="results-title">
+        <div class="results-head"><div><p class="kicker">FINISHED-PRODUCT EXPOSURE</p><h2 id="results-title">Results</h2></div><div class="button-row"><button class="secondary" id="exportButton">Export audit CSV</button><button class="secondary" id="printButton">Print / PDF</button></div></div>
+        <div class="summary-grid">
+          <article><span>Products analyzed</span><strong id="productCount">0</strong></article>
+          <article><span>Duty per unit</span><strong id="totalDuty">$0.00</strong></article>
+          <article><span>Lines needing review</span><strong id="reviewCount">0</strong></article>
+          <article><span>Rule set</span><strong id="ruleVersion">—</strong></article>
+        </div>
+        <div class="result-layout">
+          <div class="table-card">
+            <table><thead><tr><th>Product</th><th>Material cost</th><th>Estimated duty</th><th>Before</th><th>After</th><th>Scenario</th><th>Status</th></tr></thead><tbody id="productRows"></tbody></table>
+          </div>
+          <aside class="detail-card" id="detailCard"><p class="kicker">WHY THIS NUMBER?</p><h3>Select a product</h3><p class="muted">The component-level calculation, applied programs, rejected programs, assumptions and source status will appear here.</p></aside>
+        </div>
+      </section>
+
+      <section class="governance" aria-labelledby="governance-title">
+        <div class="section-title"><div><span>03</span><h2 id="governance-title">Evidence and control</h2></div><span class="badge">AUDIT-READY DESIGN</span></div>
+        <div class="governance-grid">
+          <article><h3>Versioned rules</h3><p>Every rate, exclusion, cap and stacking relationship carries effective dates, source status and a rule-set version. Draft rules never appear as confirmed law.</p></article>
+          <article><h3>Accounting boundary</h3><p>Duty and fees are presented separately from material cost. Posting treatment is a company accounting-policy decision; the tool does not create journal entries.</p></article>
+          <article><h3>Five-year evidence package</h3><p>Exports include inputs, assumptions, applied rules, rejected rules, calculation timestamp and source status to support customs recordkeeping workflows.</p></article>
+          <article><h3>Human approval</h3><p>Unverified HTS codes, unresolved stacking, missing metal-origin fields and estimated shipment fees are clearly flagged for broker or controller review.</p></article>
+        </div>
+        <details><summary>Regulatory scope and limitations</summary><div class="legal-copy"><p>This tool produces planning estimates only. It is not customs, legal, tax, accounting or audit advice, and it does not make a binding classification or origin determination. Importers remain responsible for reasonable care, entry data and supporting records. Confirm HTS classifications, Chapter 99 provisions, exclusions, origin claims and duty treatment with a licensed U.S. customs broker or qualified adviser.</p><p>Reference framework: HTS data published by USITC; CBP entry and recordkeeping requirements including 19 CFR Part 163; USTR Section 301 notices; Presidential proclamations and Federal Register notices. Rule records must be source-verified before production publication.</p></div></details>
+      </section>
+    </section>
+  </main>
+  <footer><span>HAMVARA · Industrial operations under control</span><a href="mailto:info@hamvara.com">info@hamvara.com</a></footer>
+</body>
+</html>

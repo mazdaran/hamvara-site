@@ -1,0 +1,20 @@
+{
+  "rule_set_id": "HAM-US-DEMO-2026-09-11",
+  "status": "demonstration",
+  "verified_at": null,
+  "notice": "Workflow demonstration only. Production rates must be sourced and approved before publication.",
+  "fees": [
+    {"id":"mpf-formal","rate_pct":0.3464,"minimum_usd":33.58,"maximum_usd":651.50,"valid_from":"2025-10-01","valid_to":"2026-09-30","source":"Federal Register / CBP annual user-fee notice","source_status":"pending_primary_verification"},
+    {"id":"hmf-ocean","rate_pct":0.125,"valid_from":"1987-04-01","valid_to":null,"source":"19 CFR 24.24","source_status":"pending_primary_verification"}
+  ],
+  "relations": [
+    {"left_program_id":"additional_duty","right_program_id":"s232","relation_type":"EXCLUDED_BY","valid_from":"2026-07-24","valid_to":null,"source_status":"PRIMARY_PENDING"}
+  ],
+  "controls": {
+    "record_retention_years":5,
+    "require_hts_confirmation":true,
+    "require_origin_confirmation":true,
+    "require_human_approval_for_draft_rules":true,
+    "formula_injection_protection":true
+  }
+}

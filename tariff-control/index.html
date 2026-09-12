@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tariff Control Extension | Hamvara</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="../tariff-impact/config.js" defer></script>
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <header><a href="/">HAMVARA</a><span>TARIFF CONTROL EXTENSION · PHASE 1</span><a href="../tariff-impact/">Impact calculator</a></header>
+  <main>
+    <section class="title"><p>MANUAL, CONTROLLED, AUDITABLE</p><h1>Review changes before they reach production.</h1><span>Collection and comparison run only when requested. Phase 1 cannot promote tariff data to production.</span></section>
+    <section class="notice"><strong>Production lock active</strong><span>Candidate review is available; production promotion and scheduled tariff collection are disabled.</span></section>
+    <section class="controls">
+      <article><h2>1 · Credentials</h2><label>Sync credential<input id="syncToken" type="password" autocomplete="off" placeholder="Used only to fetch"></label><label>Reviewer credential<input id="reviewToken" type="password" autocomplete="off" placeholder="Used only to review"></label><p>Credentials stay in this browser tab and are never saved.</p></article>
+      <article><h2>2 · Manual collection</h2><p>Download the source and create an immutable staged comparison.</p><button id="sync">Check for updates</button><button id="status" class="secondary">Refresh status</button><p id="connection">Not connected.</p></article>
+      <article><h2>3 · Candidate run</h2><label>Staged run<select id="runId"><option value="">Select a run</option></select></label><button id="runs">Load candidate runs</button><button id="changes" class="secondary">Load changes</button></article>
+    </section>
+    <section class="worklist">
+      <div class="worklist-head"><div><p>CANDIDATE WORKLIST</p><h2>Detected HTS changes</h2></div><div class="filters"><label>Type<select id="type"><option value="">All</option><option>ADDED</option><option>CHANGED</option><option>REMOVED</option></select></label><label>Disposition<select id="disposition"><option value="">All</option><option selected>PENDING</option><option>ACCEPTED</option><option>REJECTED</option><option>NO_IMPACT</option></select></label></div></div>
+      <div class="table-wrap"><table><thead><tr><th>HTS</th><th>Type</th><th>Before</th><th>After</th><th>Review status</th><th>Controlled actions</th></tr></thead><tbody id="candidateRows"><tr><td colspan="6" class="empty">Load a staged candidate to begin review.</td></tr></tbody></table></div>
+      <button id="more" class="secondary" hidden>Load more</button>
+    </section>
+    <dialog id="decisionDialog"><form method="dialog"><h2>Record disposition</h2><p id="decisionTarget"></p><label>Decision<select id="decision"><option value="ACCEPTED">Accept candidate</option><option value="REJECTED">Reject candidate</option><option value="NO_IMPACT">No impact</option></select></label><label>Reason<textarea id="reason" rows="4" maxlength="500" required></textarea></label><div><button value="cancel" class="secondary">Cancel</button><button id="saveDecision" value="default">Save audit decision</button></div></form></dialog>
+    <section class="result"><h2>Operation log</h2><pre id="output">No operation performed.</pre></section>
+  </main>
+</body>
+</html>

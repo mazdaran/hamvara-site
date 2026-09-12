@@ -1,0 +1,10 @@
+parent_sku,sku,description,qty_per_parent,uom,unit_cost_usd,sourcing,hts_code,hts_confirmed,country_of_origin,origin_confirmed,mfn_rate_pct,special_rate_pct,additional_duty_pct,section232_rate_pct,metal_type,metal_weight_pct,steel_melt_country,steel_pour_country,aluminum_primary_smelt_country,aluminum_secondary_smelt_country,aluminum_cast_country,copper_smelt_country,copper_cast_country,usmca_claim,transport_mode,pass_through_pct,selling_price_usd,other_cost_usd,unit_weight_kg,evidence_ref
+,TR-400,Utility trailer 5x10,1,EA,,domestic,,,,,,,,,none,,,,,,,,,N,,,2450,520,,
+TR-400,FR-10,Welded frame,1,EA,,domestic,,,,,,,,,steel,,,,,,,,,N,,,,,,
+FR-10,ST-23,Steel tube 2x3 x 10ft,6,EA,38.5,import,7306615000,Y,KR,Y,0,0,0,25,steel,100,KR,KR,,,,,,N,ocean,100,,,26.5,PO-DEMO-001
+FR-10,WD-1,Welding wire spool,0.2,EA,64,domestic_imported,7229905000,Y,CN,Y,0,0,25,0,steel,100,CN,CN,,,,,,N,,60,,,,SUP-DEMO-002
+TR-400,WN-3,Winch assembly 2500 lb,1,EA,145,import,8425310100,Y,CN,Y,0,0,25,0,steel,40,CN,CN,,,,,,N,ocean,100,,,9.8,PO-DEMO-003
+TR-400,AL-7,Aluminum ramp gate,1,EA,210,import,7616995190,Y,MX,Y,0,0,0,15,aluminum,90,,,CA,MX,MX,,,Y,truck,100,,,18,PO-DEMO-004
+TR-400,LT-2,LED tail light kit,1,EA,22,import,8512202040,N,VN,Y,2.5,0,10,0,none,,,,,,,,,N,ocean,100,,,1.1,PO-DEMO-005
+TR-400,WR-5,Wiring harness,1,EA,31,domestic_imported,8544429090,Y,MX,Y,0,0,0,0,copper,20,,,,,,CL,MX,Y,,100,,,,SUP-DEMO-006
+TR-400,DK-4,Treated wood deck boards,12,EA,14,domestic,,,,,,,,,none,,,,,,,,,N,truck,100,,,,SUP-DEMO-007

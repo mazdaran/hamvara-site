@@ -30,6 +30,40 @@ The command returns the workspace Access Key once. Store it securely and use it 
 
 The MRP API stores each company's state under a separate workspace ID, hashes user access keys, keeps an audit log and uses revision checks to prevent accidental overwrites from concurrent sessions.
 
+## Tariff intelligence
+
+- Public rules API: `/api/tariff/rules?as_of=YYYY-MM-DD&hts=CODE1,CODE2`
+- Health and change status: `/api/tariff/status`
+- Controlled administration: `/api/tariff/admin/*`
+
+Tariff Control phase 1 is manually initiated and writes only to staging. Scheduled tariff
+collection and production promotion are disabled. Reviewers can list staged runs, compare
+before/after values, acknowledge a candidate, and record `ACCEPTED`, `REJECTED`, or
+`NO_IMPACT` with a mandatory reason. Use separate Sync, Preparer, Reviewer and Publisher
+credentials; actor identities are read from Worker configuration and are never accepted from
+the request body.
+
+Required controlled-role secrets and variables:
+
+- `TARIFF_SYNC_TOKEN` / `TARIFF_SYNC_ACTOR`
+- `TARIFF_PREPARER_TOKEN` / `TARIFF_PREPARER_ACTOR`
+- `TARIFF_REVIEWER_TOKEN` / `TARIFF_REVIEWER_ACTOR`
+- `TARIFF_PUBLISHER_TOKEN` / `TARIFF_PUBLISHER_ACTOR`
+
+Pushes only run verification. Production D1 migration and Worker deployment are separate
+manual GitHub Actions workflows and do not invoke one another.
+- Manual USITC snapshot and diff: `POST /api/tariff/admin/sync`
+- Candidate list: `GET /api/tariff/admin/sync-runs`
+- Before/after worklist: `GET /api/tariff/admin/sync-runs/:id/changes`
+- Evidence of review: `POST /api/tariff/admin/changes/:id/acknowledge`
+- Controlled disposition: `POST /api/tariff/admin/changes/:id/disposition`
+
+Migration `0005_tariff_intelligence.sql` creates the HTS snapshot, change, rule, fee, relationship and review tables. It is applied only through the separate, confirmation-gated D1 migration workflow; Worker deployment never applies it.
+
+Configure all controlled-role secrets and actor variables listed above before using the administration endpoints. A new rule set starts as `DRAFT`. Every primary source must be reviewed before an independent user can move it to `VERIFIED`; a different user must publish it. The public API returns only `PUBLISHED` rule sets.
+
+The default sync URL downloads the complete current HTS export from USITC. `USITC_HTS_EXPORT_URL` may be set only for a controlled compatibility change or test. The sync refuses to replace current data when fewer than 1,000 valid HTS-10 rows are returned.
+
 ## Growth integrations
 
 After deployment, set `growth/config.js` `apiBase` to the Worker URL (later `https://api.hamvara.com`). OAuth callback URLs follow `https://api.hamvara.com/api/oauth/{provider}/callback`.
