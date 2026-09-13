@@ -6,6 +6,10 @@ on:
       confirmation:
         description: "Type DEPLOY-PRODUCTION to deploy the verified Worker"
         required: true
+      promotion_override_confirmation:
+        description: "Leave blank when promotion is disabled; type ENABLE-TARIFF-PROMOTION only for an approved promotion deployment"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -28,6 +32,8 @@ jobs:
         run: npm run check
       - name: Deploy Worker without database migration
         run: npm run deploy
+        env:
+          ALLOW_TARIFF_PROMOTION_DEPLOY: ${{ inputs.promotion_override_confirmation == 'ENABLE-TARIFF-PROMOTION' && 'true' || 'false' }}
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

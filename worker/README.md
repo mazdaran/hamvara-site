@@ -66,11 +66,14 @@ the effective production lineage in a later collection. Rollback can move only t
 production head to its immediate predecessor. Both promotion and rollback require the
 Publisher secret, an audit reason, and an exact confirmation phrase.
 
-`TARIFF_PRODUCTION_PROMOTION_ENABLED` is the server-side master switch. Phase 2C keeps that
-switch enabled but adds a separate D1-backed promotion window which defaults closed, expires
-after at most 30 minutes, and closes automatically after a promotion or rollback. Opening or
-closing the window requires the Publisher secret, an audit reason and an exact confirmation
-phrase. The API and database triggers both refuse promotion and rollback outside an active window.
+`TARIFF_PRODUCTION_PROMOTION_ENABLED` is the server-side master switch and defaults to `false`.
+Keep it disabled for ordinary deployments. An approved promotion deployment must set it to
+`true` and provide `ALLOW_TARIFF_PROMOTION_DEPLOY=true` to the deployment verifier; the manual
+GitHub workflow exposes this only through the exact `ENABLE-TARIFF-PROMOTION` confirmation.
+The separate D1-backed promotion window defaults closed, expires after at most 30 minutes, and
+closes automatically after a promotion or rollback. Opening or closing the window requires the
+Publisher secret, an audit reason and an exact confirmation phrase. The API and database triggers
+both refuse promotion and rollback outside an active window.
 
 Required controlled-role secrets and variables:
 

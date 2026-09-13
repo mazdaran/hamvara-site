@@ -51,8 +51,19 @@ if (!tariffSnapshotBinding) {
   errors.push('TARIFF_SNAPSHOTS must target bucket_name "hamvara-tariff-snapshots"');
 }
 
-if (!/^\s*TARIFF_PRODUCTION_PROMOTION_ENABLED\s*=\s*["'](?:true|false)["']\s*$/m.test(config)) {
+const promotionMatch = config.match(
+  /^\s*TARIFF_PRODUCTION_PROMOTION_ENABLED\s*=\s*["'](true|false)["']\s*$/m,
+);
+
+if (!promotionMatch) {
   errors.push('TARIFF_PRODUCTION_PROMOTION_ENABLED must be explicitly set to "true" or "false"');
+} else if (
+  promotionMatch[1] !== "false" &&
+  process.env.ALLOW_TARIFF_PROMOTION_DEPLOY !== "true"
+) {
+  errors.push(
+    'TARIFF_PRODUCTION_PROMOTION_ENABLED must remain "false" unless ALLOW_TARIFF_PROMOTION_DEPLOY=true is explicitly authorized',
+  );
 }
 
 if (errors.length > 0) {
@@ -61,4 +72,6 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log(`Deploy configuration verified: ${configPath} includes production DB, tariff snapshot R2, and an explicit promotion lock.`);
+console.log(
+  `Deploy configuration verified: ${configPath} includes production DB, tariff snapshot R2, and an authorized promotion lock state.`,
+);
