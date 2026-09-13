@@ -32,6 +32,11 @@ export async function handleTariffRequest(request, env, url) {
     const actor = requireRole(request, env, 'reviewer');
     return reviewSyncChange(request, env, Number(changeAction[1]), changeAction[2], actor);
   }
+  const promotionReadinessMatch = /^\/api\/tariff\/admin\/sync-runs\/([A-Za-z0-9._-]+)\/promotion-readiness\/?$/.exec(url.pathname);
+  if (promotionReadinessMatch && request.method === 'GET') {
+    const actor = requireRole(request, env, 'publisher');
+    return promotionReadiness(env, promotionReadinessMatch[1], actor);
+  }
   const syncDecision = /^\/api\/tariff\/admin\/sync-runs\/([A-Za-z0-9._-]+)\/(promote|reject)\/?$/.exec(url.pathname);
   if (syncDecision && request.method === 'POST') {
     const actor = requireRole(request, env, 'publisher');
@@ -229,6 +234,49 @@ export function validateReviewDisposition(body) {
   return { disposition, reason };
 }
 
+export function evaluatePromotionReadiness(run, rawCounts, publisherActor, promotionEnabled = false) {
+  const counts = {
+    total: Number(rawCounts?.total || 0),
+    added: Number(rawCounts?.added || 0),
+    changed: Number(rawCounts?.changed || 0),
+    removed: Number(rawCounts?.removed || 0),
+    pending: Number(rawCounts?.pending || 0),
+    accepted: Number(rawCounts?.accepted || 0),
+    rejected: Number(rawCounts?.rejected || 0),
+    noImpact: Number(rawCounts?.no_impact ?? rawCounts?.noImpact ?? 0),
+    unacknowledged: Number(rawCounts?.unacknowledged || 0),
+    missingDecisionEvidence: Number(rawCounts?.missing_decision_evidence ?? rawCounts?.missingDecisionEvidence ?? 0),
+    publisherSeparationViolations: Number(rawCounts?.publisher_separation_violations ?? rawCounts?.publisherSeparationViolations ?? 0)
+  };
+  const reviewBlockers = [];
+  if (!run || run.status !== 'STAGED') reviewBlockers.push('RUN_NOT_STAGED');
+  if (!run?.snapshotEvidenceValid) reviewBlockers.push('SNAPSHOT_EVIDENCE_INVALID');
+  if (!counts.total || !counts.accepted) reviewBlockers.push('NO_ACCEPTED_CHANGES');
+  if (counts.pending) reviewBlockers.push('PENDING_DISPOSITIONS');
+  if (counts.unacknowledged) reviewBlockers.push('UNACKNOWLEDGED_CHANGES');
+  if (counts.missingDecisionEvidence) reviewBlockers.push('DECISION_EVIDENCE_MISSING');
+  if (counts.publisherSeparationViolations) reviewBlockers.push('PUBLISHER_REVIEWER_SEPARATION_REQUIRED');
+  const reviewReady = reviewBlockers.length === 0;
+  const blockers = promotionEnabled ? reviewBlockers : [...reviewBlockers, 'PRODUCTION_LOCKED'];
+  return {
+    ok: true,
+    phase: '2A',
+    runId: run?.id || null,
+    publisherActor,
+    applyMode: 'DELTA_ONLY',
+    reviewReady,
+    promotionEnabled: Boolean(promotionEnabled),
+    readyForPromotion: reviewReady && Boolean(promotionEnabled),
+    blockers,
+    counts,
+    snapshot: run ? {
+      manifestKey: run.snapshot_manifest_key || null,
+      sha256: run.snapshot_sha256 || null,
+      evidenceValid: Boolean(run.snapshotEvidenceValid)
+    } : null
+  };
+}
+
 async function finalizeTariffSync(env, runId, sourceRevision, completedAt) {
   const bucket = requireSnapshotStore(env);
   const run = await env.DB.prepare(`SELECT id,source,snapshot_prefix,base_snapshot_prefix FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
@@ -333,13 +381,52 @@ function chapterSourceUrl(source,chapter){const url=new URL(source),prefix=Strin
 function isStaleSync(run,now){const timestamp=Date.parse(run.heartbeat_at||run.started_at||'');return !Number.isFinite(timestamp)||Date.parse(now)-timestamp>SYNC_STALE_MS}
 function syncProgress(run,resumed=false){return{ok:true,runId:run.id,status:run.status,rowsReceived:Number(run.rows_received||0),added:Number(run.rows_added||0),changed:Number(run.rows_changed||0),removed:Number(run.rows_removed||0),progressCurrent:Number(run.progress_current||0),progressTotal:Number(run.progress_total||HTS_CHAPTERS),heartbeatAt:run.heartbeat_at||null,completedAt:run.completed_at||null,resumed,baseline:!run.base_snapshot_prefix,snapshotPrefix:run.snapshot_prefix||null,snapshotManifestKey:run.snapshot_manifest_key||null,snapshotSha256:run.snapshot_sha256||null}}
 
+async function promotionReadiness(env, runId, publisherActor) {
+  const run = await env.DB.prepare(`SELECT id,status,snapshot_manifest_key,snapshot_sha256
+    FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
+  if (!run) throw httpError(404, 'Sync run not found.');
+
+  let snapshotEvidenceValid = false;
+  if (run.snapshot_manifest_key && /^[0-9a-f]{64}$/i.test(String(run.snapshot_sha256 || ''))) {
+    const manifestObject = await requireSnapshotStore(env).get(run.snapshot_manifest_key);
+    if (manifestObject) {
+      const manifestJson = await manifestObject.text();
+      try {
+        const manifest = JSON.parse(manifestJson);
+        snapshotEvidenceValid = await sha256(manifestJson) === run.snapshot_sha256
+          && manifest.schemaVersion === 1
+          && manifest.runId === run.id
+          && Array.isArray(manifest.chapters)
+          && manifest.chapters.length === HTS_CHAPTERS;
+      } catch {
+        snapshotEvidenceValid = false;
+      }
+    }
+  }
+
+  const counts = await env.DB.prepare(`SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN change_type='ADDED' THEN 1 ELSE 0 END) AS added,
+      SUM(CASE WHEN change_type='CHANGED' THEN 1 ELSE 0 END) AS changed,
+      SUM(CASE WHEN change_type='REMOVED' THEN 1 ELSE 0 END) AS removed,
+      SUM(CASE WHEN disposition='PENDING' THEN 1 ELSE 0 END) AS pending,
+      SUM(CASE WHEN disposition='ACCEPTED' THEN 1 ELSE 0 END) AS accepted,
+      SUM(CASE WHEN disposition='REJECTED' THEN 1 ELSE 0 END) AS rejected,
+      SUM(CASE WHEN disposition='NO_IMPACT' THEN 1 ELSE 0 END) AS no_impact,
+      SUM(CASE WHEN acknowledged_at IS NULL OR acknowledged_by IS NULL THEN 1 ELSE 0 END) AS unacknowledged,
+      SUM(CASE WHEN disposition<>'PENDING' AND (disposition_at IS NULL OR disposition_by IS NULL OR disposition_reason IS NULL OR trim(disposition_reason)='') THEN 1 ELSE 0 END) AS missing_decision_evidence,
+      SUM(CASE WHEN disposition_by=? OR acknowledged_by=? THEN 1 ELSE 0 END) AS publisher_separation_violations
+    FROM tariff_hts_changes WHERE run_id=?`).bind(publisherActor, publisherActor, runId).first();
+  return json(evaluatePromotionReadiness({ ...run, snapshotEvidenceValid }, counts, publisherActor, false));
+}
+
 async function decideSyncRun(request, env, runId, action, actor) {
   const body=await safeJson(request),reason=clean(body.reason,500),now=new Date().toISOString();
   if(!reason)throw httpError(400,'A decision reason is required.');
   const run=await env.DB.prepare(`SELECT status,started_at FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
   if(!run)throw httpError(404,'Sync run not found.');
   if(run.status!=='STAGED')throw httpError(409,'Only a staged sync run can be decided.');
-  if(action==='promote')throw httpError(409,'Production promotion is disabled in Tariff Control phase 1. Review and disposition candidates only.');
+  if(action==='promote')throw httpError(409,'Production promotion is disabled in Tariff Control phase 2A. Readiness evaluation only.');
   if(action==='reject'){
     await env.DB.batch([
       env.DB.prepare(`UPDATE tariff_sync_runs SET status='REJECTED',promoted_at=?,promoted_by=?,decision_reason=? WHERE id=?`).bind(now,actor,reason,runId),

@@ -42,7 +42,7 @@ The Worker refuses to persist a newly released MRP run unless the authenticated 
 - Health and change status: `/api/tariff/status`
 - Controlled administration: `/api/tariff/admin/*`
 
-Tariff Control phase 1 is manually initiated. Complete USITC snapshots are partitioned by
+Tariff Control phase 2A is manually initiated. Complete USITC snapshots are partitioned by
 HTS chapter and stored in the `TARIFF_SNAPSHOTS` R2 bucket; D1 stores only run/chapter
 metadata and real deltas. The first R2 snapshot is an immutable baseline and therefore does
 not create tens of thousands of artificial `ADDED` candidates. Scheduled tariff collection
@@ -50,6 +50,12 @@ and production promotion are disabled. Reviewers can list staged runs, compare b
 values, acknowledge a candidate, and record `ACCEPTED`, `REJECTED`, or `NO_IMPACT` with a
 mandatory reason. Use separate Sync, Preparer, Reviewer and Publisher credentials; actor
 identities are read from Worker configuration and are never accepted from the request body.
+
+Phase 2A adds a publisher-authenticated, read-only readiness gate. It verifies that the run is
+staged, the R2 manifest exists and matches its D1 SHA-256 evidence, at least one candidate was
+accepted, every candidate was acknowledged and decided with evidence, and the publisher did
+not review the same candidates. It reports `DELTA_ONLY` as the only planned apply mode, but
+always returns `PRODUCTION_LOCKED`; it does not write production tariff data.
 
 Required controlled-role secrets and variables:
 
@@ -65,6 +71,7 @@ manual GitHub Actions workflows and do not invoke one another.
 - Before/after worklist: `GET /api/tariff/admin/sync-runs/:id/changes`
 - Evidence of review: `POST /api/tariff/admin/changes/:id/acknowledge`
 - Controlled disposition: `POST /api/tariff/admin/changes/:id/disposition`
+- Publisher readiness gate: `GET /api/tariff/admin/sync-runs/:id/promotion-readiness`
 
 Migration `0005_tariff_intelligence.sql` creates the HTS snapshot, change, rule, fee, relationship and review tables. It is applied only through the separate, confirmation-gated D1 migration workflow; Worker deployment never applies it.
 

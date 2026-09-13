@@ -63,12 +63,12 @@ test('controlled rule workflow and published-only API remain in source', async (
   assert.match(source, /PRIMARY_PENDING/);
 });
 
-test('phase 1 keeps tariff collection manual and production promotion locked', async () => {
+test('phase 2A keeps tariff collection manual and production promotion locked', async () => {
   const fs = await import('node:fs/promises');
   const worker = await fs.readFile(new URL('../src/index.js', import.meta.url), 'utf8');
   const tariff = await fs.readFile(new URL('../src/tariff.js', import.meta.url), 'utf8');
   assert.doesNotMatch(worker, /runScheduledTariffSync/);
-  assert.match(tariff, /Production promotion is disabled in Tariff Control phase 1/);
+  assert.match(tariff, /Production promotion is disabled in Tariff Control phase 2A/);
   assert.match(tariff, /acknowledge\|disposition/);
   assert.match(tariff, /'ACCEPTED','REJECTED','NO_IMPACT'/);
 });
