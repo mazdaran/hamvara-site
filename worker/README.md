@@ -42,12 +42,14 @@ The Worker refuses to persist a newly released MRP run unless the authenticated 
 - Health and change status: `/api/tariff/status`
 - Controlled administration: `/api/tariff/admin/*`
 
-Tariff Control phase 1 is manually initiated and writes only to staging. Scheduled tariff
-collection and production promotion are disabled. Reviewers can list staged runs, compare
-before/after values, acknowledge a candidate, and record `ACCEPTED`, `REJECTED`, or
-`NO_IMPACT` with a mandatory reason. Use separate Sync, Preparer, Reviewer and Publisher
-credentials; actor identities are read from Worker configuration and are never accepted from
-the request body.
+Tariff Control phase 1 is manually initiated. Complete USITC snapshots are partitioned by
+HTS chapter and stored in the `TARIFF_SNAPSHOTS` R2 bucket; D1 stores only run/chapter
+metadata and real deltas. The first R2 snapshot is an immutable baseline and therefore does
+not create tens of thousands of artificial `ADDED` candidates. Scheduled tariff collection
+and production promotion are disabled. Reviewers can list staged runs, compare before/after
+values, acknowledge a candidate, and record `ACCEPTED`, `REJECTED`, or `NO_IMPACT` with a
+mandatory reason. Use separate Sync, Preparer, Reviewer and Publisher credentials; actor
+identities are read from Worker configuration and are never accepted from the request body.
 
 Required controlled-role secrets and variables:
 
@@ -66,9 +68,16 @@ manual GitHub Actions workflows and do not invoke one another.
 
 Migration `0005_tariff_intelligence.sql` creates the HTS snapshot, change, rule, fee, relationship and review tables. It is applied only through the separate, confirmation-gated D1 migration workflow; Worker deployment never applies it.
 
+Migration `0010_tariff_snapshot_object_storage.sql` adds R2 snapshot metadata. Before running
+that migration or deploying its Worker code, create the private R2 bucket named
+`hamvara-tariff-snapshots`. The deploy verifier rejects a missing or renamed binding.
+
 Configure all controlled-role secrets and actor variables listed above before using the administration endpoints. A new rule set starts as `DRAFT`. Every primary source must be reviewed before an independent user can move it to `VERIFIED`; a different user must publish it. The public API returns only `PUBLISHED` rule sets.
 
-The default sync URL downloads the complete current HTS export from USITC. `USITC_HTS_EXPORT_URL` may be set only for a controlled compatibility change or test. The sync refuses to replace current data when fewer than 1,000 valid HTS-10 rows are returned.
+The default sync URL downloads the complete current HTS export from USITC in 97 resumable
+chapter requests. `USITC_HTS_EXPORT_URL` may be set only for a controlled compatibility
+change or test. A missing/invalid chapter or incomplete 97-chapter manifest stops the run
+without replacing the last complete snapshot.
 
 ## Growth integrations
 

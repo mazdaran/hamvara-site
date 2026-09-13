@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractRecords, normalizeHtsRecord, runTariffSync } from '../src/tariff.js';
+import { diffSnapshotRecords, extractRecords, normalizeHtsRecord } from '../src/tariff.js';
 
 test('USITC payload normalization preserves HTS text and duty fields', async () => {
   const payload = { results: [{ htsno: '0101.21.0010', description: 'Test animal', general: 'Free', special: 'A+', units: ['No.'] }] };
@@ -13,15 +13,6 @@ test('USITC payload normalization preserves HTS text and duty fields', async () 
   assert.match(item.contentHash, /^[0-9a-f]{64}$/);
 });
 
-test('manual sync refuses an unexpectedly small full-table response', async () => {
-  const log = [];
-  const statement = sql => ({ bind(...args) { log.push({ sql, args }); return this; }, async run() { return { success: true }; }, async all() { return { results: [] }; } });
-  const env = { DB: { prepare: statement, async batch(items) { return items.map(() => ({ success: true })); } } };
-  const fetchImpl = async () => new Response(JSON.stringify([{ htsno:'0101.21.0010', description:'Only row' }]), { status: 200, headers: { 'content-type':'application/json' } });
-  await assert.rejects(() => runTariffSync(env, { fetchImpl, runId:'small-run', scheduledAt:'2026-09-11T06:00:00.000Z' }), /only 1 usable HTS rows/);
-  assert.equal(log.some(entry => entry.sql.includes("status='FAILED'")), true);
-});
-
 test('HTS content hash is stable across source revisions', async () => {
   const record={htsno:'0101.21.0010',description:'Test animal',general:'Free',special:'A+'};
   const first=await normalizeHtsRecord(record,'revision-one');
@@ -29,15 +20,31 @@ test('HTS content hash is stable across source revisions', async () => {
   assert.equal(first.contentHash,second.contentHash);
 });
 
-test('successful collection remains staged and does not update production HTS lines', async () => {
-  const log=[];
-  const statement=sql=>({bind(...args){log.push({sql,args});return this;},async run(){return{success:true};},async all(){return{results:[]};}});
-  const env={DB:{prepare:statement,async batch(items){return items.map(()=>({success:true}));}}};
-  const fetchImpl=async()=>new Response(JSON.stringify([{htsno:'0101.21.0010',description:'Candidate'}]),{status:200});
-  const result=await runTariffSync(env,{fetchImpl,allowSmallDataset:true,runId:'staged-run',scheduledAt:'2026-09-11T06:00:00.000Z'});
-  assert.equal(result.status,'STAGED');
-  assert.equal(log.some(entry=>entry.sql.includes('UPDATE tariff_hts_lines')),false);
-  assert.equal(log.some(entry=>entry.sql.includes("status='STAGED'")),true);
+test('object-storage comparison emits only real deltas', async () => {
+  const unchanged = await normalizeHtsRecord({ htsno:'0101.21.0010',description:'Same',general:'Free' }, 'old');
+  const changedOld = await normalizeHtsRecord({ htsno:'0101.22.0010',description:'Old',general:'2%' }, 'old');
+  const removed = await normalizeHtsRecord({ htsno:'0101.23.0010',description:'Removed',general:'3%' }, 'old');
+  const unchangedNew = await normalizeHtsRecord({ htsno:'0101.21.0010',description:'Same',general:'Free' }, 'new');
+  const changedNew = await normalizeHtsRecord({ htsno:'0101.22.0010',description:'New',general:'2%' }, 'new');
+  const added = await normalizeHtsRecord({ htsno:'0101.24.0010',description:'Added',general:'4%' }, 'new');
+  const changes = diffSnapshotRecords([unchanged, changedOld, removed], [unchangedNew, changedNew, added]);
+  assert.deepEqual(changes.map(change => [change.hts10, change.changeType]), [
+    ['0101220010','CHANGED'],
+    ['0101230010','REMOVED'],
+    ['0101240010','ADDED']
+  ]);
+});
+
+test('chapter sync stores full snapshots outside D1 and treats the first run as baseline', async () => {
+  const fs = await import('node:fs/promises');
+  const source = await fs.readFile(new URL('../src/tariff.js', import.meta.url), 'utf8');
+  const config = await fs.readFile(new URL('../../wrangler.toml', import.meta.url), 'utf8');
+  const migration = await fs.readFile(new URL('../migrations/0010_tariff_snapshot_object_storage.sql', import.meta.url), 'utf8');
+  assert.match(source, /TARIFF_SNAPSHOTS/);
+  assert.match(source, /previous \? diffSnapshotRecords\(previous\.records, unique\) : \[\]/);
+  assert.doesNotMatch(source, /INSERT INTO tariff_hts_stage/);
+  assert.match(config, /binding = "TARIFF_SNAPSHOTS"/);
+  for (const field of ['snapshot_prefix','base_snapshot_prefix','snapshot_manifest_key','content_sha256']) assert.match(migration, new RegExp(field));
 });
 
 test('controlled rule workflow and published-only API remain in source', async () => {

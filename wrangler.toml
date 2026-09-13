@@ -22,4 +22,8 @@ database_name = "hamvara-growth-production"
 database_id = "bc036eef-2f9d-46cf-a468-cd9a0fb42a87"
 migrations_dir = "worker/migrations"
 
+[[r2_buckets]]
+binding = "TARIFF_SNAPSHOTS"
+bucket_name = "hamvara-tariff-snapshots"
+
 # OAuth credentials and encryption keys are configured as runtime secrets.

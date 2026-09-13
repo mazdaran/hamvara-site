@@ -55,138 +55,266 @@ export async function handleTariffRequest(request, env, url) {
 }
 
 export async function startTariffSync(env, options = {}) {
+  const bucket = requireSnapshotStore(env);
   const now = options.startedAt || new Date().toISOString();
-  const active = await env.DB.prepare(`SELECT id,status,progress_current,progress_total,heartbeat_at,started_at
+  const active = await env.DB.prepare(`SELECT id,status,progress_current,progress_total,heartbeat_at,started_at,snapshot_prefix,base_snapshot_prefix
     FROM tariff_sync_runs WHERE status='RUNNING' ORDER BY started_at DESC LIMIT 1`).first();
   if (active && !isStaleSync(active, now)) return syncProgress(active, true);
   if (active) {
     await env.DB.batch([
       env.DB.prepare(`UPDATE tariff_sync_runs SET status='FAILED',error_message='Interrupted sync expired and was safely superseded.',completed_at=?,lease_token=NULL,lease_expires_at=NULL WHERE id=? AND status='RUNNING'`).bind(now, active.id),
       env.DB.prepare('DELETE FROM tariff_hts_changes WHERE run_id=?').bind(active.id),
-      env.DB.prepare('DELETE FROM tariff_hts_stage WHERE run_id=?').bind(active.id)
+      env.DB.prepare('DELETE FROM tariff_snapshot_chapters WHERE run_id=?').bind(active.id)
     ]);
   }
   const runId = options.runId || crypto.randomUUID();
   const sourceUrl = env.USITC_HTS_EXPORT_URL || USITC_EXPORT_URL;
+  const prefix = snapshotPrefix(runId);
+  const base = await env.DB.prepare(`SELECT snapshot_prefix FROM tariff_sync_runs
+    WHERE snapshot_manifest_key IS NOT NULL AND snapshot_prefix IS NOT NULL
+    ORDER BY completed_at DESC LIMIT 1`).first();
   await env.DB.prepare(`INSERT INTO tariff_sync_runs
-    (id,source,status,started_at,heartbeat_at,progress_current,progress_total)
-    VALUES (?,?,'RUNNING',?,?,0,?)`).bind(runId, sourceUrl, now, now, HTS_CHAPTERS).run();
-  return { ok:true, runId, status:'RUNNING', progressCurrent:0, progressTotal:HTS_CHAPTERS, resumed:false };
+    (id,source,status,started_at,heartbeat_at,progress_current,progress_total,snapshot_prefix,base_snapshot_prefix)
+    VALUES (?,?,'RUNNING',?,?,0,?,?,?)`).bind(runId, sourceUrl, now, now, HTS_CHAPTERS, prefix, base?.snapshot_prefix || null).run();
+  return {
+    ok: true,
+    runId,
+    status: 'RUNNING',
+    progressCurrent: 0,
+    progressTotal: HTS_CHAPTERS,
+    resumed: false,
+    baseline: !base?.snapshot_prefix,
+    snapshotPrefix: prefix,
+    storage: bucket ? 'R2' : null
+  };
 }
 
 export async function stepTariffSync(env, runId, options = {}) {
+  const bucket = requireSnapshotStore(env);
   const fetchImpl = options.fetchImpl || fetch;
   const now = options.now || new Date().toISOString();
-  let run = await env.DB.prepare(`SELECT id,source,status,source_revision,rows_received,progress_current,progress_total,heartbeat_at,lease_token,lease_expires_at
+  let run = await env.DB.prepare(`SELECT id,source,status,source_revision,rows_received,progress_current,progress_total,heartbeat_at,lease_token,lease_expires_at,snapshot_prefix,base_snapshot_prefix,snapshot_manifest_key
     FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
   if (!run) throw httpError(404, 'Sync run not found.');
   if (run.status === 'STAGED') return syncProgress(run, true);
   if (run.status !== 'RUNNING') throw httpError(409, `Sync run is ${run.status}.`);
+  if (!run.snapshot_prefix) throw httpError(409, 'Sync run predates object-storage snapshots and cannot be resumed safely.');
+
   const leaseToken = crypto.randomUUID();
   const leaseExpiresAt = new Date(Date.parse(now) + SYNC_LEASE_MS).toISOString();
   const claim = await env.DB.prepare(`UPDATE tariff_sync_runs SET lease_token=?,lease_expires_at=?,heartbeat_at=?
     WHERE id=? AND status='RUNNING' AND (lease_expires_at IS NULL OR lease_expires_at<?)`).bind(leaseToken, leaseExpiresAt, now, runId, now).run();
-  if (Number(claim.meta?.changes ?? claim.changes ?? 1) === 0) return { ...syncProgress(run, true), busy:true };
+  if (Number(claim.meta?.changes ?? claim.changes ?? 1) === 0) return { ...syncProgress(run, true), busy: true };
+
   try {
-    run = await env.DB.prepare(`SELECT id,source,status,source_revision,rows_received,progress_current,progress_total,heartbeat_at FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
+    run = await env.DB.prepare(`SELECT id,source,status,source_revision,rows_received,progress_current,progress_total,heartbeat_at,snapshot_prefix,base_snapshot_prefix
+      FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
     const chapter = Number(run.progress_current || 0) + 1;
     if (chapter > HTS_CHAPTERS) return finalizeTariffSync(env, runId, run.source_revision, now);
-    const response = await fetchImpl(chapterSourceUrl(run.source || USITC_EXPORT_URL, chapter), { headers:{ Accept:'application/json', 'User-Agent':'Hamvara-Tariff-Change-Monitor/1.1 (info@hamvara.com)' } });
+
+    const response = await fetchImpl(chapterSourceUrl(run.source || USITC_EXPORT_URL, chapter), {
+      headers: { Accept: 'application/json', 'User-Agent': 'Hamvara-Tariff-Change-Monitor/2.0 (info@hamvara.com)' }
+    });
     if (!response.ok) throw new Error(`USITC chapter ${chapter} export failed with HTTP ${response.status}.`);
     const payload = await response.json();
     const sourceRevision = clean(response.headers?.get?.('etag') || response.headers?.get?.('last-modified') || payload.revision || run.source_revision || now, 180);
-    const records = (await Promise.all(extractRecords(payload).map(record => normalizeHtsRecord(record, sourceRevision)))).filter(record => record && Number(record.hts10.slice(0,2)) === chapter);
+    const records = (await Promise.all(extractRecords(payload).map(record => normalizeHtsRecord(record, sourceRevision))))
+      .filter(record => record && Number(record.hts10.slice(0, 2)) === chapter);
     if (!records.length && !options.allowEmptyChapter) throw new Error(`USITC chapter ${chapter} returned no usable HTS rows.`);
-    const unique = [...new Map(records.map(record => [record.hts10,record])).values()];
-    const prefix = String(chapter).padStart(2,'0');
-    await env.DB.batch([
-      env.DB.prepare('DELETE FROM tariff_hts_changes WHERE run_id=? AND substr(hts10,1,2)=?').bind(runId,prefix),
-      env.DB.prepare('DELETE FROM tariff_hts_stage WHERE run_id=? AND substr(hts10,1,2)=?').bind(runId,prefix)
-    ]);
-    for (let offset=0;offset<unique.length;offset+=75) await env.DB.batch(unique.slice(offset,offset+75).map(record=>env.DB.prepare(`INSERT INTO tariff_hts_stage
-      (run_id,hts10,description,general_rate_raw,special_rate_raw,units_json,source_revision,content_hash) VALUES (?,?,?,?,?,?,?,?)`).bind(runId,record.hts10,record.description,record.generalRateRaw,record.specialRateRaw,JSON.stringify(record.units),sourceRevision,record.contentHash)));
-    await detectChapterChanges(env,runId,prefix,now);
-    const received=Number(run.rows_received||0)+unique.length;
-    await env.DB.prepare(`UPDATE tariff_sync_runs SET source_revision=?,rows_received=?,progress_current=?,heartbeat_at=?,lease_token=NULL,lease_expires_at=NULL WHERE id=? AND lease_token=?`).bind(sourceRevision,received,chapter,now,runId,leaseToken).run();
-    if(chapter===HTS_CHAPTERS)return finalizeTariffSync(env,runId,sourceRevision,now);
-    return{ok:true,runId,status:'RUNNING',chapter,rowsInChapter:unique.length,rowsReceived:received,progressCurrent:chapter,progressTotal:HTS_CHAPTERS};
-  } catch(error) {
-    await env.DB.prepare(`UPDATE tariff_sync_runs SET error_message=?,heartbeat_at=?,lease_token=NULL,lease_expires_at=NULL WHERE id=? AND lease_token=?`).bind(clean(error.message,500),now,runId,leaseToken).run();
+    const unique = [...new Map(records.map(record => [record.hts10, record])).values()];
+    const prefix = String(chapter).padStart(2, '0');
+
+    let previous = null;
+    if (run.base_snapshot_prefix) {
+      previous = await readSnapshotChapter(bucket, run.base_snapshot_prefix, chapter);
+      if (!previous) throw new Error(`Previous snapshot chapter ${prefix} is missing; comparison stopped safely.`);
+    }
+    const changes = previous ? diffSnapshotRecords(previous.records, unique) : [];
+    const detectedAt = now;
+    const objectKey = chapterSnapshotKey(run.snapshot_prefix, chapter);
+    const chapterDocument = {
+      schemaVersion: 1,
+      source: 'USITC HTS',
+      runId,
+      chapter,
+      sourceRevision,
+      capturedAt: now,
+      rowCount: unique.length,
+      records: unique
+    };
+    const chapterJson = JSON.stringify(chapterDocument);
+    const contentSha256 = await sha256(chapterJson);
+    await bucket.put(objectKey, chapterJson, {
+      httpMetadata: { contentType: 'application/json; charset=utf-8' },
+      customMetadata: { runId, chapter: prefix, contentSha256, sourceRevision }
+    });
+
+    await env.DB.prepare('DELETE FROM tariff_hts_changes WHERE run_id=? AND substr(hts10,1,2)=?').bind(runId, prefix).run();
+    const deltaStatements = changes.map(change => env.DB.prepare(`INSERT INTO tariff_hts_changes
+      (run_id,hts10,change_type,old_value_json,new_value_json,detected_at)
+      VALUES (?,?,?,?,?,?)`).bind(
+        runId,
+        change.hts10,
+        change.changeType,
+        change.oldValue ? JSON.stringify(snapshotValue(change.oldValue)) : null,
+        change.newValue ? JSON.stringify(snapshotValue(change.newValue)) : null,
+        detectedAt
+      ));
+    for (let offset = 0; offset < deltaStatements.length; offset += 75) {
+      await env.DB.batch(deltaStatements.slice(offset, offset + 75));
+    }
+
+    await env.DB.prepare(`INSERT INTO tariff_snapshot_chapters
+      (run_id,chapter,object_key,content_sha256,row_count,stored_at)
+      VALUES (?,?,?,?,?,?)
+      ON CONFLICT(run_id,chapter) DO UPDATE SET
+        object_key=excluded.object_key,
+        content_sha256=excluded.content_sha256,
+        row_count=excluded.row_count,
+        stored_at=excluded.stored_at`).bind(runId, chapter, objectKey, contentSha256, unique.length, now).run();
+
+    const received = Number(run.rows_received || 0) + unique.length;
+    await env.DB.prepare(`UPDATE tariff_sync_runs SET source_revision=?,rows_received=?,progress_current=?,heartbeat_at=?,lease_token=NULL,lease_expires_at=NULL,error_message=NULL
+      WHERE id=? AND lease_token=?`).bind(sourceRevision, received, chapter, now, runId, leaseToken).run();
+    if (chapter === HTS_CHAPTERS) return finalizeTariffSync(env, runId, sourceRevision, now);
+    return {
+      ok: true,
+      runId,
+      status: 'RUNNING',
+      chapter,
+      rowsInChapter: unique.length,
+      deltaRowsInChapter: changes.length,
+      rowsReceived: received,
+      progressCurrent: chapter,
+      progressTotal: HTS_CHAPTERS,
+      baseline: !run.base_snapshot_prefix,
+      snapshotObjectKey: objectKey
+    };
+  } catch (error) {
+    await env.DB.prepare(`UPDATE tariff_sync_runs SET error_message=?,heartbeat_at=?,lease_token=NULL,lease_expires_at=NULL WHERE id=? AND lease_token=?`)
+      .bind(clean(error.message, 500), now, runId, leaseToken).run();
     throw error;
   }
 }
 
-async function detectChapterChanges(env,runId,prefix,detectedAt){
-  await env.DB.batch([
-    env.DB.prepare(`INSERT INTO tariff_hts_changes (run_id,hts10,change_type,old_value_json,new_value_json,detected_at) SELECT ?,s.hts10,'ADDED',NULL,json_object('description',s.description,'general_rate_raw',s.general_rate_raw,'special_rate_raw',s.special_rate_raw,'units_json',s.units_json),? FROM tariff_hts_stage s LEFT JOIN tariff_hts_lines h ON h.hts10=s.hts10 WHERE s.run_id=? AND substr(s.hts10,1,2)=? AND h.hts10 IS NULL`).bind(runId,detectedAt,runId,prefix),
-    env.DB.prepare(`INSERT INTO tariff_hts_changes (run_id,hts10,change_type,old_value_json,new_value_json,detected_at) SELECT ?,s.hts10,'CHANGED',json_object('description',h.description,'general_rate_raw',h.general_rate_raw,'special_rate_raw',h.special_rate_raw,'units_json',h.units_json),json_object('description',s.description,'general_rate_raw',s.general_rate_raw,'special_rate_raw',s.special_rate_raw,'units_json',s.units_json),? FROM tariff_hts_stage s JOIN tariff_hts_lines h ON h.hts10=s.hts10 WHERE s.run_id=? AND substr(s.hts10,1,2)=? AND s.content_hash<>h.content_hash`).bind(runId,detectedAt,runId,prefix),
-    env.DB.prepare(`INSERT INTO tariff_hts_changes (run_id,hts10,change_type,old_value_json,new_value_json,detected_at) SELECT ?,h.hts10,'REMOVED',json_object('description',h.description,'general_rate_raw',h.general_rate_raw,'special_rate_raw',h.special_rate_raw,'units_json',h.units_json),NULL,? FROM tariff_hts_lines h LEFT JOIN tariff_hts_stage s ON s.run_id=? AND s.hts10=h.hts10 WHERE h.valid_to IS NULL AND substr(h.hts10,1,2)=? AND s.hts10 IS NULL`).bind(runId,detectedAt,runId,prefix)
-  ]);
+export function diffSnapshotRecords(previousRecords, currentRecords) {
+  const previous = new Map((previousRecords || []).map(record => [record.hts10, record]));
+  const current = new Map((currentRecords || []).map(record => [record.hts10, record]));
+  const changes = [];
+  for (const [hts10, record] of current) {
+    const old = previous.get(hts10);
+    if (!old) changes.push({ hts10, changeType: 'ADDED', oldValue: null, newValue: record });
+    else if (old.contentHash !== record.contentHash) changes.push({ hts10, changeType: 'CHANGED', oldValue: old, newValue: record });
+  }
+  for (const [hts10, record] of previous) {
+    if (!current.has(hts10)) changes.push({ hts10, changeType: 'REMOVED', oldValue: record, newValue: null });
+  }
+  return changes.sort((left, right) => left.hts10.localeCompare(right.hts10));
 }
 
-async function finalizeTariffSync(env,runId,sourceRevision,completedAt){
-  const counts=await env.DB.prepare(`SELECT change_type,COUNT(*) AS count FROM tariff_hts_changes WHERE run_id=? GROUP BY change_type`).bind(runId).all();
-  const totals=Object.fromEntries((counts.results||[]).map(row=>[row.change_type,Number(row.count||0)]));
-  await env.DB.prepare(`UPDATE tariff_sync_runs SET status='STAGED',source_revision=?,rows_added=?,rows_changed=?,rows_removed=?,progress_current=?,heartbeat_at=?,completed_at=?,lease_token=NULL,lease_expires_at=NULL,error_message=NULL WHERE id=?`).bind(sourceRevision,totals.ADDED||0,totals.CHANGED||0,totals.REMOVED||0,HTS_CHAPTERS,completedAt,completedAt,runId).run();
-  const row=await env.DB.prepare(`SELECT id,status,source_revision,rows_received,rows_added,rows_changed,rows_removed,progress_current,progress_total,heartbeat_at,completed_at FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
+async function finalizeTariffSync(env, runId, sourceRevision, completedAt) {
+  const bucket = requireSnapshotStore(env);
+  const run = await env.DB.prepare(`SELECT id,source,snapshot_prefix,base_snapshot_prefix FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
+  if (!run?.snapshot_prefix) throw new Error('Snapshot prefix is missing.');
+  const chapterResult = await env.DB.prepare(`SELECT chapter,object_key,content_sha256,row_count,stored_at
+    FROM tariff_snapshot_chapters WHERE run_id=? ORDER BY chapter`).bind(runId).all();
+  const chapters = chapterResult.results || [];
+  if (chapters.length !== HTS_CHAPTERS) throw new Error(`Snapshot is incomplete: ${chapters.length} of ${HTS_CHAPTERS} chapters are stored.`);
+
+  const counts = await env.DB.prepare(`SELECT change_type,COUNT(*) AS count FROM tariff_hts_changes WHERE run_id=? GROUP BY change_type`).bind(runId).all();
+  const totals = Object.fromEntries((counts.results || []).map(row => [row.change_type, Number(row.count || 0)]));
+  const manifestKey = `${run.snapshot_prefix}/manifest.json`;
+  const manifest = {
+    schemaVersion: 1,
+    source: run.source,
+    runId,
+    sourceRevision,
+    baselineSnapshotPrefix: run.base_snapshot_prefix || null,
+    capturedAt: completedAt,
+    rowCount: chapters.reduce((total, chapter) => total + Number(chapter.row_count || 0), 0),
+    deltaCounts: { added: totals.ADDED || 0, changed: totals.CHANGED || 0, removed: totals.REMOVED || 0 },
+    chapters: chapters.map(chapter => ({
+      chapter: Number(chapter.chapter),
+      objectKey: chapter.object_key,
+      contentSha256: chapter.content_sha256,
+      rowCount: Number(chapter.row_count || 0),
+      storedAt: chapter.stored_at
+    }))
+  };
+  const manifestJson = JSON.stringify(manifest);
+  const snapshotSha256 = await sha256(manifestJson);
+  await bucket.put(manifestKey, manifestJson, {
+    httpMetadata: { contentType: 'application/json; charset=utf-8' },
+    customMetadata: { runId, snapshotSha256, sourceRevision: sourceRevision || '' }
+  });
+  await env.DB.prepare(`UPDATE tariff_sync_runs SET status='STAGED',source_revision=?,rows_added=?,rows_changed=?,rows_removed=?,progress_current=?,heartbeat_at=?,completed_at=?,snapshot_manifest_key=?,snapshot_sha256=?,lease_token=NULL,lease_expires_at=NULL,error_message=NULL
+    WHERE id=?`).bind(
+      sourceRevision,
+      totals.ADDED || 0,
+      totals.CHANGED || 0,
+      totals.REMOVED || 0,
+      HTS_CHAPTERS,
+      completedAt,
+      completedAt,
+      manifestKey,
+      snapshotSha256,
+      runId
+    ).run();
+  const row = await env.DB.prepare(`SELECT id,status,source_revision,rows_received,rows_added,rows_changed,rows_removed,progress_current,progress_total,heartbeat_at,completed_at,snapshot_prefix,base_snapshot_prefix,snapshot_manifest_key,snapshot_sha256
+    FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
   return syncProgress(row);
+}
+
+export async function runTariffSync(env, options = {}) {
+  const startedAt = options.scheduledAt || new Date().toISOString();
+  let result = await startTariffSync(env, { runId: options.runId, startedAt });
+  while (result.status === 'RUNNING') {
+    result = await stepTariffSync(env, result.runId, {
+      fetchImpl: options.fetchImpl,
+      allowEmptyChapter: options.allowEmptyChapter,
+      now: options.now
+    });
+  }
+  return result;
+}
+
+function snapshotPrefix(runId) {
+  return `tariff/usitc/snapshots/${runId}`;
+}
+
+function chapterSnapshotKey(prefix, chapter) {
+  return `${prefix}/chapters/${String(chapter).padStart(2, '0')}.json`;
+}
+
+function requireSnapshotStore(env) {
+  if (!env.TARIFF_SNAPSHOTS || typeof env.TARIFF_SNAPSHOTS.put !== 'function' || typeof env.TARIFF_SNAPSHOTS.get !== 'function') {
+    throw httpError(503, 'Tariff snapshot object storage is not configured.');
+  }
+  return env.TARIFF_SNAPSHOTS;
+}
+
+async function readSnapshotChapter(bucket, prefix, chapter) {
+  const object = await bucket.get(chapterSnapshotKey(prefix, chapter));
+  if (!object) return null;
+  const document = JSON.parse(await object.text());
+  if (document.schemaVersion !== 1 || Number(document.chapter) !== chapter || !Array.isArray(document.records)) {
+    throw new Error(`Stored snapshot chapter ${chapter} has an unsupported format.`);
+  }
+  return document;
+}
+
+function snapshotValue(record) {
+  return {
+    description: record.description,
+    general_rate_raw: record.generalRateRaw || '',
+    special_rate_raw: record.specialRateRaw || '',
+    units_json: JSON.stringify(record.units || [])
+  };
 }
 
 function chapterSourceUrl(source,chapter){const url=new URL(source),prefix=String(chapter).padStart(2,'0');url.searchParams.set('from',`${prefix}00000000`);url.searchParams.set('to',`${prefix}99999999`);return url.toString()}
 function isStaleSync(run,now){const timestamp=Date.parse(run.heartbeat_at||run.started_at||'');return !Number.isFinite(timestamp)||Date.parse(now)-timestamp>SYNC_STALE_MS}
-function syncProgress(run,resumed=false){return{ok:true,runId:run.id,status:run.status,rowsReceived:Number(run.rows_received||0),progressCurrent:Number(run.progress_current||0),progressTotal:Number(run.progress_total||HTS_CHAPTERS),heartbeatAt:run.heartbeat_at||null,completedAt:run.completed_at||null,resumed}}
-
-export async function runTariffSync(env, options = {}) {
-  if (!env.DB) throw new Error('Tariff database is not configured.');
-  const fetchImpl = options.fetchImpl || fetch;
-  const startedAt = options.scheduledAt || new Date().toISOString();
-  const runId = options.runId || crypto.randomUUID();
-  const sourceUrl = env.USITC_HTS_EXPORT_URL || USITC_EXPORT_URL;
-  await env.DB.prepare(`INSERT INTO tariff_sync_runs
-    (id,source,status,started_at) VALUES (?,?,'RUNNING',?)`).bind(runId, sourceUrl, startedAt).run();
-  try {
-    const response = await fetchImpl(sourceUrl, { headers: { Accept: 'application/json', 'User-Agent': 'Hamvara-Tariff-Change-Monitor/1.0 (info@hamvara.com)' } });
-    if (!response.ok) throw new Error(`USITC export failed with HTTP ${response.status}.`);
-    const payload = await response.json();
-    const sourceRevision = clean(response.headers?.get?.('etag') || response.headers?.get?.('last-modified') || payload.revision || startedAt, 180);
-    const records = (await Promise.all(extractRecords(payload).map(record => normalizeHtsRecord(record, sourceRevision)))).filter(Boolean);
-    if (records.length < 1000 && !options.allowSmallDataset) throw new Error(`USITC export returned only ${records.length} usable HTS rows; current data was not replaced.`);
-    const seen = new Set();
-    const unique = records.filter(record => !seen.has(record.hts10) && seen.add(record.hts10));
-    for (let offset = 0; offset < unique.length; offset += 75) {
-      const statements = unique.slice(offset, offset + 75).map(record => env.DB.prepare(`INSERT INTO tariff_hts_stage
-        (run_id,hts10,description,general_rate_raw,special_rate_raw,units_json,source_revision,content_hash)
-        VALUES (?,?,?,?,?,?,?,?)`).bind(runId, record.hts10, record.description, record.generalRateRaw, record.specialRateRaw, JSON.stringify(record.units), sourceRevision, record.contentHash));
-      await env.DB.batch(statements);
-    }
-    const detectedAt = new Date().toISOString();
-    await env.DB.batch([
-      env.DB.prepare(`INSERT INTO tariff_hts_changes (run_id,hts10,change_type,old_value_json,new_value_json,detected_at)
-        SELECT ?,s.hts10,'ADDED',NULL,json_object('description',s.description,'general_rate_raw',s.general_rate_raw,'special_rate_raw',s.special_rate_raw,'units_json',s.units_json),?
-        FROM tariff_hts_stage s LEFT JOIN tariff_hts_lines h ON h.hts10=s.hts10
-        WHERE s.run_id=? AND h.hts10 IS NULL`).bind(runId, detectedAt, runId),
-      env.DB.prepare(`INSERT INTO tariff_hts_changes (run_id,hts10,change_type,old_value_json,new_value_json,detected_at)
-        SELECT ?,s.hts10,'CHANGED',
-          json_object('description',h.description,'general_rate_raw',h.general_rate_raw,'special_rate_raw',h.special_rate_raw,'units_json',h.units_json),
-          json_object('description',s.description,'general_rate_raw',s.general_rate_raw,'special_rate_raw',s.special_rate_raw,'units_json',s.units_json),?
-        FROM tariff_hts_stage s JOIN tariff_hts_lines h ON h.hts10=s.hts10
-        WHERE s.run_id=? AND s.content_hash<>h.content_hash`).bind(runId, detectedAt, runId),
-      env.DB.prepare(`INSERT INTO tariff_hts_changes (run_id,hts10,change_type,old_value_json,new_value_json,detected_at)
-        SELECT ?,h.hts10,'REMOVED',json_object('description',h.description,'general_rate_raw',h.general_rate_raw,'special_rate_raw',h.special_rate_raw,'units_json',h.units_json),NULL,?
-        FROM tariff_hts_lines h LEFT JOIN tariff_hts_stage s ON s.run_id=? AND s.hts10=h.hts10
-        WHERE h.valid_to IS NULL AND s.hts10 IS NULL`).bind(runId, detectedAt, runId)
-    ]);
-    const counts = await env.DB.prepare(`SELECT change_type,COUNT(*) AS count FROM tariff_hts_changes WHERE run_id=? GROUP BY change_type`).bind(runId).all();
-    const totals = Object.fromEntries((counts.results || []).map(row => [row.change_type, Number(row.count || 0)]));
-    await env.DB.prepare(`UPDATE tariff_sync_runs SET status='STAGED',source_revision=?,rows_received=?,rows_added=?,rows_changed=?,rows_removed=?,completed_at=? WHERE id=?`)
-      .bind(sourceRevision, unique.length, totals.ADDED || 0, totals.CHANGED || 0, totals.REMOVED || 0, detectedAt, runId).run();
-    return { ok: true, status:'STAGED', runId, sourceRevision, rowsReceived: unique.length, added: totals.ADDED || 0, changed: totals.CHANGED || 0, removed: totals.REMOVED || 0, completedAt: detectedAt };
-  } catch (error) {
-    await env.DB.prepare(`UPDATE tariff_sync_runs SET status='FAILED',error_message=?,completed_at=? WHERE id=?`).bind(clean(error.message, 500), new Date().toISOString(), runId).run();
-    await env.DB.prepare('DELETE FROM tariff_hts_stage WHERE run_id=?').bind(runId).run();
-    throw error;
-  }
-}
+function syncProgress(run,resumed=false){return{ok:true,runId:run.id,status:run.status,rowsReceived:Number(run.rows_received||0),added:Number(run.rows_added||0),changed:Number(run.rows_changed||0),removed:Number(run.rows_removed||0),progressCurrent:Number(run.progress_current||0),progressTotal:Number(run.progress_total||HTS_CHAPTERS),heartbeatAt:run.heartbeat_at||null,completedAt:run.completed_at||null,resumed,baseline:!run.base_snapshot_prefix,snapshotPrefix:run.snapshot_prefix||null,snapshotManifestKey:run.snapshot_manifest_key||null,snapshotSha256:run.snapshot_sha256||null}}
 
 async function decideSyncRun(request, env, runId, action, actor) {
   const body=await safeJson(request),reason=clean(body.reason,500),now=new Date().toISOString();
@@ -209,14 +337,14 @@ async function listSyncRuns(env, url) {
   const allowed = ['RUNNING','STAGED','REJECTED','FAILED'];
   const limit = boundedInt(url.searchParams.get('limit'), 25, 1, 100);
   const where = status && allowed.includes(status) ? 'WHERE status=?' : '';
-  const statement = env.DB.prepare(`SELECT id,source_revision,status,rows_received,rows_added,rows_changed,rows_removed,progress_current,progress_total,heartbeat_at,started_at,completed_at,decision_reason,error_message
+  const statement = env.DB.prepare(`SELECT id,source_revision,status,rows_received,rows_added,rows_changed,rows_removed,progress_current,progress_total,heartbeat_at,started_at,completed_at,decision_reason,error_message,snapshot_prefix,base_snapshot_prefix,snapshot_manifest_key,snapshot_sha256
     FROM tariff_sync_runs ${where} ORDER BY started_at DESC LIMIT ?`);
   const result = where ? await statement.bind(status, limit).all() : await statement.bind(limit).all();
   return json({ runs: result.results || [], limit });
 }
 
 async function listSyncChanges(env, url, runId) {
-  const run = await env.DB.prepare(`SELECT id,status,source_revision,rows_received,rows_added,rows_changed,rows_removed,started_at,completed_at
+  const run = await env.DB.prepare(`SELECT id,status,source_revision,rows_received,rows_added,rows_changed,rows_removed,started_at,completed_at,snapshot_manifest_key,snapshot_sha256,base_snapshot_prefix
     FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
   if (!run) throw httpError(404, 'Sync run not found.');
   const type = clean(url.searchParams.get('type'), 20).toUpperCase();
@@ -258,7 +386,7 @@ async function reviewSyncChange(request, env, id, action, actor) {
 }
 
 async function tariffStatus(env) {
-  const run = await env.DB.prepare(`SELECT id,source_revision,status,rows_received,rows_added,rows_changed,rows_removed,progress_current,progress_total,heartbeat_at,started_at,completed_at,error_message
+  const run = await env.DB.prepare(`SELECT id,source_revision,status,rows_received,rows_added,rows_changed,rows_removed,progress_current,progress_total,heartbeat_at,started_at,completed_at,error_message,snapshot_prefix,base_snapshot_prefix,snapshot_manifest_key,snapshot_sha256
     FROM tariff_sync_runs ORDER BY started_at DESC LIMIT 1`).first();
   const changes = await env.DB.prepare(`SELECT COUNT(*) AS count,MAX(detected_at) AS latest FROM tariff_hts_changes WHERE acknowledged_at IS NULL`).first();
   const published = await env.DB.prepare(`SELECT id,name,effective_from,effective_to,published_at FROM tariff_rule_sets WHERE status='PUBLISHED' ORDER BY published_at DESC LIMIT 1`).first();

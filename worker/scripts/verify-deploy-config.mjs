@@ -9,6 +9,10 @@ const d1Blocks = config.match(/\[\[d1_databases\]\][\s\S]*?(?=\n\[|$)/g) ?? [];
 const productionBinding = d1Blocks.find((block) =>
   /^\s*binding\s*=\s*["']DB["']\s*$/m.test(block),
 );
+const r2Blocks = config.match(/\[\[r2_buckets\]\][\s\S]*?(?=\n\[|$)/g) ?? [];
+const tariffSnapshotBinding = r2Blocks.find((block) =>
+  /^\s*binding\s*=\s*["']TARIFF_SNAPSHOTS["']\s*$/m.test(block),
+);
 
 const errors = [];
 const expectedProductionOrigins = ["https://hamvara.com", "https://www.hamvara.com"];
@@ -41,10 +45,16 @@ if (!productionBinding) {
   }
 }
 
+if (!tariffSnapshotBinding) {
+  errors.push('an R2 bucket binding named "TARIFF_SNAPSHOTS" is required');
+} else if (!/^\s*bucket_name\s*=\s*["']hamvara-tariff-snapshots["']\s*$/m.test(tariffSnapshotBinding)) {
+  errors.push('TARIFF_SNAPSHOTS must target bucket_name "hamvara-tariff-snapshots"');
+}
+
 if (errors.length > 0) {
   console.error(`Refusing to deploy with ${configPath}:`);
   for (const error of errors) console.error(`- ${error}`);
   process.exit(1);
 }
 
-console.log(`Deploy configuration verified: ${configPath} includes the production DB binding.`);
+console.log(`Deploy configuration verified: ${configPath} includes production DB and tariff snapshot R2 bindings.`);
