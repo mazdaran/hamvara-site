@@ -79,6 +79,10 @@ chapter requests. `USITC_HTS_EXPORT_URL` may be set only for a controlled compat
 change or test. A missing/invalid chapter or incomplete 97-chapter manifest stops the run
 without replacing the last complete snapshot.
 
+HTS chapter 77 is reserved and is the only chapter accepted as an empty snapshot. Any other
+empty chapter stops the run so a transient or malformed source response cannot become the
+new comparison baseline.
+
 ## Growth integrations
 
 After deployment, set `growth/config.js` `apiBase` to the Worker URL (later `https://api.hamvara.com`). OAuth callback URLs follow `https://api.hamvara.com/api/oauth/{provider}/callback`.

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { diffSnapshotRecords, extractRecords, normalizeHtsRecord } from '../src/tariff.js';
+import { chapterMayBeEmpty, diffSnapshotRecords, extractRecords, normalizeHtsRecord } from '../src/tariff.js';
 
 test('USITC payload normalization preserves HTS text and duty fields', async () => {
   const payload = { results: [{ htsno: '0101.21.0010', description: 'Test animal', general: 'Free', special: 'A+', units: ['No.'] }] };
@@ -18,6 +18,12 @@ test('HTS content hash is stable across source revisions', async () => {
   const first=await normalizeHtsRecord(record,'revision-one');
   const second=await normalizeHtsRecord(record,'revision-two');
   assert.equal(first.contentHash,second.contentHash);
+});
+
+test('only reserved HTS chapter 77 may produce an empty snapshot', () => {
+  assert.equal(chapterMayBeEmpty(77), true);
+  assert.equal(chapterMayBeEmpty(76), false);
+  assert.equal(chapterMayBeEmpty(78), false);
 });
 
 test('object-storage comparison emits only real deltas', async () => {
@@ -42,6 +48,8 @@ test('chapter sync stores full snapshots outside D1 and treats the first run as 
   const migration = await fs.readFile(new URL('../migrations/0010_tariff_snapshot_object_storage.sql', import.meta.url), 'utf8');
   assert.match(source, /TARIFF_SNAPSHOTS/);
   assert.match(source, /previous \? diffSnapshotRecords\(previous\.records, unique\) : \[\]/);
+  assert.match(source, /EMPTY_HTS_CHAPTERS = new Set\(\[77\]\)/);
+  assert.match(source, /!chapterMayBeEmpty\(chapter\)/);
   assert.doesNotMatch(source, /INSERT INTO tariff_hts_stage/);
   assert.match(config, /binding = "TARIFF_SNAPSHOTS"/);
   for (const field of ['snapshot_prefix','base_snapshot_prefix','snapshot_manifest_key','content_sha256']) assert.match(migration, new RegExp(field));

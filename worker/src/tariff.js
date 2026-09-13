@@ -1,6 +1,7 @@
 const USITC_EXPORT_URL = 'https://hts.usitc.gov/reststop/exportList?from=0100000000&to=9799999999&format=JSON&styles=false';
 const MAX_HTS_CODES_PER_REQUEST = 100;
 const HTS_CHAPTERS = 97;
+const EMPTY_HTS_CHAPTERS = new Set([77]);
 const SYNC_STALE_MS = 10 * 60 * 1000;
 const SYNC_LEASE_MS = 90 * 1000;
 
@@ -120,7 +121,9 @@ export async function stepTariffSync(env, runId, options = {}) {
     const sourceRevision = clean(response.headers?.get?.('etag') || response.headers?.get?.('last-modified') || payload.revision || run.source_revision || now, 180);
     const records = (await Promise.all(extractRecords(payload).map(record => normalizeHtsRecord(record, sourceRevision))))
       .filter(record => record && Number(record.hts10.slice(0, 2)) === chapter);
-    if (!records.length && !options.allowEmptyChapter) throw new Error(`USITC chapter ${chapter} returned no usable HTS rows.`);
+    if (!records.length && !chapterMayBeEmpty(chapter) && !options.allowEmptyChapter) {
+      throw new Error(`USITC chapter ${chapter} returned no usable HTS rows.`);
+    }
     const unique = [...new Map(records.map(record => [record.hts10, record])).values()];
     const prefix = String(chapter).padStart(2, '0');
 
@@ -210,6 +213,10 @@ export function diffSnapshotRecords(previousRecords, currentRecords) {
     if (!current.has(hts10)) changes.push({ hts10, changeType: 'REMOVED', oldValue: record, newValue: null });
   }
   return changes.sort((left, right) => left.hts10.localeCompare(right.hts10));
+}
+
+export function chapterMayBeEmpty(chapter) {
+  return EMPTY_HTS_CHAPTERS.has(Number(chapter));
 }
 
 async function finalizeTariffSync(env, runId, sourceRevision, completedAt) {
