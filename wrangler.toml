@@ -9,7 +9,7 @@ TARIFF_SYNC_ACTOR = "tariff-sync-service"
 TARIFF_PREPARER_ACTOR = "tariff-preparer"
 TARIFF_REVIEWER_ACTOR = "tariff-reviewer"
 TARIFF_PUBLISHER_ACTOR = "tariff-publisher"
-TARIFF_PRODUCTION_PROMOTION_ENABLED = "false"
+TARIFF_PRODUCTION_PROMOTION_ENABLED = "true"
 
 [ai]
 binding = "AI"

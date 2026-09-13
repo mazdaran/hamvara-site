@@ -10,10 +10,10 @@
   <script src="./app.js" defer></script>
 </head>
 <body>
-  <header><a href="/">HAMVARA</a><span>TARIFF CONTROL EXTENSION · PHASE 2B</span><a href="../tariff-impact/">Impact calculator</a></header>
+  <header><a href="/">HAMVARA</a><span>TARIFF CONTROL EXTENSION · PHASE 2C</span><a href="../tariff-impact/">Impact calculator</a></header>
   <main>
-    <section class="title"><p>MANUAL, CONTROLLED, AUDITABLE</p><h1>Review changes before they reach production.</h1><span>Phase 2B supports publisher-gated promotion and head-only rollback. Scheduled collection remains disabled.</span></section>
-    <section class="notice"><strong>Production lock defaults closed</strong><span>Promotion and rollback require the Publisher credential, a recorded reason, an exact confirmation phrase, and the server-side production flag.</span></section>
+    <section class="title"><p>MANUAL, CONTROLLED, AUDITABLE</p><h1>Review changes before they reach production.</h1><span>Phase 2C adds an auditable, time-limited promotion window. Scheduled collection remains disabled.</span></section>
+    <section class="notice"><strong>Production window defaults closed</strong><span>Promotion and rollback require the Publisher credential, a recorded reason, an exact confirmation phrase, and an unexpired server-side window.</span></section>
     <section class="controls">
       <article><h2>1 · Credentials</h2><label>Sync credential<input id="syncToken" type="password" autocomplete="off" placeholder="Used only to fetch"></label><label>Reviewer credential<input id="reviewToken" type="password" autocomplete="off" placeholder="Used only to review"></label><label>Publisher credential<input id="publisherToken" type="password" autocomplete="off" placeholder="Used only to publish or roll back"></label><p>Credentials stay in this browser tab and are never saved.</p></article>
       <article><h2>2 · Manual collection</h2><p>Download the source chapter by chapter and create an immutable staged comparison.</p><button id="sync">Check for updates</button><button id="resume" class="secondary">Resume run</button><button id="status" class="secondary">Refresh status</button><progress id="progress" max="97" value="0" hidden></progress><p id="connection">Not connected.</p></article>
@@ -22,6 +22,12 @@
         <label>Staged run<select id="runId"><option value="">Select a run</option></select></label>
         <button id="runs">Load candidate runs</button>
         <button id="changes" class="secondary">Load changes</button>
+        <button id="gate" class="secondary">Load promotion window</button>
+        <p id="gateState">Promotion window state has not been loaded.</p>
+        <label>Window duration<select id="gateDuration"><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15" selected>15 minutes</option><option value="30">30 minutes</option></select></label>
+        <label>Window confirmation<input id="gateConfirmation" type="text" autocomplete="off" placeholder="OPEN PROMOTION WINDOW"></label>
+        <button id="openGate" class="secondary">Open promotion window</button>
+        <button id="closeGate" class="secondary">Close promotion window</button>
         <button id="readiness" class="secondary">Check publication readiness</button>
         <p id="readinessState">Check readiness before attempting a controlled promotion.</p>
         <label>Publisher reason<textarea id="publicationReason" rows="3" maxlength="500" placeholder="Required for promotion or rollback"></textarea></label>
@@ -39,6 +45,10 @@
       <button id="more" class="secondary" hidden>Load more</button>
     </section>
     <dialog id="decisionDialog"><form method="dialog"><h2>Record disposition</h2><p id="decisionTarget"></p><label>Decision<select id="decision"><option value="ACCEPTED">Accept candidate</option><option value="REJECTED">Reject candidate</option><option value="NO_IMPACT">No impact</option></select></label><label>Reason<textarea id="reason" rows="4" maxlength="500" required></textarea></label><div><button value="cancel" class="secondary">Cancel</button><button id="saveDecision" value="default">Save audit decision</button></div></form></dialog>
+    <section class="worklist">
+      <div class="worklist-head"><div><p>IMMUTABLE AUDIT TRAIL</p><h2>Promotion and gate history</h2></div><button id="history" class="secondary">Load audit history</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Time</th><th>Action</th><th>Actor</th><th>Target</th><th>Reason</th><th>Evidence</th></tr></thead><tbody id="historyRows"><tr><td colspan="6" class="empty">Load the audit history to inspect controlled production activity.</td></tr></tbody></table></div>
+    </section>
     <section class="result"><h2>Operation log</h2><pre id="output">No operation performed.</pre></section>
   </main>
 </body>

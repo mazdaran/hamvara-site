@@ -5,6 +5,8 @@ const EMPTY_HTS_CHAPTERS = new Set([77]);
 const SYNC_STALE_MS = 10 * 60 * 1000;
 const SYNC_LEASE_MS = 90 * 1000;
 const PROMOTION_SCHEMA_VERSION = 1;
+const PROMOTION_WINDOW_MINUTES = 15;
+const PROMOTION_WINDOW_MAX_MINUTES = 30;
 
 export async function handleTariffRequest(request, env, url) {
   if (!env.DB) throw httpError(503, 'Tariff database is not configured.');
@@ -41,6 +43,19 @@ export async function handleTariffRequest(request, env, url) {
   if (url.pathname === '/api/tariff/admin/production-state' && request.method === 'GET') {
     const actor = requireRole(request, env, 'publisher');
     return productionState(env, actor);
+  }
+  if (url.pathname === '/api/tariff/admin/promotion-gate' && request.method === 'GET') {
+    const actor = requireRole(request, env, 'publisher');
+    return promotionGateState(env, actor);
+  }
+  const gateAction = /^\/api\/tariff\/admin\/promotion-gate\/(open|close)\/?$/.exec(url.pathname);
+  if (gateAction && request.method === 'POST') {
+    const actor = requireRole(request, env, 'publisher');
+    return updatePromotionGate(request, env, gateAction[1], actor);
+  }
+  if (url.pathname === '/api/tariff/admin/promotion-history' && request.method === 'GET') {
+    const actor = requireRole(request, env, 'publisher');
+    return promotionHistory(env, url, actor);
   }
   const rollbackMatch = /^\/api\/tariff\/admin\/promotions\/([A-Za-z0-9._-]+)\/rollback\/?$/.exec(url.pathname);
   if (rollbackMatch && request.method === 'POST') {
@@ -261,6 +276,28 @@ export function validateReviewDisposition(body) {
   return { disposition, reason };
 }
 
+export function evaluatePromotionGate(row, masterEnabled, now = new Date().toISOString()) {
+  const openedUntil = row?.opened_until || null;
+  const expiresAt = Date.parse(openedUntil || '');
+  const nowAt = Date.parse(now);
+  const configured = Boolean(masterEnabled);
+  const declaredOpen = row?.status === 'OPEN';
+  const unexpired = Number.isFinite(expiresAt) && Number.isFinite(nowAt) && expiresAt > nowAt;
+  const open = configured && declaredOpen && unexpired;
+  return {
+    masterEnabled: configured,
+    open,
+    status: open ? 'OPEN' : declaredOpen && !unexpired ? 'EXPIRED' : 'CLOSED',
+    openedAt: row?.opened_at || null,
+    openedUntil,
+    openedBy: row?.opened_by || null,
+    openReason: row?.open_reason || null,
+    closedAt: row?.closed_at || null,
+    closedBy: row?.closed_by || null,
+    closeReason: row?.close_reason || null
+  };
+}
+
 export function evaluatePromotionReadiness(run, rawCounts, publisherActor, promotionEnabled = false) {
   const counts = {
     total: Number(rawCounts?.total || 0),
@@ -292,7 +329,7 @@ export function evaluatePromotionReadiness(run, rawCounts, publisherActor, promo
   const blockers = promotionEnabled ? reviewBlockers : [...reviewBlockers, 'PRODUCTION_LOCKED'];
   return {
     ok: true,
-    phase: '2B',
+    phase: '2C',
     runId: run?.id || null,
     publisherActor,
     applyMode,
@@ -521,8 +558,10 @@ async function loadPromotionContext(env, runId, publisherActor) {
     productionHeadBatchId: state?.head_batch_id || null,
     productionLineageValid
   };
-  const readiness = evaluatePromotionReadiness(enrichedRun, counts, publisherActor, promotionEnabled(env));
-  return { run, state, counts, readiness };
+  const gate = await loadPromotionGateState(env);
+  const readiness = evaluatePromotionReadiness(enrichedRun, counts, publisherActor, gate.open);
+  readiness.gate = gate;
+  return { run, state, counts, readiness, gate };
 }
 
 async function promotionReadiness(env, runId, publisherActor) {
@@ -531,20 +570,113 @@ async function promotionReadiness(env, runId, publisherActor) {
 }
 
 async function productionState(env, publisherActor) {
+  const gate = await loadPromotionGateState(env);
   const state = await env.DB.prepare(`SELECT singleton,base_run_id,base_snapshot_prefix,base_manifest_key,base_snapshot_sha256,head_batch_id,overlay_artifact_key,overlay_artifact_sha256,updated_at,updated_by
     FROM tariff_production_state WHERE singleton=1`).bind().first();
-  if (!state) return json({ ok: true, phase: '2B', productionEnabled: promotionEnabled(env), active: false, head: null });
+  if (!state) return json({ ok: true, phase: '2C', productionEnabled: gate.open, gate, active: false, head: null });
   const head = await env.DB.prepare(`SELECT id,run_id,mode,status,previous_batch_id,artifact_key,artifact_sha256,applied_count,accepted_count,no_impact_count,promoted_at,promoted_by,promotion_reason
     FROM tariff_promotion_batches WHERE id=?`).bind(state.head_batch_id).first();
   return json({
     ok: true,
-    phase: '2B',
-    productionEnabled: promotionEnabled(env),
+    phase: '2C',
+    productionEnabled: gate.open,
+    gate,
     active: true,
     state,
     head,
     rollbackConfirmationText: head ? `ROLLBACK ${head.id}` : null,
     publisherActor
+  });
+}
+
+async function loadPromotionGateState(env, now = new Date().toISOString()) {
+  if (!promotionMasterEnabled(env)) return evaluatePromotionGate(null, false, now);
+  const row = await env.DB.prepare(`SELECT status,opened_at,opened_until,opened_by,open_reason,closed_at,closed_by,close_reason,updated_at
+    FROM tariff_promotion_gate WHERE singleton=1`).bind().first();
+  return evaluatePromotionGate(row, true, now);
+}
+
+async function promotionGateState(env, publisherActor) {
+  const gate = await loadPromotionGateState(env);
+  return json({
+    ok: true,
+    phase: '2C',
+    gate,
+    publisherActor,
+    openConfirmationText: 'OPEN PROMOTION WINDOW',
+    closeConfirmationText: 'CLOSE PROMOTION WINDOW',
+    defaultDurationMinutes: PROMOTION_WINDOW_MINUTES,
+    maximumDurationMinutes: PROMOTION_WINDOW_MAX_MINUTES
+  });
+}
+
+async function updatePromotionGate(request, env, action, actor) {
+  if (!promotionMasterEnabled(env)) throw httpError(409, 'The server-side tariff promotion master switch is disabled.');
+  const body = await safeJson(request);
+  const reason = clean(body.reason, 500);
+  if (!reason) throw httpError(400, 'A publisher reason is required.');
+  const now = new Date().toISOString();
+  const expected = action === 'open' ? 'OPEN PROMOTION WINDOW' : 'CLOSE PROMOTION WINDOW';
+  if (clean(body.confirmation, 200) !== expected) {
+    throw httpError(400, `Type exactly "${expected}" to confirm the gate change.`);
+  }
+  if (action === 'open') {
+    const requestedDuration = Number.parseInt(String(body.durationMinutes ?? PROMOTION_WINDOW_MINUTES), 10);
+    if (!Number.isFinite(requestedDuration) || requestedDuration < 5 || requestedDuration > PROMOTION_WINDOW_MAX_MINUTES) {
+      throw httpError(400, `Promotion window duration must be between 5 and ${PROMOTION_WINDOW_MAX_MINUTES} minutes.`);
+    }
+    const openedUntil = new Date(Date.parse(now) + requestedDuration * 60 * 1000).toISOString();
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO tariff_promotion_gate
+        (singleton,status,opened_at,opened_until,opened_by,open_reason,closed_at,closed_by,close_reason,updated_at)
+        VALUES (1,'OPEN',?,?,?,?,NULL,NULL,NULL,?)
+        ON CONFLICT(singleton) DO UPDATE SET
+          status='OPEN',opened_at=excluded.opened_at,opened_until=excluded.opened_until,
+          opened_by=excluded.opened_by,open_reason=excluded.open_reason,
+          closed_at=NULL,closed_by=NULL,close_reason=NULL,updated_at=excluded.updated_at`).bind(
+            now, openedUntil, actor, reason, now
+          ),
+      env.DB.prepare(`INSERT INTO tariff_promotion_gate_events
+        (id,action,actor,reason,opened_until,created_at) VALUES (?,'OPENED',?,?,?,?)`).bind(
+          crypto.randomUUID(), actor, reason, openedUntil, now
+        )
+    ]);
+    return promotionGateState(env, actor);
+  }
+  const current = await loadPromotionGateState(env, now);
+  if (current.status === 'CLOSED') return json({ ok: true, phase: '2C', gate: current, unchanged: true, publisherActor: actor });
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE tariff_promotion_gate SET status='CLOSED',closed_at=?,closed_by=?,close_reason=?,updated_at=? WHERE singleton=1`).bind(
+      now, actor, reason, now
+    ),
+    env.DB.prepare(`INSERT INTO tariff_promotion_gate_events
+      (id,action,actor,reason,opened_until,created_at) VALUES (?,'CLOSED',?,?,?,?)`).bind(
+        crypto.randomUUID(), actor, reason, current.openedUntil, now
+      )
+  ]);
+  return promotionGateState(env, actor);
+}
+
+async function promotionHistory(env, url, publisherActor) {
+  const limit = boundedInt(url.searchParams.get('limit'), 25, 1, 100);
+  const [batches, events, gateEvents, gate] = await Promise.all([
+    env.DB.prepare(`SELECT id,run_id,mode,status,previous_batch_id,applied_count,accepted_count,no_impact_count,promoted_at,promoted_by,promotion_reason,rolled_back_at,rolled_back_by,rollback_reason,artifact_key,artifact_sha256
+      FROM tariff_promotion_batches ORDER BY promoted_at DESC LIMIT ?`).bind(limit).all(),
+    env.DB.prepare(`SELECT id,batch_id,run_id,action,actor,reason,artifact_key,artifact_sha256,created_at
+      FROM tariff_promotion_events ORDER BY created_at DESC LIMIT ?`).bind(limit).all(),
+    env.DB.prepare(`SELECT id,action,actor,reason,opened_until,created_at
+      FROM tariff_promotion_gate_events ORDER BY created_at DESC LIMIT ?`).bind(limit).all(),
+    loadPromotionGateState(env)
+  ]);
+  return json({
+    ok: true,
+    phase: '2C',
+    publisherActor,
+    gate,
+    batches: batches.results || [],
+    events: events.results || [],
+    gateEvents: gateEvents.results || [],
+    limit
   });
 }
 
@@ -664,11 +796,18 @@ async function promoteSyncRun(env, runId, actor, body, reason, now) {
     env.DB.prepare(`UPDATE tariff_sync_runs SET status='PROMOTED',promoted_at=?,promoted_by=?,decision_reason=? WHERE id=? AND status='STAGED'`).bind(now, actor, reason, runId),
     env.DB.prepare(`INSERT INTO tariff_promotion_events
       (id,batch_id,run_id,action,actor,reason,artifact_key,artifact_sha256,created_at)
-      VALUES (?,?,?,'PROMOTED',?,?,?,?,?)`).bind(crypto.randomUUID(), batchId, runId, actor, reason, artifactKey, artifactSha256, now)
+      VALUES (?,?,?,'PROMOTED',?,?,?,?,?)`).bind(crypto.randomUUID(), batchId, runId, actor, reason, artifactKey, artifactSha256, now),
+    env.DB.prepare(`UPDATE tariff_promotion_gate SET status='CLOSED',closed_at=?,closed_by=?,close_reason=?,updated_at=? WHERE singleton=1 AND status='OPEN'`).bind(
+      now, actor, `Automatically closed after promotion batch ${batchId}.`, now
+    ),
+    env.DB.prepare(`INSERT INTO tariff_promotion_gate_events
+      (id,action,actor,reason,opened_until,created_at) VALUES (?,'CLOSED',?,?,?,?)`).bind(
+        crypto.randomUUID(), actor, `Automatically closed after promotion batch ${batchId}.`, context.gate.openedUntil, now
+      )
   ]);
   return json({
     ok: true,
-    phase: '2B',
+    phase: '2C',
     status: 'PROMOTED',
     runId,
     batchId,
@@ -684,7 +823,8 @@ async function promoteSyncRun(env, runId, actor, body, reason, now) {
 }
 
 async function rollbackPromotion(request, env, batchId, actor) {
-  if (!promotionEnabled(env)) throw httpError(409, 'Production promotion and rollback are locked by configuration.');
+  const gate = await loadPromotionGateState(env);
+  if (!gate.open) throw httpError(409, 'Production promotion and rollback are locked because the controlled window is closed or expired.');
   const body = await safeJson(request);
   const reason = clean(body.reason, 500);
   const confirmation = clean(body.confirmation, 200);
@@ -718,12 +858,19 @@ async function rollbackPromotion(request, env, batchId, actor) {
     env.DB.prepare(`UPDATE tariff_sync_runs SET status='STAGED',promoted_at=NULL,promoted_by=NULL,decision_reason=? WHERE id=? AND status='PROMOTED'`).bind(`Rolled back: ${reason}`, batch.run_id),
     env.DB.prepare(`INSERT INTO tariff_promotion_events
       (id,batch_id,run_id,action,actor,reason,artifact_key,artifact_sha256,created_at)
-      VALUES (?,?,?,'ROLLED_BACK',?,?,?,?,?)`).bind(crypto.randomUUID(), batchId, batch.run_id, actor, reason, batch.artifact_key, batch.artifact_sha256, now)
+      VALUES (?,?,?,'ROLLED_BACK',?,?,?,?,?)`).bind(crypto.randomUUID(), batchId, batch.run_id, actor, reason, batch.artifact_key, batch.artifact_sha256, now),
+    env.DB.prepare(`UPDATE tariff_promotion_gate SET status='CLOSED',closed_at=?,closed_by=?,close_reason=?,updated_at=? WHERE singleton=1 AND status='OPEN'`).bind(
+      now, actor, `Automatically closed after rollback of batch ${batchId}.`, now
+    ),
+    env.DB.prepare(`INSERT INTO tariff_promotion_gate_events
+      (id,action,actor,reason,opened_until,created_at) VALUES (?,'CLOSED',?,?,?,?)`).bind(
+        crypto.randomUUID(), actor, `Automatically closed after rollback of batch ${batchId}.`, gate.openedUntil, now
+      )
   );
   await env.DB.batch(statements);
   return json({
     ok: true,
-    phase: '2B',
+    phase: '2C',
     status: 'ROLLED_BACK',
     batchId,
     runId: batch.run_id,
@@ -896,7 +1043,7 @@ function nullableMoney(value){if(value===null||value===undefined||value==='')ret
 function jsonOrNull(value){return value===null||value===undefined?null:JSON.stringify(value)}
 function required(value,name){const result=clean(value,300);if(!result)throw httpError(400,`${name} is required.`);return result}
 function requiredHttps(value){const text=required(value,'sourceUrl');try{const url=new URL(text),host=url.hostname.toLowerCase(),allowed=['cbp.gov','usitc.gov','ustr.gov','federalregister.gov','whitehouse.gov','govinfo.gov','ecfr.gov'];if(url.protocol!=='https:'||!allowed.some(domain=>host===domain||host.endsWith('.'+domain)))throw new Error();return url.toString()}catch{throw httpError(400,'Every sourceUrl must be an approved U.S. primary-source HTTPS URL.')}}
-function promotionEnabled(env){return String(env.TARIFF_PRODUCTION_PROMOTION_ENABLED||'').toLowerCase()==='true'}
+function promotionMasterEnabled(env){return String(env.TARIFF_PRODUCTION_PROMOTION_ENABLED||'').toLowerCase()==='true'}
 function relationType(value){const type=clean(value,30).toUpperCase(),allowed=['STACKS_WITH','EXCLUDED_BY','EXCLUSIVE_WITH','CAPPED_WITH','REQUIRES_REVIEW','SUPERSEDES'];if(!allowed.includes(type))throw httpError(400,'Invalid rule relation type.');return type}
 function sourceStatus(value){const status=clean(value,30).toUpperCase(),allowed=['PRIMARY_PENDING','PRIMARY_VERIFIED','BROKER_REVIEWED'];if(!allowed.includes(status))throw httpError(400,'Invalid source review status.');return status}
 function requireRole(request,env,role){const keys={sync:['TARIFF_SYNC_TOKEN','TARIFF_SYNC_ACTOR'],preparer:['TARIFF_PREPARER_TOKEN','TARIFF_PREPARER_ACTOR'],reviewer:['TARIFF_REVIEWER_TOKEN','TARIFF_REVIEWER_ACTOR'],publisher:['TARIFF_PUBLISHER_TOKEN','TARIFF_PUBLISHER_ACTOR']},[tokenKey,actorKey]=keys[role]||[];const expected=env[tokenKey],actor=clean(env[actorKey],120),supplied=String(request.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!expected||!actor)throw httpError(503,`Tariff ${role} role is not configured.`);if(!supplied||!constantTimeEqual(supplied,expected))throw httpError(401,`Invalid tariff ${role} credential.`);return actor}

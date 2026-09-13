@@ -63,7 +63,7 @@ test('controlled rule workflow and published-only API remain in source', async (
   assert.match(source, /PRIMARY_PENDING/);
 });
 
-test('phase 2B keeps collection manual and requires an explicit promotion lock state', async () => {
+test('phase 2C keeps collection manual and requires an explicit promotion master state', async () => {
   const fs = await import('node:fs/promises');
   const worker = await fs.readFile(new URL('../src/index.js', import.meta.url), 'utf8');
   const tariff = await fs.readFile(new URL('../src/tariff.js', import.meta.url), 'utf8');

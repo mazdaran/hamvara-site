@@ -9,6 +9,7 @@
   let syncing = false;
   let readinessData = null;
   let productionData = null;
+  let gateData = null;
 
   function auth(token) {
     return { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
@@ -139,6 +140,79 @@
     if (!body.children.length) body.innerHTML = '<tr><td colspan="6" class="empty">No candidates match the selected filters.</td></tr>';
   }
 
+  function renderGate(data) {
+    gateData = data;
+    const gate = data.gate || data;
+    if (gate.open) {
+      $('gateState').textContent = `OPEN until ${gate.openedUntil} · opened by ${gate.openedBy}`;
+      $('openGate').disabled = true;
+      $('closeGate').disabled = false;
+      $('gateConfirmation').placeholder = data.closeConfirmationText || 'CLOSE PROMOTION WINDOW';
+    } else {
+      $('gateState').textContent = `${gate.status || 'CLOSED'} · promotion and rollback are locked.`;
+      $('openGate').disabled = !gate.masterEnabled;
+      $('closeGate').disabled = true;
+      $('gateConfirmation').placeholder = data.openConfirmationText || 'OPEN PROMOTION WINDOW';
+    }
+  }
+
+  async function loadPromotionGate() {
+    const data = await call('/api/tariff/admin/promotion-gate', { headers: publisherHeaders() });
+    renderGate(data);
+    return data;
+  }
+
+  async function changePromotionGate(action) {
+    const confirmation = $('gateConfirmation').value.trim();
+    const expected = action === 'open' ? 'OPEN PROMOTION WINDOW' : 'CLOSE PROMOTION WINDOW';
+    if (confirmation !== expected) throw Error(`Type exactly "${expected}" to confirm the gate change.`);
+    const body = { reason: requiredPublisherReason(), confirmation };
+    if (action === 'open') body.durationMinutes = Number($('gateDuration').value);
+    const data = await call(`/api/tariff/admin/promotion-gate/${action}`, {
+      method: 'POST', headers: publisherHeaders(), body: JSON.stringify(body)
+    });
+    $('gateConfirmation').value = '';
+    renderGate(data);
+    readinessData = null;
+    $('promote').disabled = true;
+    await loadProductionState();
+    return data;
+  }
+
+  function renderHistory(data) {
+    const rows = [];
+    for (const event of data.gateEvents || []) {
+      rows.push({
+        at: event.created_at,
+        action: `WINDOW_${event.action}`,
+        actor: event.actor,
+        target: event.opened_until || 'Production gate',
+        reason: event.reason,
+        evidence: event.id
+      });
+    }
+    for (const event of data.events || []) {
+      rows.push({
+        at: event.created_at,
+        action: event.action,
+        actor: event.actor,
+        target: event.batch_id,
+        reason: event.reason,
+        evidence: event.artifact_sha256
+      });
+    }
+    rows.sort((left, right) => String(right.at).localeCompare(String(left.at)));
+    $('historyRows').innerHTML = rows.map(row => `<tr><td>${escapeHtml(row.at)}</td><td><span class="tag">${escapeHtml(row.action)}</span></td><td>${escapeHtml(row.actor)}</td><td><code>${escapeHtml(row.target)}</code></td><td>${escapeHtml(row.reason)}</td><td><code>${escapeHtml(row.evidence)}</code></td></tr>`).join('')
+      || '<tr><td colspan="6" class="empty">No promotion or gate events have been recorded.</td></tr>';
+  }
+
+  async function loadPromotionHistory() {
+    const data = await call('/api/tariff/admin/promotion-history?limit=50', { headers: publisherHeaders() });
+    renderGate(data);
+    renderHistory(data);
+    return data;
+  }
+
   async function loadRuns() {
     const data = await call('/api/tariff/admin/sync-runs?status=STAGED&limit=50', { headers: reviewHeaders() });
     const select = $('runId');
@@ -218,6 +292,7 @@
 
   async function loadProductionState() {
     productionData = await call('/api/tariff/admin/production-state', { headers: publisherHeaders() });
+    if (productionData.gate) renderGate(productionData);
     if (!productionData.active || !productionData.head) {
       $('productionState').textContent = 'No production baseline is active.';
       $('rollback').disabled = true;
@@ -265,10 +340,14 @@
   }).catch(() => {});
   $('runs').onclick = () => run(loadRuns).catch(() => {});
   $('changes').onclick = () => run(() => loadChanges(false)).catch(() => {});
+  $('gate').onclick = () => run(loadPromotionGate).catch(() => {});
+  $('openGate').onclick = () => run(() => changePromotionGate('open')).catch(() => {});
+  $('closeGate').onclick = () => run(() => changePromotionGate('close')).catch(() => {});
   $('readiness').onclick = () => run(checkReadiness).catch(() => {});
   $('promote').onclick = () => run(promoteSelectedRun).catch(() => {});
   $('production').onclick = () => run(loadProductionState).catch(() => {});
   $('rollback').onclick = () => run(rollbackProductionHead).catch(() => {});
+  $('history').onclick = () => run(loadPromotionHistory).catch(() => {});
   $('more').onclick = () => run(() => loadChanges(true)).catch(() => {});
 
   $('runId').onchange = () => {

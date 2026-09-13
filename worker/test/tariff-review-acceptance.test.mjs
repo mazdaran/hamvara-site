@@ -5,6 +5,7 @@ import fs from 'node:fs/promises';
 
 import {
   diffSnapshotRecords,
+  evaluatePromotionGate,
   evaluatePromotionReadiness,
   handleTariffRequest,
   normalizeHtsRecord,
@@ -140,7 +141,7 @@ test('a zero-delta verified snapshot is eligible for first baseline activation b
   assert.deepEqual(readiness.blockers, ['PRODUCTION_LOCKED']);
 });
 
-test('Phase 2B UI exposes guarded promotion and head-only rollback controls', async () => {
+test('Phase 2C UI exposes a time-limited gate, audit history and controlled promotion', async () => {
   const [workerSource, uiSource, htmlSource] = await Promise.all([
     fs.readFile(new URL('../src/tariff.js', import.meta.url), 'utf8'),
     fs.readFile(new URL('../../tariff-control/app.js', import.meta.url), 'utf8'),
@@ -154,8 +155,36 @@ test('Phase 2B UI exposes guarded promotion and head-only rollback controls', as
   assert.match(htmlSource, /id="readiness"/);
   assert.match(htmlSource, /id="promote" disabled/);
   assert.match(htmlSource, /id="rollback" class="secondary" disabled/);
+  assert.match(htmlSource, /id="openGate"/);
+  assert.match(htmlSource, /id="closeGate"/);
+  assert.match(htmlSource, /id="historyRows"/);
   assert.match(uiSource, /confirmationText/);
   assert.match(uiSource, /production-state/);
+  assert.match(uiSource, /promotion-gate/);
+  assert.match(uiSource, /promotion-history/);
+});
+
+test('Phase 2C promotion window expires without a server write', () => {
+  const row = {
+    status: 'OPEN',
+    opened_at: '2026-09-13T10:00:00.000Z',
+    opened_until: '2026-09-13T10:15:00.000Z',
+    opened_by: 'publisher@example.com',
+    open_reason: 'Controlled release'
+  };
+  assert.equal(evaluatePromotionGate(row, true, '2026-09-13T10:14:59.000Z').open, true);
+  const expired = evaluatePromotionGate(row, true, '2026-09-13T10:15:00.000Z');
+  assert.equal(expired.open, false);
+  assert.equal(expired.status, 'EXPIRED');
+  assert.equal(evaluatePromotionGate(row, false, '2026-09-13T10:01:00.000Z').open, false);
+});
+
+test('Phase 2C migration enforces an immutable, database-guarded promotion window', async () => {
+  const schema = await fs.readFile(new URL('../migrations/0012_tariff_promotion_window.sql', import.meta.url), 'utf8');
+  assert.match(schema, /tariff_promotion_gate/);
+  assert.match(schema, /tariff_promotion_gate_events/);
+  assert.match(schema, /events are immutable/);
+  assert.match(schema, /promotion window is closed or expired/);
 });
 
 test('publisher readiness endpoint verifies R2 evidence without database writes', async () => {
@@ -291,6 +320,13 @@ test('first production baseline requires the enabled flag and an exact confirmat
                 }
                 if (sql.includes('FROM tariff_production_state')) return null;
                 if (sql.includes('FROM tariff_hts_changes')) return { total: 0 };
+                if (sql.includes('FROM tariff_promotion_gate')) return {
+                  status: 'OPEN',
+                  opened_at: '2026-09-13T10:00:00.000Z',
+                  opened_until: '2999-09-13T10:15:00.000Z',
+                  opened_by: 'publisher@example.com',
+                  open_reason: 'Controlled baseline activation'
+                };
                 throw new Error(`Unexpected first query: ${sql}`);
               },
               async all() {
@@ -325,7 +361,7 @@ test('first production baseline requires the enabled flag and an exact confirmat
   const artifact = JSON.parse(writes[0].value);
   assert.deepEqual(artifact.overlay, []);
   assert.equal(batches.length, 1);
-  assert.equal(batches[0].length, 4);
+  assert.equal(batches[0].length, 6);
   assert.ok(batches[0].some(statement => statement.sql.includes('INSERT INTO tariff_production_state')));
   assert.ok(batches[0].some(statement => statement.sql.includes('INSERT INTO tariff_promotion_events')));
 });
@@ -345,6 +381,15 @@ test('rollback accepts only the active production head and records one atomic au
               sql,
               values,
               async first() {
+                if (sql.includes('FROM tariff_promotion_gate')) {
+                  return {
+                    status: 'OPEN',
+                    opened_at: '2026-09-13T10:00:00.000Z',
+                    opened_until: '2999-09-13T10:15:00.000Z',
+                    opened_by: 'publisher@example.com',
+                    open_reason: 'Controlled rollback'
+                  };
+                }
                 if (sql.includes('FROM tariff_promotion_batches')) {
                   return {
                     id: batchId,
@@ -380,7 +425,7 @@ test('rollback accepts only the active production head and records one atomic au
   assert.equal(response.status, 200);
   assert.equal(data.status, 'ROLLED_BACK');
   assert.equal(data.restoredBatchId, null);
-  assert.equal(statements.length, 4);
+  assert.equal(statements.length, 6);
   assert.ok(statements.some(statement => statement.sql.includes('DELETE FROM tariff_production_state')));
   assert.ok(statements.some(statement => statement.sql.includes("'ROLLED_BACK'")));
 });

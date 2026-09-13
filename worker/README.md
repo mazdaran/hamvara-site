@@ -51,7 +51,7 @@ values, acknowledge a candidate, and record `ACCEPTED`, `REJECTED`, or `NO_IMPAC
 mandatory reason. Use separate Sync, Preparer, Reviewer and Publisher credentials; actor
 identities are read from Worker configuration and are never accepted from the request body.
 
-Phase 2B keeps the publisher-authenticated readiness gate and adds controlled promotion. It
+Phase 2C keeps the publisher-authenticated readiness gate and controlled promotion. It
 verifies that the run is
 staged, the R2 manifest exists and matches its D1 SHA-256 evidence, at least one candidate was
 accepted or marked no-impact, every candidate was acknowledged and decided with evidence,
@@ -66,9 +66,11 @@ the effective production lineage in a later collection. Rollback can move only t
 production head to its immediate predecessor. Both promotion and rollback require the
 Publisher secret, an audit reason, and an exact confirmation phrase.
 
-`TARIFF_PRODUCTION_PROMOTION_ENABLED` defaults to `false` in `wrangler.toml`. Leave it closed
-through migration, deployment and readiness verification. Enabling it is a separate,
-explicit production decision; the API refuses both promotion and rollback while it is false.
+`TARIFF_PRODUCTION_PROMOTION_ENABLED` is the server-side master switch. Phase 2C keeps that
+switch enabled but adds a separate D1-backed promotion window which defaults closed, expires
+after at most 30 minutes, and closes automatically after a promotion or rollback. Opening or
+closing the window requires the Publisher secret, an audit reason and an exact confirmation
+phrase. The API and database triggers both refuse promotion and rollback outside an active window.
 
 Required controlled-role secrets and variables:
 
@@ -85,6 +87,9 @@ manual GitHub Actions workflows and do not invoke one another.
 - Evidence of review: `POST /api/tariff/admin/changes/:id/acknowledge`
 - Controlled disposition: `POST /api/tariff/admin/changes/:id/disposition`
 - Publisher readiness gate: `GET /api/tariff/admin/sync-runs/:id/promotion-readiness`
+- Promotion window state: `GET /api/tariff/admin/promotion-gate`
+- Open/close promotion window: `POST /api/tariff/admin/promotion-gate/:action`
+- Immutable promotion history: `GET /api/tariff/admin/promotion-history`
 - Controlled promotion: `POST /api/tariff/admin/sync-runs/:id/promote`
 - Current production head: `GET /api/tariff/admin/production-state`
 - Head-only rollback: `POST /api/tariff/admin/promotions/:batchId/rollback`
@@ -98,6 +103,9 @@ that migration or deploying its Worker code, create the private R2 bucket named
 Migration `0011_tariff_promotion_journal.sql` freezes each run's production lineage and adds
 the production pointer, promotion batches, immutable audit events and database triggers that
 reject stale-head publication, incomplete review evidence and non-head rollback.
+
+Migration `0012_tariff_promotion_window.sql` adds the time-limited gate, immutable gate events,
+and database-level guards that reject promotion or rollback after the window closes or expires.
 
 Configure all controlled-role secrets and actor variables listed above before using the administration endpoints. A new rule set starts as `DRAFT`. Every primary source must be reviewed before an independent user can move it to `VERIFIED`; a different user must publish it. The public API returns only `PUBLISHED` rule sets.
 
