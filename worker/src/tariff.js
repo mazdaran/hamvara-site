@@ -219,6 +219,16 @@ export function chapterMayBeEmpty(chapter) {
   return EMPTY_HTS_CHAPTERS.has(Number(chapter));
 }
 
+export function validateReviewDisposition(body) {
+  const disposition = clean(body?.disposition, 20).toUpperCase();
+  const reason = clean(body?.reason, 500);
+  if (!['ACCEPTED','REJECTED','NO_IMPACT'].includes(disposition)) {
+    throw httpError(400, 'Disposition must be ACCEPTED, REJECTED or NO_IMPACT.');
+  }
+  if (!reason) throw httpError(400, 'A disposition reason is required.');
+  return { disposition, reason };
+}
+
 async function finalizeTariffSync(env, runId, sourceRevision, completedAt) {
   const bucket = requireSnapshotStore(env);
   const run = await env.DB.prepare(`SELECT id,source,snapshot_prefix,base_snapshot_prefix FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
@@ -384,10 +394,7 @@ async function reviewSyncChange(request, env, id, action, actor) {
     await env.DB.prepare(`UPDATE tariff_hts_changes SET acknowledged_at=?,acknowledged_by=? WHERE id=? AND acknowledged_at IS NULL`).bind(now,actor,id).run();
     return json({ ok:true,id,acknowledgedAt:now,acknowledgedBy:actor });
   }
-  const disposition = clean(body.disposition, 20).toUpperCase();
-  const reason = clean(body.reason, 500);
-  if (!['ACCEPTED','REJECTED','NO_IMPACT'].includes(disposition)) throw httpError(400, 'Disposition must be ACCEPTED, REJECTED or NO_IMPACT.');
-  if (!reason) throw httpError(400, 'A disposition reason is required.');
+  const { disposition, reason } = validateReviewDisposition(body);
   await env.DB.prepare(`UPDATE tariff_hts_changes SET disposition=?,disposition_at=?,disposition_by=?,disposition_reason=? WHERE id=?`).bind(disposition,now,actor,reason,id).run();
   return json({ ok:true,id,disposition,actor,at:now });
 }

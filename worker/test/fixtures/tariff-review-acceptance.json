@@ -1,0 +1,56 @@
+{
+  "baseline": [
+    {
+      "htsno": "0101.21.0010",
+      "description": "Live horses: Purebred breeding animals",
+      "general": "Free",
+      "units": ["No."]
+    },
+    {
+      "htsno": "0101.29.0010",
+      "description": "Live horses: Other",
+      "general": "2%",
+      "units": ["No."]
+    },
+    {
+      "htsno": "0102.21.0010",
+      "description": "Cattle: Purebred breeding animals",
+      "general": "Free",
+      "units": ["No."]
+    }
+  ],
+  "candidate": [
+    {
+      "htsno": "0101.21.0010",
+      "description": "Live horses: Purebred breeding animals",
+      "general": "Free",
+      "units": ["No."]
+    },
+    {
+      "htsno": "0101.29.0010",
+      "description": "Live horses: Other",
+      "general": "2.5%",
+      "units": ["No."]
+    },
+    {
+      "htsno": "0103.10.0000",
+      "description": "Live swine: Purebred breeding animals",
+      "general": "Free",
+      "units": ["No."]
+    }
+  ],
+  "reviewDecisions": {
+    "CHANGED": {
+      "disposition": "ACCEPTED",
+      "reason": "Controlled acceptance fixture: verified rate change."
+    },
+    "REMOVED": {
+      "disposition": "REJECTED",
+      "reason": "Controlled acceptance fixture: removal requires primary-source review."
+    },
+    "ADDED": {
+      "disposition": "NO_IMPACT",
+      "reason": "Controlled acceptance fixture: addition has no current BOM impact."
+    }
+  }
+}
