@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chapterMayBeEmpty, diffSnapshotRecords, extractRecords, normalizeHtsRecord } from '../src/tariff.js';
+import { applyPromotionOverlay, chapterMayBeEmpty, diffSnapshotRecords, extractRecords, normalizeHtsRecord } from '../src/tariff.js';
 
 test('USITC payload normalization preserves HTS text and duty fields', async () => {
   const payload = { results: [{ htsno: '0101.21.0010', description: 'Test animal', general: 'Free', special: 'A+', units: ['No.'] }] };
@@ -63,14 +63,38 @@ test('controlled rule workflow and published-only API remain in source', async (
   assert.match(source, /PRIMARY_PENDING/);
 });
 
-test('phase 2A keeps tariff collection manual and production promotion locked', async () => {
+test('phase 2B keeps collection manual and promotion locked by default', async () => {
   const fs = await import('node:fs/promises');
   const worker = await fs.readFile(new URL('../src/index.js', import.meta.url), 'utf8');
   const tariff = await fs.readFile(new URL('../src/tariff.js', import.meta.url), 'utf8');
+  const config = await fs.readFile(new URL('../../wrangler.toml', import.meta.url), 'utf8');
   assert.doesNotMatch(worker, /runScheduledTariffSync/);
-  assert.match(tariff, /Production promotion is disabled in Tariff Control phase 2A/);
+  assert.match(tariff, /TARIFF_PRODUCTION_PROMOTION_ENABLED/);
+  assert.match(config, /TARIFF_PRODUCTION_PROMOTION_ENABLED = "false"/);
   assert.match(tariff, /acknowledge\|disposition/);
   assert.match(tariff, /'ACCEPTED','REJECTED','NO_IMPACT'/);
+});
+
+test('production overlay applies only reviewed deltas for the requested chapter', async () => {
+  const original = await normalizeHtsRecord({ htsno:'0101.21.0010',description:'Original',general:'2%' }, 'base');
+  const unchanged = await normalizeHtsRecord({ htsno:'0201.10.0010',description:'Chapter two',general:'Free' }, 'base');
+  const replacement = await normalizeHtsRecord({ htsno:'0101.22.0010',description:'Accepted replacement',general:'3%' }, 'candidate');
+  const effective = applyPromotionOverlay([original, unchanged], [
+    { hts10: original.hts10, removed: true, value: null },
+    { hts10: replacement.hts10, removed: false, value: replacement },
+    { hts10: unchanged.hts10, removed: true, value: null }
+  ], 1);
+  assert.deepEqual(effective.map(item => item.hts10), [replacement.hts10, unchanged.hts10]);
+});
+
+test('promotion journal migration freezes lineage and makes audit events immutable', async () => {
+  const fs = await import('node:fs/promises');
+  const schema = await fs.readFile(new URL('../migrations/0011_tariff_promotion_journal.sql', import.meta.url), 'utf8');
+  for (const field of ['base_overlay_key','tariff_production_state','tariff_promotion_batches','tariff_promotion_events']) {
+    assert.match(schema, new RegExp(field));
+  }
+  assert.match(schema, /only the production head can be rolled back/);
+  assert.match(schema, /tariff promotion events are immutable/);
 });
 
 test('phase 1 migration stores review disposition and acknowledgment evidence', async () => {

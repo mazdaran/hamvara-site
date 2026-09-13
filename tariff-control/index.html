@@ -10,14 +10,28 @@
   <script src="./app.js" defer></script>
 </head>
 <body>
-  <header><a href="/">HAMVARA</a><span>TARIFF CONTROL EXTENSION · PHASE 2A</span><a href="../tariff-impact/">Impact calculator</a></header>
+  <header><a href="/">HAMVARA</a><span>TARIFF CONTROL EXTENSION · PHASE 2B</span><a href="../tariff-impact/">Impact calculator</a></header>
   <main>
-    <section class="title"><p>MANUAL, CONTROLLED, AUDITABLE</p><h1>Review changes before they reach production.</h1><span>Phase 2A evaluates publication readiness but cannot promote tariff data to production.</span></section>
-    <section class="notice"><strong>Production lock active</strong><span>Publisher readiness is available; production promotion and scheduled tariff collection are disabled.</span></section>
+    <section class="title"><p>MANUAL, CONTROLLED, AUDITABLE</p><h1>Review changes before they reach production.</h1><span>Phase 2B supports publisher-gated promotion and head-only rollback. Scheduled collection remains disabled.</span></section>
+    <section class="notice"><strong>Production lock defaults closed</strong><span>Promotion and rollback require the Publisher credential, a recorded reason, an exact confirmation phrase, and the server-side production flag.</span></section>
     <section class="controls">
-      <article><h2>1 · Credentials</h2><label>Sync credential<input id="syncToken" type="password" autocomplete="off" placeholder="Used only to fetch"></label><label>Reviewer credential<input id="reviewToken" type="password" autocomplete="off" placeholder="Used only to review"></label><label>Publisher credential<input id="publisherToken" type="password" autocomplete="off" placeholder="Used only for readiness checks"></label><p>Credentials stay in this browser tab and are never saved.</p></article>
+      <article><h2>1 · Credentials</h2><label>Sync credential<input id="syncToken" type="password" autocomplete="off" placeholder="Used only to fetch"></label><label>Reviewer credential<input id="reviewToken" type="password" autocomplete="off" placeholder="Used only to review"></label><label>Publisher credential<input id="publisherToken" type="password" autocomplete="off" placeholder="Used only to publish or roll back"></label><p>Credentials stay in this browser tab and are never saved.</p></article>
       <article><h2>2 · Manual collection</h2><p>Download the source chapter by chapter and create an immutable staged comparison.</p><button id="sync">Check for updates</button><button id="resume" class="secondary">Resume run</button><button id="status" class="secondary">Refresh status</button><progress id="progress" max="97" value="0" hidden></progress><p id="connection">Not connected.</p></article>
-      <article><h2>3 · Candidate run</h2><label>Staged run<select id="runId"><option value="">Select a run</option></select></label><button id="runs">Load candidate runs</button><button id="changes" class="secondary">Load changes</button><button id="readiness" class="secondary">Check publication readiness</button><p id="readinessState">Phase 2A readiness checks are available; production promotion remains locked.</p></article>
+      <article>
+        <h2>3 · Candidate run</h2>
+        <label>Staged run<select id="runId"><option value="">Select a run</option></select></label>
+        <button id="runs">Load candidate runs</button>
+        <button id="changes" class="secondary">Load changes</button>
+        <button id="readiness" class="secondary">Check publication readiness</button>
+        <p id="readinessState">Check readiness before attempting a controlled promotion.</p>
+        <label>Publisher reason<textarea id="publicationReason" rows="3" maxlength="500" placeholder="Required for promotion or rollback"></textarea></label>
+        <label>Promotion confirmation<input id="promotionConfirmation" type="text" autocomplete="off" placeholder="Use the exact phrase shown after readiness"></label>
+        <button id="promote" disabled>Promote selected run</button>
+        <button id="production" class="secondary">Load production head</button>
+        <label>Rollback confirmation<input id="rollbackConfirmation" type="text" autocomplete="off" placeholder="ROLLBACK batch-id"></label>
+        <button id="rollback" class="secondary" disabled>Roll back current head</button>
+        <p id="productionState">No production state loaded.</p>
+      </article>
     </section>
     <section class="worklist">
       <div class="worklist-head"><div><p>CANDIDATE WORKLIST</p><h2>Detected HTS changes</h2></div><div class="filters"><label>Type<select id="type"><option value="">All</option><option>ADDED</option><option>CHANGED</option><option>REMOVED</option></select></label><label>Disposition<select id="disposition"><option value="">All</option><option selected>PENDING</option><option>ACCEPTED</option><option>REJECTED</option><option>NO_IMPACT</option></select></label></div></div>

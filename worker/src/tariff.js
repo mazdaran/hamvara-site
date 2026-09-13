@@ -4,6 +4,7 @@ const HTS_CHAPTERS = 97;
 const EMPTY_HTS_CHAPTERS = new Set([77]);
 const SYNC_STALE_MS = 10 * 60 * 1000;
 const SYNC_LEASE_MS = 90 * 1000;
+const PROMOTION_SCHEMA_VERSION = 1;
 
 export async function handleTariffRequest(request, env, url) {
   if (!env.DB) throw httpError(503, 'Tariff database is not configured.');
@@ -36,6 +37,15 @@ export async function handleTariffRequest(request, env, url) {
   if (promotionReadinessMatch && request.method === 'GET') {
     const actor = requireRole(request, env, 'publisher');
     return promotionReadiness(env, promotionReadinessMatch[1], actor);
+  }
+  if (url.pathname === '/api/tariff/admin/production-state' && request.method === 'GET') {
+    const actor = requireRole(request, env, 'publisher');
+    return productionState(env, actor);
+  }
+  const rollbackMatch = /^\/api\/tariff\/admin\/promotions\/([A-Za-z0-9._-]+)\/rollback\/?$/.exec(url.pathname);
+  if (rollbackMatch && request.method === 'POST') {
+    const actor = requireRole(request, env, 'publisher');
+    return rollbackPromotion(request, env, rollbackMatch[1], actor);
   }
   const syncDecision = /^\/api\/tariff\/admin\/sync-runs\/([A-Za-z0-9._-]+)\/(promote|reject)\/?$/.exec(url.pathname);
   if (syncDecision && request.method === 'POST') {
@@ -76,12 +86,25 @@ export async function startTariffSync(env, options = {}) {
   const runId = options.runId || crypto.randomUUID();
   const sourceUrl = env.USITC_HTS_EXPORT_URL || USITC_EXPORT_URL;
   const prefix = snapshotPrefix(runId);
-  const base = await env.DB.prepare(`SELECT snapshot_prefix FROM tariff_sync_runs
+  const production = await env.DB.prepare(`SELECT base_snapshot_prefix,overlay_artifact_key,overlay_artifact_sha256
+    FROM tariff_production_state WHERE singleton=1`).bind().first();
+  const latestSnapshot = production ? null : await env.DB.prepare(`SELECT snapshot_prefix FROM tariff_sync_runs
     WHERE snapshot_manifest_key IS NOT NULL AND snapshot_prefix IS NOT NULL
     ORDER BY completed_at DESC LIMIT 1`).first();
+  const baseSnapshotPrefix = production?.base_snapshot_prefix || latestSnapshot?.snapshot_prefix || null;
   await env.DB.prepare(`INSERT INTO tariff_sync_runs
-    (id,source,status,started_at,heartbeat_at,progress_current,progress_total,snapshot_prefix,base_snapshot_prefix)
-    VALUES (?,?,'RUNNING',?,?,0,?,?,?)`).bind(runId, sourceUrl, now, now, HTS_CHAPTERS, prefix, base?.snapshot_prefix || null).run();
+    (id,source,status,started_at,heartbeat_at,progress_current,progress_total,snapshot_prefix,base_snapshot_prefix,base_overlay_key,base_overlay_sha256)
+    VALUES (?,?,'RUNNING',?,?,0,?,?,?,?,?)`).bind(
+      runId,
+      sourceUrl,
+      now,
+      now,
+      HTS_CHAPTERS,
+      prefix,
+      baseSnapshotPrefix,
+      production?.overlay_artifact_key || null,
+      production?.overlay_artifact_sha256 || null
+    ).run();
   return {
     ok: true,
     runId,
@@ -89,7 +112,7 @@ export async function startTariffSync(env, options = {}) {
     progressCurrent: 0,
     progressTotal: HTS_CHAPTERS,
     resumed: false,
-    baseline: !base?.snapshot_prefix,
+    baseline: !baseSnapshotPrefix,
     snapshotPrefix: prefix,
     storage: bucket ? 'R2' : null
   };
@@ -99,7 +122,7 @@ export async function stepTariffSync(env, runId, options = {}) {
   const bucket = requireSnapshotStore(env);
   const fetchImpl = options.fetchImpl || fetch;
   const now = options.now || new Date().toISOString();
-  let run = await env.DB.prepare(`SELECT id,source,status,source_revision,rows_received,progress_current,progress_total,heartbeat_at,lease_token,lease_expires_at,snapshot_prefix,base_snapshot_prefix,snapshot_manifest_key
+  let run = await env.DB.prepare(`SELECT id,source,status,source_revision,rows_received,progress_current,progress_total,heartbeat_at,lease_token,lease_expires_at,snapshot_prefix,base_snapshot_prefix,base_overlay_key,base_overlay_sha256,snapshot_manifest_key
     FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
   if (!run) throw httpError(404, 'Sync run not found.');
   if (run.status === 'STAGED') return syncProgress(run, true);
@@ -113,7 +136,7 @@ export async function stepTariffSync(env, runId, options = {}) {
   if (Number(claim.meta?.changes ?? claim.changes ?? 1) === 0) return { ...syncProgress(run, true), busy: true };
 
   try {
-    run = await env.DB.prepare(`SELECT id,source,status,source_revision,rows_received,progress_current,progress_total,heartbeat_at,snapshot_prefix,base_snapshot_prefix
+    run = await env.DB.prepare(`SELECT id,source,status,source_revision,rows_received,progress_current,progress_total,heartbeat_at,snapshot_prefix,base_snapshot_prefix,base_overlay_key,base_overlay_sha256
       FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
     const chapter = Number(run.progress_current || 0) + 1;
     if (chapter > HTS_CHAPTERS) return finalizeTariffSync(env, runId, run.source_revision, now);
@@ -136,6 +159,10 @@ export async function stepTariffSync(env, runId, options = {}) {
     if (run.base_snapshot_prefix) {
       previous = await readSnapshotChapter(bucket, run.base_snapshot_prefix, chapter);
       if (!previous) throw new Error(`Previous snapshot chapter ${prefix} is missing; comparison stopped safely.`);
+      if (run.base_overlay_key) {
+        const promotion = await readPromotionArtifact(bucket, run.base_overlay_key, run.base_overlay_sha256);
+        previous = { ...previous, records: applyPromotionOverlay(previous.records, promotion.overlay, chapter) };
+      }
     }
     const changes = previous ? diffSnapshotRecords(previous.records, unique) : [];
     const detectedAt = now;
@@ -248,27 +275,38 @@ export function evaluatePromotionReadiness(run, rawCounts, publisherActor, promo
     missingDecisionEvidence: Number(rawCounts?.missing_decision_evidence ?? rawCounts?.missingDecisionEvidence ?? 0),
     publisherSeparationViolations: Number(rawCounts?.publisher_separation_violations ?? rawCounts?.publisherSeparationViolations ?? 0)
   };
+  const productionExists = Boolean(run?.productionExists);
+  const baselineActivation = !productionExists && counts.total === 0;
+  const applyMode = baselineActivation ? 'BASELINE_ACTIVATION' : 'DELTA_ONLY';
   const reviewBlockers = [];
   if (!run || run.status !== 'STAGED') reviewBlockers.push('RUN_NOT_STAGED');
   if (!run?.snapshotEvidenceValid) reviewBlockers.push('SNAPSHOT_EVIDENCE_INVALID');
-  if (!counts.total || !counts.accepted) reviewBlockers.push('NO_ACCEPTED_CHANGES');
+  if (!productionExists && counts.total > 0) reviewBlockers.push('BASELINE_REQUIRES_ZERO_DELTA');
+  if (productionExists && !counts.accepted && !counts.noImpact) reviewBlockers.push('NO_APPLICABLE_CHANGES');
   if (counts.pending) reviewBlockers.push('PENDING_DISPOSITIONS');
   if (counts.unacknowledged) reviewBlockers.push('UNACKNOWLEDGED_CHANGES');
   if (counts.missingDecisionEvidence) reviewBlockers.push('DECISION_EVIDENCE_MISSING');
   if (counts.publisherSeparationViolations) reviewBlockers.push('PUBLISHER_REVIEWER_SEPARATION_REQUIRED');
+  if (productionExists && !run?.productionLineageValid) reviewBlockers.push('PRODUCTION_HEAD_CHANGED');
   const reviewReady = reviewBlockers.length === 0;
   const blockers = promotionEnabled ? reviewBlockers : [...reviewBlockers, 'PRODUCTION_LOCKED'];
   return {
     ok: true,
-    phase: '2A',
+    phase: '2B',
     runId: run?.id || null,
     publisherActor,
-    applyMode: 'DELTA_ONLY',
+    applyMode,
     reviewReady,
     promotionEnabled: Boolean(promotionEnabled),
     readyForPromotion: reviewReady && Boolean(promotionEnabled),
+    confirmationText: applyMode === 'BASELINE_ACTIVATION' ? 'ACTIVATE BASELINE' : `PROMOTE ${run?.id || ''}`,
     blockers,
     counts,
+    production: {
+      exists: productionExists,
+      headBatchId: run?.productionHeadBatchId || null,
+      rollbackAvailable: productionExists
+    },
     snapshot: run ? {
       manifestKey: run.snapshot_manifest_key || null,
       sha256: run.snapshot_sha256 || null,
@@ -279,7 +317,7 @@ export function evaluatePromotionReadiness(run, rawCounts, publisherActor, promo
 
 async function finalizeTariffSync(env, runId, sourceRevision, completedAt) {
   const bucket = requireSnapshotStore(env);
-  const run = await env.DB.prepare(`SELECT id,source,snapshot_prefix,base_snapshot_prefix FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
+  const run = await env.DB.prepare(`SELECT id,source,snapshot_prefix,base_snapshot_prefix,base_overlay_key,base_overlay_sha256 FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
   if (!run?.snapshot_prefix) throw new Error('Snapshot prefix is missing.');
   const chapterResult = await env.DB.prepare(`SELECT chapter,object_key,content_sha256,row_count,stored_at
     FROM tariff_snapshot_chapters WHERE run_id=? ORDER BY chapter`).bind(runId).all();
@@ -295,6 +333,8 @@ async function finalizeTariffSync(env, runId, sourceRevision, completedAt) {
     runId,
     sourceRevision,
     baselineSnapshotPrefix: run.base_snapshot_prefix || null,
+    baselineOverlayKey: run.base_overlay_key || null,
+    baselineOverlaySha256: run.base_overlay_sha256 || null,
     capturedAt: completedAt,
     rowCount: chapters.reduce((total, chapter) => total + Number(chapter.row_count || 0), 0),
     deltaCounts: { added: totals.ADDED || 0, changed: totals.CHANGED || 0, removed: totals.REMOVED || 0 },
@@ -368,12 +408,61 @@ async function readSnapshotChapter(bucket, prefix, chapter) {
   return document;
 }
 
+async function readPromotionArtifact(bucket, key, expectedSha256) {
+  if (!key || !/^[0-9a-f]{64}$/i.test(String(expectedSha256 || ''))) {
+    throw new Error('Production overlay evidence is incomplete.');
+  }
+  const object = await bucket.get(key);
+  if (!object) throw new Error('Production overlay artifact is missing.');
+  const text = await object.text();
+  if (await sha256(text) !== expectedSha256) throw new Error('Production overlay evidence does not match its recorded digest.');
+  const artifact = JSON.parse(text);
+  if (artifact.schemaVersion !== PROMOTION_SCHEMA_VERSION || !Array.isArray(artifact.overlay)) {
+    throw new Error('Production overlay artifact has an unsupported format.');
+  }
+  return artifact;
+}
+
+export function applyPromotionOverlay(records, overlay, chapter) {
+  const prefix = String(chapter).padStart(2, '0');
+  const effective = new Map((records || []).map(record => [record.hts10, record]));
+  for (const item of overlay || []) {
+    if (!item?.hts10?.startsWith(prefix)) continue;
+    if (item.removed) effective.delete(item.hts10);
+    else if (item.value?.hts10 === item.hts10) effective.set(item.hts10, item.value);
+  }
+  return [...effective.values()].sort((left, right) => left.hts10.localeCompare(right.hts10));
+}
+
+async function recordFromChangeValue(hts10, value, sourceRevision) {
+  if (!value) return null;
+  const units = parseJson(value.units_json, []);
+  const record = {
+    hts10,
+    description: clean(value.description, 2000),
+    generalRateRaw: clean(value.general_rate_raw, 300),
+    specialRateRaw: clean(value.special_rate_raw, 500),
+    units: Array.isArray(units) ? units.map(String) : [],
+    sourceRevision: clean(value.source_revision || sourceRevision, 180)
+  };
+  record.contentHash = clean(value.content_hash, 64) || await sha256(JSON.stringify({
+    hts10: record.hts10,
+    description: record.description,
+    generalRateRaw: record.generalRateRaw,
+    specialRateRaw: record.specialRateRaw,
+    units: record.units
+  }));
+  return record;
+}
+
 function snapshotValue(record) {
   return {
     description: record.description,
     general_rate_raw: record.generalRateRaw || '',
     special_rate_raw: record.specialRateRaw || '',
-    units_json: JSON.stringify(record.units || [])
+    units_json: JSON.stringify(record.units || []),
+    source_revision: record.sourceRevision || '',
+    content_hash: record.contentHash || ''
   };
 }
 
@@ -381,10 +470,12 @@ function chapterSourceUrl(source,chapter){const url=new URL(source),prefix=Strin
 function isStaleSync(run,now){const timestamp=Date.parse(run.heartbeat_at||run.started_at||'');return !Number.isFinite(timestamp)||Date.parse(now)-timestamp>SYNC_STALE_MS}
 function syncProgress(run,resumed=false){return{ok:true,runId:run.id,status:run.status,rowsReceived:Number(run.rows_received||0),added:Number(run.rows_added||0),changed:Number(run.rows_changed||0),removed:Number(run.rows_removed||0),progressCurrent:Number(run.progress_current||0),progressTotal:Number(run.progress_total||HTS_CHAPTERS),heartbeatAt:run.heartbeat_at||null,completedAt:run.completed_at||null,resumed,baseline:!run.base_snapshot_prefix,snapshotPrefix:run.snapshot_prefix||null,snapshotManifestKey:run.snapshot_manifest_key||null,snapshotSha256:run.snapshot_sha256||null}}
 
-async function promotionReadiness(env, runId, publisherActor) {
-  const run = await env.DB.prepare(`SELECT id,status,snapshot_manifest_key,snapshot_sha256
+async function loadPromotionContext(env, runId, publisherActor) {
+  const run = await env.DB.prepare(`SELECT id,status,source_revision,snapshot_prefix,base_snapshot_prefix,base_overlay_key,base_overlay_sha256,snapshot_manifest_key,snapshot_sha256
     FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
   if (!run) throw httpError(404, 'Sync run not found.');
+  const state = await env.DB.prepare(`SELECT singleton,base_run_id,base_snapshot_prefix,base_manifest_key,base_snapshot_sha256,head_batch_id,overlay_artifact_key,overlay_artifact_sha256,updated_at,updated_by
+    FROM tariff_production_state WHERE singleton=1`).bind().first();
 
   let snapshotEvidenceValid = false;
   if (run.snapshot_manifest_key && /^[0-9a-f]{64}$/i.test(String(run.snapshot_sha256 || ''))) {
@@ -393,7 +484,8 @@ async function promotionReadiness(env, runId, publisherActor) {
       const manifestJson = await manifestObject.text();
       try {
         const manifest = JSON.parse(manifestJson);
-        snapshotEvidenceValid = await sha256(manifestJson) === run.snapshot_sha256
+        snapshotEvidenceValid = Boolean(run.snapshot_prefix)
+          && await sha256(manifestJson) === run.snapshot_sha256
           && manifest.schemaVersion === 1
           && manifest.runId === run.id
           && Array.isArray(manifest.chapters)
@@ -417,23 +509,228 @@ async function promotionReadiness(env, runId, publisherActor) {
       SUM(CASE WHEN disposition<>'PENDING' AND (disposition_at IS NULL OR disposition_by IS NULL OR disposition_reason IS NULL OR trim(disposition_reason)='') THEN 1 ELSE 0 END) AS missing_decision_evidence,
       SUM(CASE WHEN disposition_by=? OR acknowledged_by=? THEN 1 ELSE 0 END) AS publisher_separation_violations
     FROM tariff_hts_changes WHERE run_id=?`).bind(publisherActor, publisherActor, runId).first();
-  return json(evaluatePromotionReadiness({ ...run, snapshotEvidenceValid }, counts, publisherActor, false));
+  const productionLineageValid = !state || (
+    run.base_snapshot_prefix === state.base_snapshot_prefix
+    && run.base_overlay_key === state.overlay_artifact_key
+    && run.base_overlay_sha256 === state.overlay_artifact_sha256
+  );
+  const enrichedRun = {
+    ...run,
+    snapshotEvidenceValid,
+    productionExists: Boolean(state),
+    productionHeadBatchId: state?.head_batch_id || null,
+    productionLineageValid
+  };
+  const readiness = evaluatePromotionReadiness(enrichedRun, counts, publisherActor, promotionEnabled(env));
+  return { run, state, counts, readiness };
+}
+
+async function promotionReadiness(env, runId, publisherActor) {
+  const context = await loadPromotionContext(env, runId, publisherActor);
+  return json(context.readiness);
+}
+
+async function productionState(env, publisherActor) {
+  const state = await env.DB.prepare(`SELECT singleton,base_run_id,base_snapshot_prefix,base_manifest_key,base_snapshot_sha256,head_batch_id,overlay_artifact_key,overlay_artifact_sha256,updated_at,updated_by
+    FROM tariff_production_state WHERE singleton=1`).bind().first();
+  if (!state) return json({ ok: true, phase: '2B', productionEnabled: promotionEnabled(env), active: false, head: null });
+  const head = await env.DB.prepare(`SELECT id,run_id,mode,status,previous_batch_id,artifact_key,artifact_sha256,applied_count,accepted_count,no_impact_count,promoted_at,promoted_by,promotion_reason
+    FROM tariff_promotion_batches WHERE id=?`).bind(state.head_batch_id).first();
+  return json({
+    ok: true,
+    phase: '2B',
+    productionEnabled: promotionEnabled(env),
+    active: true,
+    state,
+    head,
+    rollbackConfirmationText: head ? `ROLLBACK ${head.id}` : null,
+    publisherActor
+  });
 }
 
 async function decideSyncRun(request, env, runId, action, actor) {
-  const body=await safeJson(request),reason=clean(body.reason,500),now=new Date().toISOString();
-  if(!reason)throw httpError(400,'A decision reason is required.');
-  const run=await env.DB.prepare(`SELECT status,started_at FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
-  if(!run)throw httpError(404,'Sync run not found.');
-  if(run.status!=='STAGED')throw httpError(409,'Only a staged sync run can be decided.');
-  if(action==='promote')throw httpError(409,'Production promotion is disabled in Tariff Control phase 2A. Readiness evaluation only.');
-  if(action==='reject'){
-    await env.DB.batch([
-      env.DB.prepare(`UPDATE tariff_sync_runs SET status='REJECTED',promoted_at=?,promoted_by=?,decision_reason=? WHERE id=?`).bind(now,actor,reason,runId),
-      env.DB.prepare('DELETE FROM tariff_hts_stage WHERE run_id=?').bind(runId)
-    ]);
-    return json({ok:true,runId,status:'REJECTED',actor,at:now});
+  const body = await safeJson(request);
+  const reason = clean(body.reason, 500);
+  const now = new Date().toISOString();
+  if (!reason) throw httpError(400, 'A decision reason is required.');
+  if (action === 'promote') return promoteSyncRun(env, runId, actor, body, reason, now);
+  const run = await env.DB.prepare(`SELECT status FROM tariff_sync_runs WHERE id=?`).bind(runId).first();
+  if (!run) throw httpError(404, 'Sync run not found.');
+  if (run.status !== 'STAGED') throw httpError(409, 'Only a staged sync run can be decided.');
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE tariff_sync_runs SET status='REJECTED',promoted_at=?,promoted_by=?,decision_reason=? WHERE id=? AND status='STAGED'`).bind(now, actor, reason, runId),
+    env.DB.prepare('DELETE FROM tariff_hts_stage WHERE run_id=?').bind(runId)
+  ]);
+  return json({ ok: true, runId, status: 'REJECTED', actor, at: now });
+}
+
+async function promoteSyncRun(env, runId, actor, body, reason, now) {
+  const context = await loadPromotionContext(env, runId, actor);
+  if (!context.readiness.readyForPromotion) {
+    throw httpError(409, `Promotion gate failed: ${context.readiness.blockers.join(', ')}.`);
   }
+  if (clean(body.confirmation, 200) !== context.readiness.confirmationText) {
+    throw httpError(400, `Type exactly "${context.readiness.confirmationText}" to confirm promotion.`);
+  }
+
+  const bucket = requireSnapshotStore(env);
+  const previousArtifact = context.state
+    ? await readPromotionArtifact(bucket, context.state.overlay_artifact_key, context.state.overlay_artifact_sha256)
+    : { overlay: [] };
+  const changeResult = await env.DB.prepare(`SELECT id,hts10,change_type,new_value_json,disposition,disposition_at,disposition_by,disposition_reason,acknowledged_at,acknowledged_by
+    FROM tariff_hts_changes WHERE run_id=? AND disposition IN ('ACCEPTED','NO_IMPACT') ORDER BY id`).bind(runId).all();
+  const changes = changeResult.results || [];
+  const overlay = new Map((previousArtifact.overlay || []).map(item => [item.hts10, item]));
+  const entries = [];
+  for (const change of changes) {
+    const value = change.change_type === 'REMOVED'
+      ? null
+      : await recordFromChangeValue(change.hts10, parseJson(change.new_value_json, null), context.run.source_revision);
+    const item = {
+      hts10: change.hts10,
+      removed: change.change_type === 'REMOVED',
+      value,
+      sourceRunId: runId,
+      sourceChangeId: Number(change.id),
+      disposition: change.disposition,
+      promotedAt: now,
+      promotedBy: actor
+    };
+    overlay.set(change.hts10, item);
+    entries.push({
+      changeId: Number(change.id),
+      hts10: change.hts10,
+      changeType: change.change_type,
+      disposition: change.disposition,
+      dispositionAt: change.disposition_at,
+      dispositionBy: change.disposition_by,
+      dispositionReason: change.disposition_reason,
+      acknowledgedAt: change.acknowledged_at,
+      acknowledgedBy: change.acknowledged_by
+    });
+  }
+
+  const batchId = crypto.randomUUID();
+  const artifactKey = `tariff/usitc/promotions/${batchId}.json`;
+  const artifact = {
+    schemaVersion: PROMOTION_SCHEMA_VERSION,
+    batchId,
+    runId,
+    mode: context.readiness.applyMode,
+    previousBatchId: context.state?.head_batch_id || null,
+    previousArtifactKey: context.state?.overlay_artifact_key || null,
+    baseSnapshotPrefix: context.state?.base_snapshot_prefix || context.run.snapshot_prefix,
+    baseManifestKey: context.state?.base_manifest_key || context.run.snapshot_manifest_key,
+    baseSnapshotSha256: context.state?.base_snapshot_sha256 || context.run.snapshot_sha256,
+    promotedAt: now,
+    promotedBy: actor,
+    entries,
+    overlay: [...overlay.values()].sort((left, right) => left.hts10.localeCompare(right.hts10))
+  };
+  const artifactJson = JSON.stringify(artifact);
+  const artifactSha256 = await sha256(artifactJson);
+  await bucket.put(artifactKey, artifactJson, {
+    httpMetadata: { contentType: 'application/json; charset=utf-8' },
+    customMetadata: { batchId, runId, artifactSha256, mode: context.readiness.applyMode }
+  });
+
+  const baseRunId = context.state?.base_run_id || runId;
+  const baseSnapshotPrefix = artifact.baseSnapshotPrefix;
+  const baseManifestKey = artifact.baseManifestKey;
+  const baseSnapshotSha256 = artifact.baseSnapshotSha256;
+  const acceptedCount = changes.filter(change => change.disposition === 'ACCEPTED').length;
+  const noImpactCount = changes.filter(change => change.disposition === 'NO_IMPACT').length;
+  await env.DB.batch([
+    env.DB.prepare(`INSERT INTO tariff_promotion_batches
+      (id,run_id,mode,status,previous_batch_id,base_snapshot_prefix,base_manifest_key,base_snapshot_sha256,artifact_key,artifact_sha256,previous_artifact_key,previous_artifact_sha256,applied_count,accepted_count,no_impact_count,promoted_at,promoted_by,promotion_reason)
+      VALUES (?,?,?,'PROMOTED',?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
+        batchId, runId, context.readiness.applyMode, context.state?.head_batch_id || null,
+        baseSnapshotPrefix, baseManifestKey, baseSnapshotSha256, artifactKey, artifactSha256,
+        context.state?.overlay_artifact_key || null, context.state?.overlay_artifact_sha256 || null,
+        changes.length, acceptedCount, noImpactCount, now, actor, reason
+      ),
+    env.DB.prepare(`INSERT INTO tariff_production_state
+      (singleton,base_run_id,base_snapshot_prefix,base_manifest_key,base_snapshot_sha256,head_batch_id,overlay_artifact_key,overlay_artifact_sha256,updated_at,updated_by)
+      VALUES (1,?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(singleton) DO UPDATE SET
+        head_batch_id=excluded.head_batch_id,
+        overlay_artifact_key=excluded.overlay_artifact_key,
+        overlay_artifact_sha256=excluded.overlay_artifact_sha256,
+        updated_at=excluded.updated_at,
+        updated_by=excluded.updated_by`).bind(
+          baseRunId, baseSnapshotPrefix, baseManifestKey, baseSnapshotSha256,
+          batchId, artifactKey, artifactSha256, now, actor
+        ),
+    env.DB.prepare(`UPDATE tariff_sync_runs SET status='PROMOTED',promoted_at=?,promoted_by=?,decision_reason=? WHERE id=? AND status='STAGED'`).bind(now, actor, reason, runId),
+    env.DB.prepare(`INSERT INTO tariff_promotion_events
+      (id,batch_id,run_id,action,actor,reason,artifact_key,artifact_sha256,created_at)
+      VALUES (?,?,?,'PROMOTED',?,?,?,?,?)`).bind(crypto.randomUUID(), batchId, runId, actor, reason, artifactKey, artifactSha256, now)
+  ]);
+  return json({
+    ok: true,
+    phase: '2B',
+    status: 'PROMOTED',
+    runId,
+    batchId,
+    mode: context.readiness.applyMode,
+    appliedCount: changes.length,
+    acceptedCount,
+    noImpactCount,
+    artifact: { key: artifactKey, sha256: artifactSha256 },
+    rollbackConfirmationText: `ROLLBACK ${batchId}`,
+    actor,
+    at: now
+  });
+}
+
+async function rollbackPromotion(request, env, batchId, actor) {
+  if (!promotionEnabled(env)) throw httpError(409, 'Production promotion and rollback are locked by configuration.');
+  const body = await safeJson(request);
+  const reason = clean(body.reason, 500);
+  const confirmation = clean(body.confirmation, 200);
+  const expected = `ROLLBACK ${batchId}`;
+  if (!reason) throw httpError(400, 'A rollback reason is required.');
+  if (confirmation !== expected) throw httpError(400, `Type exactly "${expected}" to confirm rollback.`);
+  const batch = await env.DB.prepare(`SELECT id,run_id,status,previous_batch_id,previous_artifact_key,previous_artifact_sha256,artifact_key,artifact_sha256
+    FROM tariff_promotion_batches WHERE id=?`).bind(batchId).first();
+  if (!batch) throw httpError(404, 'Promotion batch not found.');
+  const state = await env.DB.prepare(`SELECT head_batch_id FROM tariff_production_state WHERE singleton=1`).bind().first();
+  if (batch.status !== 'PROMOTED' || state?.head_batch_id !== batch.id) {
+    throw httpError(409, 'Only the current production head can be rolled back.');
+  }
+  const previous = batch.previous_batch_id
+    ? await env.DB.prepare(`SELECT id,artifact_key,artifact_sha256 FROM tariff_promotion_batches WHERE id=?`).bind(batch.previous_batch_id).first()
+    : null;
+  if (batch.previous_batch_id && !previous) throw httpError(409, 'Previous production batch evidence is missing.');
+  if (previous) await readPromotionArtifact(requireSnapshotStore(env), previous.artifact_key, previous.artifact_sha256);
+  const now = new Date().toISOString();
+  const statements = [
+    env.DB.prepare(`UPDATE tariff_promotion_batches SET status='ROLLED_BACK',rolled_back_at=?,rolled_back_by=?,rollback_reason=? WHERE id=? AND status='PROMOTED'`).bind(now, actor, reason, batchId)
+  ];
+  if (previous) {
+    statements.push(env.DB.prepare(`UPDATE tariff_production_state SET head_batch_id=?,overlay_artifact_key=?,overlay_artifact_sha256=?,updated_at=?,updated_by=? WHERE singleton=1 AND head_batch_id=?`).bind(
+      previous.id, previous.artifact_key, previous.artifact_sha256, now, actor, batchId
+    ));
+  } else {
+    statements.push(env.DB.prepare(`DELETE FROM tariff_production_state WHERE singleton=1 AND head_batch_id=?`).bind(batchId));
+  }
+  statements.push(
+    env.DB.prepare(`UPDATE tariff_sync_runs SET status='STAGED',promoted_at=NULL,promoted_by=NULL,decision_reason=? WHERE id=? AND status='PROMOTED'`).bind(`Rolled back: ${reason}`, batch.run_id),
+    env.DB.prepare(`INSERT INTO tariff_promotion_events
+      (id,batch_id,run_id,action,actor,reason,artifact_key,artifact_sha256,created_at)
+      VALUES (?,?,?,'ROLLED_BACK',?,?,?,?,?)`).bind(crypto.randomUUID(), batchId, batch.run_id, actor, reason, batch.artifact_key, batch.artifact_sha256, now)
+  );
+  await env.DB.batch(statements);
+  return json({
+    ok: true,
+    phase: '2B',
+    status: 'ROLLED_BACK',
+    batchId,
+    runId: batch.run_id,
+    restoredBatchId: previous?.id || null,
+    actor,
+    at: now
+  });
 }
 
 async function listSyncRuns(env, url) {
@@ -599,6 +896,7 @@ function nullableMoney(value){if(value===null||value===undefined||value==='')ret
 function jsonOrNull(value){return value===null||value===undefined?null:JSON.stringify(value)}
 function required(value,name){const result=clean(value,300);if(!result)throw httpError(400,`${name} is required.`);return result}
 function requiredHttps(value){const text=required(value,'sourceUrl');try{const url=new URL(text),host=url.hostname.toLowerCase(),allowed=['cbp.gov','usitc.gov','ustr.gov','federalregister.gov','whitehouse.gov','govinfo.gov','ecfr.gov'];if(url.protocol!=='https:'||!allowed.some(domain=>host===domain||host.endsWith('.'+domain)))throw new Error();return url.toString()}catch{throw httpError(400,'Every sourceUrl must be an approved U.S. primary-source HTTPS URL.')}}
+function promotionEnabled(env){return String(env.TARIFF_PRODUCTION_PROMOTION_ENABLED||'').toLowerCase()==='true'}
 function relationType(value){const type=clean(value,30).toUpperCase(),allowed=['STACKS_WITH','EXCLUDED_BY','EXCLUSIVE_WITH','CAPPED_WITH','REQUIRES_REVIEW','SUPERSEDES'];if(!allowed.includes(type))throw httpError(400,'Invalid rule relation type.');return type}
 function sourceStatus(value){const status=clean(value,30).toUpperCase(),allowed=['PRIMARY_PENDING','PRIMARY_VERIFIED','BROKER_REVIEWED'];if(!allowed.includes(status))throw httpError(400,'Invalid source review status.');return status}
 function requireRole(request,env,role){const keys={sync:['TARIFF_SYNC_TOKEN','TARIFF_SYNC_ACTOR'],preparer:['TARIFF_PREPARER_TOKEN','TARIFF_PREPARER_ACTOR'],reviewer:['TARIFF_REVIEWER_TOKEN','TARIFF_REVIEWER_ACTOR'],publisher:['TARIFF_PUBLISHER_TOKEN','TARIFF_PUBLISHER_ACTOR']},[tokenKey,actorKey]=keys[role]||[];const expected=env[tokenKey],actor=clean(env[actorKey],120),supplied=String(request.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!expected||!actor)throw httpError(503,`Tariff ${role} role is not configured.`);if(!supplied||!constantTimeEqual(supplied,expected))throw httpError(401,`Invalid tariff ${role} credential.`);return actor}

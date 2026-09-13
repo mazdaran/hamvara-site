@@ -42,20 +42,33 @@ The Worker refuses to persist a newly released MRP run unless the authenticated 
 - Health and change status: `/api/tariff/status`
 - Controlled administration: `/api/tariff/admin/*`
 
-Tariff Control phase 2A is manually initiated. Complete USITC snapshots are partitioned by
+Tariff Control phase 2B is manually initiated. Complete USITC snapshots are partitioned by
 HTS chapter and stored in the `TARIFF_SNAPSHOTS` R2 bucket; D1 stores only run/chapter
 metadata and real deltas. The first R2 snapshot is an immutable baseline and therefore does
 not create tens of thousands of artificial `ADDED` candidates. Scheduled tariff collection
-and production promotion are disabled. Reviewers can list staged runs, compare before/after
+remains disabled. Reviewers can list staged runs, compare before/after
 values, acknowledge a candidate, and record `ACCEPTED`, `REJECTED`, or `NO_IMPACT` with a
 mandatory reason. Use separate Sync, Preparer, Reviewer and Publisher credentials; actor
 identities are read from Worker configuration and are never accepted from the request body.
 
-Phase 2A adds a publisher-authenticated, read-only readiness gate. It verifies that the run is
+Phase 2B keeps the publisher-authenticated readiness gate and adds controlled promotion. It
+verifies that the run is
 staged, the R2 manifest exists and matches its D1 SHA-256 evidence, at least one candidate was
-accepted, every candidate was acknowledged and decided with evidence, and the publisher did
-not review the same candidates. It reports `DELTA_ONLY` as the only planned apply mode, but
-always returns `PRODUCTION_LOCKED`; it does not write production tariff data.
+accepted or marked no-impact, every candidate was acknowledged and decided with evidence,
+the publisher did not review the same candidates, and the production head has not changed
+since collection began. The first zero-delta verified snapshot can be activated as
+`BASELINE_ACTIVATION`; subsequent publications use `DELTA_ONLY`.
+
+The complete baseline remains in R2. Each promotion writes a SHA-256-verified cumulative
+delta overlay to R2 and atomically advances only the D1 production pointer, batch journal and
+immutable audit event. Rejected candidates are not applied and therefore reappear against
+the effective production lineage in a later collection. Rollback can move only the current
+production head to its immediate predecessor. Both promotion and rollback require the
+Publisher secret, an audit reason, and an exact confirmation phrase.
+
+`TARIFF_PRODUCTION_PROMOTION_ENABLED` defaults to `false` in `wrangler.toml`. Leave it closed
+through migration, deployment and readiness verification. Enabling it is a separate,
+explicit production decision; the API refuses both promotion and rollback while it is false.
 
 Required controlled-role secrets and variables:
 
@@ -72,12 +85,19 @@ manual GitHub Actions workflows and do not invoke one another.
 - Evidence of review: `POST /api/tariff/admin/changes/:id/acknowledge`
 - Controlled disposition: `POST /api/tariff/admin/changes/:id/disposition`
 - Publisher readiness gate: `GET /api/tariff/admin/sync-runs/:id/promotion-readiness`
+- Controlled promotion: `POST /api/tariff/admin/sync-runs/:id/promote`
+- Current production head: `GET /api/tariff/admin/production-state`
+- Head-only rollback: `POST /api/tariff/admin/promotions/:batchId/rollback`
 
 Migration `0005_tariff_intelligence.sql` creates the HTS snapshot, change, rule, fee, relationship and review tables. It is applied only through the separate, confirmation-gated D1 migration workflow; Worker deployment never applies it.
 
 Migration `0010_tariff_snapshot_object_storage.sql` adds R2 snapshot metadata. Before running
 that migration or deploying its Worker code, create the private R2 bucket named
 `hamvara-tariff-snapshots`. The deploy verifier rejects a missing or renamed binding.
+
+Migration `0011_tariff_promotion_journal.sql` freezes each run's production lineage and adds
+the production pointer, promotion batches, immutable audit events and database triggers that
+reject stale-head publication, incomplete review evidence and non-head rollback.
 
 Configure all controlled-role secrets and actor variables listed above before using the administration endpoints. A new rule set starts as `DRAFT`. Every primary source must be reviewed before an independent user can move it to `VERIFIED`; a different user must publish it. The public API returns only `PUBLISHED` rule sets.
 

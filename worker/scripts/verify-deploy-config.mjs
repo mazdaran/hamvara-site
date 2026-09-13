@@ -51,10 +51,14 @@ if (!tariffSnapshotBinding) {
   errors.push('TARIFF_SNAPSHOTS must target bucket_name "hamvara-tariff-snapshots"');
 }
 
+if (!/^\s*TARIFF_PRODUCTION_PROMOTION_ENABLED\s*=\s*["'](?:true|false)["']\s*$/m.test(config)) {
+  errors.push('TARIFF_PRODUCTION_PROMOTION_ENABLED must be explicitly set to "true" or "false"');
+}
+
 if (errors.length > 0) {
   console.error(`Refusing to deploy with ${configPath}:`);
   for (const error of errors) console.error(`- ${error}`);
   process.exit(1);
 }
 
-console.log(`Deploy configuration verified: ${configPath} includes production DB and tariff snapshot R2 bindings.`);
+console.log(`Deploy configuration verified: ${configPath} includes production DB, tariff snapshot R2, and an explicit promotion lock.`);
