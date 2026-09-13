@@ -25,7 +25,7 @@ document.querySelector("#planForm").addEventListener("input",updatePlan);
 let timer;
 function runFlow(){
  clearTimeout(timer);const steps=[...document.querySelectorAll(".flow-step")];result.classList.remove("visible");steps.forEach(s=>{s.classList.remove("done","running");s.querySelector("em").textContent="Bekliyor"});
- let i=0;function next(){if(i&&steps[i-1]){steps[i-1].classList.remove("running");steps[i-1].classList.add("done");steps[i-1].querySelector("em").textContent=i===3?"Eksik bulundu":"Tamamlandı"}if(i<steps.length){steps[i].classList.add("running");steps[i].querySelector("em").textContent="İşleniyor";i++;timer=setTimeout(next,650)}else{result.classList.add("visible");runDemo.innerHTML='Tekrar çalıştır <span>↻</span>'}}next();
+ let i=0;function next(){if(i&&steps[i-1]){steps[i-1].classList.remove("running");steps[i-1].classList.add("done");steps[i-1].querySelector("em").textContent=i===3?"Shortage detected":"Tamamlandı"}if(i<steps.length){steps[i].classList.add("running");steps[i].querySelector("em").textContent="İşleniyor";i++;timer=setTimeout(next,650)}else{result.classList.add("visible");runDemo.innerHTML='Tekrar çalıştır <span>↻</span>'}}next();
 }
 runDemo.addEventListener("click",runFlow);
 
