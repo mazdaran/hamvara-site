@@ -28,5 +28,36 @@ function runFlow(){
  let i=0;function next(){if(i&&steps[i-1]){steps[i-1].classList.remove("running");steps[i-1].classList.add("done");steps[i-1].querySelector("em").textContent=i===3?"Eksik bulundu":"Tamamlandı"}if(i<steps.length){steps[i].classList.add("running");steps[i].querySelector("em").textContent="İşleniyor";i++;timer=setTimeout(next,650)}else{result.classList.add("visible");runDemo.innerHTML='Tekrar çalıştır <span>↻</span>'}}next();
 }
 runDemo.addEventListener("click",runFlow);
-quoteBtn.addEventListener("click",()=>{toast.textContent=planName.textContent+" planı için teklif özeti hazırlandı.";toast.classList.add("show");setTimeout(()=>toast.classList.remove("show"),2600)});
+
+function openProposalSummary(){
+ const selected=[...document.querySelectorAll('input[name="feature"]:checked')].map(input=>input.closest("label")?.textContent.trim()).filter(Boolean);
+ const overlay=document.createElement("div");
+ overlay.className="proposal-overlay";
+ overlay.innerHTML=`<section class="proposal-dialog" role="dialog" aria-modal="true" aria-labelledby="proposal-title">
+  <button class="proposal-close" type="button" aria-label="Close proposal summary">×</button>
+  <p class="proposal-kicker">HAMVARA PROPOSAL</p>
+  <h2 id="proposal-title">${planName.textContent} plan summary</h2>
+  <div class="proposal-grid">
+   <span>Number of SKUs<strong>${Number(sku.value).toLocaleString("en-US")}</strong></span>
+   <span>Warehouses<strong>${warehouse.value}</strong></span>
+   <span>Estimated price<strong>${priceValue.textContent.trim()}</strong></span>
+  </div>
+  <div class="proposal-needs"><b>Selected needs</b><ul>${(selected.length?selected:["Core inventory management"]).map(item=>`<li>${item}</li>`).join("")}</ul></div>
+  <p class="proposal-note">The final price is confirmed after reviewing the installation scope.</p>
+  <div class="proposal-actions">
+   <a class="primary" href="mailto:info@hamvara.com?subject=${encodeURIComponent("Hamvara "+planName.textContent+" proposal request")}">Request by email <span>→</span></a>
+   <a class="proposal-secondary" href="https://wa.me/18322398510?text=${encodeURIComponent("Hello Hamvara, I would like a proposal for the "+planName.textContent+" plan.")}" target="_blank" rel="noopener">Continue on WhatsApp</a>
+  </div>
+ </section>`;
+ const close=()=>{overlay.remove();document.body.classList.remove("proposal-open");quoteBtn.focus()};
+ overlay.addEventListener("click",event=>{if(event.target===overlay)close()});
+ overlay.querySelector(".proposal-close").addEventListener("click",close);
+ document.addEventListener("keydown",function escape(event){if(event.key==="Escape"){document.removeEventListener("keydown",escape);close()}},{once:true});
+ document.body.appendChild(overlay);document.body.classList.add("proposal-open");overlay.querySelector(".proposal-close").focus();
+}
+
+const proposalStyles=document.createElement("style");
+proposalStyles.textContent=`body.proposal-open{overflow:hidden}.proposal-overlay{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:20px;background:rgba(2,12,24,.78);backdrop-filter:blur(8px)}.proposal-dialog{position:relative;width:min(620px,100%);max-height:90vh;overflow:auto;padding:34px;background:#0b213c;color:#f3f7fb;border:1px solid #20d4e5;border-radius:18px;box-shadow:0 30px 90px rgba(0,0,0,.5)}.proposal-close{position:absolute;top:14px;right:16px;width:38px;height:38px;border:1px solid #29425b;border-radius:9px;background:#07172b;color:#f3f7fb;font-size:25px;cursor:pointer}.proposal-kicker{margin:0;color:#20d4e5;font-size:12px;font-weight:800;letter-spacing:.14em}.proposal-dialog h2{margin:10px 46px 24px 0;font-size:32px}.proposal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.proposal-grid span{padding:15px;background:#07172b;border:1px solid #29425b;border-radius:10px;color:#91a5ba;font-size:13px}.proposal-grid strong{display:block;margin-top:6px;color:#f3f7fb;font-size:20px}.proposal-needs{margin:22px 0;padding:18px;background:#102943;border-radius:10px}.proposal-needs ul{margin:10px 0 0;padding-left:20px}.proposal-note{color:#91a5ba;font-size:13px}.proposal-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:24px}.proposal-actions a{text-decoration:none}.proposal-secondary{display:grid;place-items:center;padding:13px 17px;border:1px solid #29425b;border-radius:9px;color:#f3f7fb;font-weight:700}@media(max-width:600px){.proposal-dialog{padding:26px 20px}.proposal-grid,.proposal-actions{grid-template-columns:1fr}.proposal-dialog h2{font-size:26px}}`;
+document.head.appendChild(proposalStyles);
+quoteBtn.addEventListener("click",openProposalSummary);
 langBtn.addEventListener("click",()=>{toast.textContent="English content will be connected in the next localization phase.";toast.classList.add("show");setTimeout(()=>toast.classList.remove("show"),2600)});
