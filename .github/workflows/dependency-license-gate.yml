@@ -1,0 +1,38 @@
+name: Dependency License Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            worker/package-lock.json
+            labelguard-desktop/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify Worker dependency lock
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: worker
+      - name: Verify LabelGuard dependency lock
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: labelguard-desktop
+      - name: Resolve locked Rust dependency metadata
+        run: cargo metadata --locked --format-version 1 --manifest-path labelguard-desktop/src-tauri/Cargo.toml > "$RUNNER_TEMP/cargo-metadata.json"
+      - name: Reject unapproved copyleft or unknown licenses
+        run: >-
+          node .github/scripts/check-dependency-licenses.mjs
+          --npm-lock worker/package-lock.json
+          --npm-lock labelguard-desktop/package-lock.json
+          --cargo-metadata "$RUNNER_TEMP/cargo-metadata.json"

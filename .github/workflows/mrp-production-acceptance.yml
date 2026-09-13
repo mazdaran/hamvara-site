@@ -23,7 +23,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - run: npm install
+      - run: npm ci
       - name: Verify code before production acceptance
         run: npm run check
       - name: Exercise server HMAC seal on an isolated tenant

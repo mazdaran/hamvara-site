@@ -1,0 +1,73 @@
+{
+  "reviewedRestrictedNpmPackages": [
+    {
+      "pattern": "@img/sharp-libvips-*",
+      "versions": ["1.3.3"],
+      "devOnly": true,
+      "reason": "LGPL libvips platform binaries are pulled only through Wrangler/Miniflare development tooling and are not included in the deployed Worker bundle."
+    },
+    {
+      "pattern": "@img/sharp-wasm32",
+      "versions": ["0.35.4"],
+      "devOnly": true,
+      "reason": "The optional Sharp WASM package is part of Wrangler/Miniflare development tooling and is not included in the deployed Worker bundle."
+    },
+    {
+      "pattern": "@img/sharp-win32-*",
+      "versions": ["0.35.4"],
+      "devOnly": true,
+      "reason": "Sharp Windows platform binaries are part of Wrangler/Miniflare development tooling and are not included in the deployed Worker bundle."
+    }
+  ],
+  "reviewedExternalAssets": [
+    {
+      "name": "SheetJS xlsx",
+      "version": "0.18.5",
+      "license": "Apache-2.0",
+      "path": "tariff-impact/index.html",
+      "source": "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
+    },
+    {
+      "name": "SheetJS xlsx",
+      "version": "0.18.5",
+      "license": "Apache-2.0",
+      "path": "sku-bridge/index.html",
+      "source": "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
+    },
+    {
+      "name": "SheetJS xlsx",
+      "version": "0.18.5",
+      "license": "Apache-2.0",
+      "path": "bom-costwatch/index.html",
+      "source": "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
+    },
+    {
+      "name": "SheetJS xlsx",
+      "version": "0.20.3",
+      "license": "Apache-2.0",
+      "path": "inventory-intelligence/index.html",
+      "source": "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"
+    },
+    {
+      "name": "Tesseract.js",
+      "version": "5.1.1",
+      "license": "Apache-2.0",
+      "path": "labelguard-desktop/dist/index.html",
+      "source": "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"
+    },
+    {
+      "name": "html5-qrcode",
+      "version": "vendored",
+      "license": "Apache-2.0",
+      "path": "mrp/html5-qrcode.LICENSE",
+      "source": "Apache License"
+    },
+    {
+      "name": "qrcode.js",
+      "version": "vendored",
+      "license": "MIT",
+      "path": "mrp/qrcode.LICENSE",
+      "source": "MIT License"
+    }
+  ]
+}

@@ -27,7 +27,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - run: npm install
+      - run: npm ci
       - name: Verify deploy configuration and tests
         run: npm run check
       - name: Deploy Worker without database migration

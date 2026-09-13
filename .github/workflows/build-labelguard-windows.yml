@@ -23,8 +23,10 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: labelguard-desktop/src-tauri -> target
-      - run: npm install
+      - run: npm ci
         working-directory: labelguard-desktop
+      - name: Verify locked Rust dependencies
+        run: cargo metadata --locked --format-version 1 --manifest-path labelguard-desktop/src-tauri/Cargo.toml | Out-Null
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

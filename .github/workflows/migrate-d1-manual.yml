@@ -23,7 +23,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - run: npm install
+      - run: npm ci
       - name: Verify configuration and tests before migration
         run: npm run check
       - name: Apply reviewed D1 migrations only
