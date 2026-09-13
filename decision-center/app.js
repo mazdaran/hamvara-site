@@ -31,6 +31,20 @@ runDemo.addEventListener("click",runFlow);
 
 function openProposalSummary(){
  const selected=[...document.querySelectorAll('input[name="feature"]:checked')].map(input=>input.closest("label")?.textContent.trim()).filter(Boolean);
+ const proposalSubject="Hamvara "+planName.textContent+" proposal request";
+ const proposalBody=[
+  "Hello Hamvara,",
+  "",
+  "I would like to request a proposal with the following configuration:",
+  "",
+  "Plan: "+planName.textContent,
+  "Number of SKUs: "+Number(sku.value).toLocaleString("en-US"),
+  "Warehouses: "+warehouse.value,
+  "Selected needs: "+(selected.length?selected.join(", "):"Core inventory management"),
+  "Estimated price: "+priceValue.textContent.trim(),
+  "",
+  "Please contact me to confirm the installation scope and final price."
+ ].join("\n");
  const overlay=document.createElement("div");
  overlay.className="proposal-overlay";
  overlay.innerHTML=`<section class="proposal-dialog" role="dialog" aria-modal="true" aria-labelledby="proposal-title">
@@ -45,7 +59,7 @@ function openProposalSummary(){
   <div class="proposal-needs"><b>Selected needs</b><ul>${(selected.length?selected:["Core inventory management"]).map(item=>`<li>${item}</li>`).join("")}</ul></div>
   <p class="proposal-note">The final price is confirmed after reviewing the installation scope.</p>
   <div class="proposal-actions">
-   <a class="primary" href="mailto:info@hamvara.com?subject=${encodeURIComponent("Hamvara "+planName.textContent+" proposal request")}">Request by email <span>→</span></a>
+   <a class="primary" href="mailto:info@hamvara.com?subject=${encodeURIComponent(proposalSubject)}&body=${encodeURIComponent(proposalBody)}">Request by email <span>→</span></a>
    <a class="proposal-secondary" href="https://wa.me/18322398510?text=${encodeURIComponent("Hello Hamvara, I would like a proposal for the "+planName.textContent+" plan.")}" target="_blank" rel="noopener">Continue on WhatsApp</a>
   </div>
  </section>`;
