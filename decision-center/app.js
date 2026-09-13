@@ -60,7 +60,7 @@ function openProposalSummary(){
   <p class="proposal-note">The final price is confirmed after reviewing the installation scope.</p>
   <div class="proposal-actions">
    <a class="primary" href="mailto:info@hamvara.com?subject=${encodeURIComponent(proposalSubject)}&body=${encodeURIComponent(proposalBody)}">Request by email <span>→</span></a>
-   <a class="proposal-secondary" href="https://wa.me/18322398510?text=${encodeURIComponent("Hello Hamvara, I would like a proposal for the "+planName.textContent+" plan.")}" target="_blank" rel="noopener">Continue on WhatsApp</a>
+   <a class="proposal-secondary" href="https://wa.me/18322398510?text=${encodeURIComponent(proposalBody)}" target="_blank" rel="noopener">Continue on WhatsApp</a>
   </div>
  </section>`;
  const close=()=>{overlay.remove();document.body.classList.remove("proposal-open");quoteBtn.focus()};
