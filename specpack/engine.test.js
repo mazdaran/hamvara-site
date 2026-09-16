@@ -1,0 +1,6 @@
+const test=require('node:test'),assert=require('node:assert/strict'),E=require('./engine.js');
+test('unverified AI claims never become ready',()=>{const a=E.normalizeAttribute({name:'Material',value:'Steel',source:'AI inference',confidence:.99,evidence:'looks metallic',evidenceVerified:false,verifierAgreement:true});assert.equal(a.status,'REVIEW_REQUIRED')});
+test('low confidence evidence is blocked',()=>{const a=E.normalizeAttribute({name:'Model',value:'X10',source:'PDF',confidence:.5,evidence:'Model X10',evidenceVerified:true,verifierAgreement:false});assert.equal(a.status,'INSUFFICIENT_EVIDENCE')});
+test('manual facts are explicit and trusted but require user approval',()=>{const a=E.normalizeAttribute({name:'MOQ',value:'500',unit:'piece',source:'Manual'});assert.equal(a.confidence,1);assert.equal(a.status,'READY_TO_APPROVE')});
+test('conflicting duplicate attributes are detected',()=>{const c=E.conflicts([{name:'Weight',value:'2',unit:'kg',source:'Manual'},{name:'Weight',value:'3',unit:'kg',source:'Manual'}]);assert.equal(c.length,1)});
+test('final generation is blocked while any uncertain row remains',()=>{const q=E.quality([{name:'Color',value:'Blue',source:'Manual',approved:true},{name:'Material',value:'Cotton',source:'Image',confidence:.8,evidence:'cotton',evidenceVerified:true}]);assert.equal(q.canGenerate,false)});

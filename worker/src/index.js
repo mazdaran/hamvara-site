@@ -39,6 +39,7 @@ export default {
       else if (url.pathname === '/api/claimpilot/analyze' && request.method === 'POST') response = await analyzeClaimDocuments(request, env);
       else if (url.pathname === '/api/deadlineguard/analyze' && request.method === 'POST') response = await analyzeDeadlineDocument(request, env);
       else if (url.pathname === '/api/loadfit/analyze' && request.method === 'POST') response = await analyzeLoadFit(request, env);
+      else if (url.pathname === '/api/specpack/analyze' && request.method === 'POST') response = await analyzeSpecPack(request, env);
       else if (url.pathname === '/api/integrations' && request.method === 'GET') response = await integrationStatuses(env);
       else if (url.pathname === '/api/google/overview' && request.method === 'GET') response = await googleOverview(url, env);
       else if (/^\/api\/integrations\/(google|meta|linkedin|wordpress)\/test$/.test(url.pathname) && request.method === 'GET') response = await testIntegration(url.pathname.split('/')[3], env);
@@ -61,6 +62,91 @@ export default {
     ctx.waitUntil(runScheduledMrpBackups(env, scheduledAt));
   }
 };
+
+async function analyzeSpecPack(request, env) {
+  if (!env.AI) throw httpError(503, 'Workers AI binding is not configured.');
+  const body = await request.json();
+  const documents = Array.isArray(body.documents) ? body.documents.slice(0, 5) : [];
+  if (!documents.length) throw httpError(400, 'At least one image or PDF is required.');
+  let totalBytes = 0;
+  const evidence = [];
+  for (const document of documents) {
+    const fileName = cleanCell(document.fileName, 140) || 'product-evidence';
+    const mimeType = cleanCell(document.mimeType, 100);
+    if (!/^(image\/(jpeg|png|webp)|application\/pdf)$/.test(mimeType)) throw httpError(400, fileName + ' has an unsupported file type.');
+    const encoded = String(document.dataBase64 || '');
+    if (!encoded || !/^[A-Za-z0-9+/=\s]+$/.test(encoded)) throw httpError(400, 'Invalid file encoding.');
+    let binary;
+    try { binary = atob(encoded.replace(/\s/g, '')); } catch { throw httpError(400, 'Invalid file encoding.'); }
+    totalBytes += binary.length;
+    if (binary.length > 6 * 1024 * 1024 || totalBytes > 12 * 1024 * 1024) throw httpError(413, 'The evidence files exceed the beta size limit.');
+    const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+    let conversion;
+    try { conversion = await env.AI.toMarkdown({ name: fileName, blob: new Blob([bytes], { type: mimeType }) }); }
+    catch { throw httpError(502, fileName + ' could not be read. Use a sharp, well-lit image or a searchable PDF.'); }
+    const converted = Array.isArray(conversion) ? conversion[0] : conversion;
+    const data = String(converted?.data || '').trim();
+    if (!data || converted?.format === 'error') throw httpError(422, 'No reliable text or visual evidence was found in ' + fileName + '.');
+    evidence.push({ fileName, type: mimeType === 'application/pdf' ? 'PDF' : 'Image', content: data.slice(0, 12000) });
+  }
+  const context = {
+    category: cleanCell(body.category, 80), product: cleanCell(body.product, 140),
+    targetMarket: cleanCell(body.market, 100), intendedUse: cleanCell(body.intendedUse, 300)
+  };
+  const schema = {
+    type: 'object', properties: { productName: { type: 'string' }, attributes: { type: 'array', items: { type: 'object', properties: {
+      name: { type: 'string' }, value: { type: 'string' }, unit: { type: 'string' }, sourceFile: { type: 'string' }, evidence: { type: 'string' }, confidence: { type: 'number' }
+    }, required: ['name','value','unit','sourceFile','evidence','confidence'] } }, missingQuestions: { type: 'array', items: { type: 'string' } } }, required: ['productName','attributes','missingQuestions']
+  };
+  const model = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+  const sourceText = evidence.map((x,i)=>`SOURCE ${i+1} — ${x.fileName} (${x.type})\n${x.content}`).join('\n\n');
+  const extractionPrompt = [
+    'Extract product specification facts from the supplied evidence. Return JSON matching the schema.',
+    'ZERO-HALLUCINATION RULES: include an attribute only when its value is explicitly visible in text, marking, label, table or unambiguous image evidence. Never infer material grade, composition, dimensions, certification, performance, model, origin or regulatory compliance from appearance.',
+    'Evidence must be a short exact excerpt or a precise description of the visible marking. Use the exact sourceFile name. Confidence above 0.92 is allowed only for clearly legible text/table facts. Visual-only observations must stay at or below 0.75.',
+    'Keep separate attributes separate. Preserve units exactly. Do not convert measurements. Put absent important facts in missingQuestions instead of guessing.',
+    'User context is orientation only and is not source evidence: ' + JSON.stringify(context), sourceText
+  ].join('\n');
+  const first = await env.AI.run(model, { messages: [
+    { role: 'system', content: 'You are a forensic product-specification extraction engine. Precision is more important than recall. Omit uncertain facts.' },
+    { role: 'user', content: extractionPrompt }
+  ], response_format: { type: 'json_schema', json_schema: schema }, temperature: 0, max_tokens: 2600 });
+  const firstParsed = parseAiObject(first, 'AI returned an invalid extraction response.');
+  const candidates = (Array.isArray(firstParsed.attributes) ? firstParsed.attributes : []).slice(0, 40).map((item,index)=>({
+    id: `AI-${index+1}`, name: cleanCell(item.name,100), value: cleanCell(item.value,240), unit: cleanCell(item.unit,40), sourceFile: cleanCell(item.sourceFile,140), evidence: cleanCell(item.evidence,300), confidence: Math.max(0,Math.min(1,Number(item.confidence)||0))
+  })).filter(x=>x.name&&x.value&&evidence.some(s=>s.fileName===x.sourceFile));
+  const verifySchema = { type:'object', properties:{ checks:{type:'array',items:{type:'object',properties:{id:{type:'string'},verdict:{type:'string',enum:['CONFIRMED','REJECTED','CORRECTED']},correctedValue:{type:'string'},correctedUnit:{type:'string'},evidenceSupported:{type:'boolean'},reason:{type:'string'}},required:['id','verdict','correctedValue','correctedUnit','evidenceSupported','reason']}}},required:['checks'] };
+  const verificationPrompt = [
+    'Independently audit every candidate against the original evidence. Return JSON matching the schema.',
+    'Reject any claim not directly supported, any value attached to the wrong attribute, any unreadable value, and any material/compliance/performance inference based only on appearance.',
+    'Use CORRECTED only when the evidence clearly supports the corrected value. CONFIRMED means exact semantic agreement with the source.',
+    'CANDIDATES: '+JSON.stringify(candidates), sourceText
+  ].join('\n');
+  const second = await env.AI.run(model, { messages:[
+    { role:'system', content:'You are an independent quality-control verifier. Be skeptical. False acceptance is worse than omission.' },
+    { role:'user', content:verificationPrompt }
+  ], response_format:{type:'json_schema',json_schema:verifySchema},temperature:0,max_tokens:2200 });
+  const verified = parseAiObject(second, 'AI verification did not return a valid response.');
+  const checks = new Map((Array.isArray(verified.checks)?verified.checks:[]).map(x=>[String(x.id),x]));
+  const attributes = candidates.map(candidate=>{
+    const check=checks.get(candidate.id),confirmed=check?.verdict==='CONFIRMED',corrected=check?.verdict==='CORRECTED'&&check?.evidenceSupported;
+    const claim = { ...candidate, value: corrected ? cleanCell(check.correctedValue,240) : candidate.value, unit: corrected ? cleanCell(check.correctedUnit,40) : candidate.unit,
+      source: evidence.find(x=>x.fileName===candidate.sourceFile)?.type || 'Document', evidenceVerified:Boolean(check?.evidenceSupported), verifierAgreement:confirmed,
+      confidence: check?.verdict==='REJECTED' ? Math.min(candidate.confidence,.49) : corrected ? Math.min(candidate.confidence,.84) : confirmed ? candidate.confidence : Math.min(candidate.confidence,.69),
+      verifierReason: cleanCell(check?.reason,220), approved:false };
+    return claim;
+  });
+  return json({ productName:cleanCell(firstParsed.productName,140), attributes, missingQuestions:(Array.isArray(firstParsed.missingQuestions)?firstParsed.missingQuestions:[]).slice(0,12).map(x=>cleanCell(x,180)).filter(Boolean),
+    method:'AI extraction from image/PDF with independent verification', model, files:evidence.map(x=>x.fileName), extractedAt:new Date().toISOString(), requiresHumanApproval:true,
+    accuracyPolicy:{minimumAutoReadyConfidence:.92,evidenceRequired:true,independentVerification:true,uncertainFactsBlocked:true}, disclaimer:'Every specification must be reviewed against the original source before sending an RFQ.' });
+}
+
+function parseAiObject(result, message) {
+  const structured = result && typeof result.response === 'object' ? result.response : (result && typeof result.result?.response === 'object' ? result.result.response : null);
+  if (structured) return structured;
+  const raw = typeof result === 'string' ? result : (typeof result?.response === 'string' ? result.response : (typeof result?.result?.response === 'string' ? result.result.response : ''));
+  try { return JSON.parse(extractJson(raw)); } catch { throw httpError(502, message); }
+}
 
 
 
