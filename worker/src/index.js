@@ -35,11 +35,11 @@ export default {
       let response;
       if (url.pathname === '/health') response = json({ ok: true, service: 'hamvara-growth-api', pageSpeedApiKeyConfigured: Boolean(env.PAGESPEED_API_KEY), oauthConfigured: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.OAUTH_STATE_SECRET && env.TOKEN_ENCRYPTION_KEY), databaseConfigured: Boolean(env.DB), tariffSnapshotStorageConfigured: Boolean(env.TARIFF_SNAPSHOTS), tariffRolesConfigured: Boolean(env.TARIFF_SYNC_TOKEN && env.TARIFF_SYNC_ACTOR && env.TARIFF_PREPARER_TOKEN && env.TARIFF_PREPARER_ACTOR && env.TARIFF_REVIEWER_TOKEN && env.TARIFF_REVIEWER_ACTOR && env.TARIFF_PUBLISHER_TOKEN && env.TARIFF_PUBLISHER_ACTOR), aiConfigured: Boolean(env.AI), time: new Date().toISOString() });
       else if (url.pathname === '/api/audit' && request.method === 'POST') response = await audit(request, env);
-      else if (url.pathname === '/api/sku-bridge/analyze' && request.method === 'POST') response = await analyzeSkuColumns(request, env);
-      else if (url.pathname === '/api/claimpilot/analyze' && request.method === 'POST') response = await analyzeClaimDocuments(request, env);
-      else if (url.pathname === '/api/deadlineguard/analyze' && request.method === 'POST') response = await analyzeDeadlineDocument(request, env);
-      else if (url.pathname === '/api/loadfit/analyze' && request.method === 'POST') response = await analyzeLoadFit(request, env);
-      else if (url.pathname === '/api/specpack/analyze' && request.method === 'POST') response = await analyzeSpecPack(request, env);
+      else if (url.pathname === '/api/sku-bridge/analyze' && request.method === 'POST') response = (await enforceAiRateLimit(env, url.pathname), await analyzeSkuColumns(request, env));
+      else if (url.pathname === '/api/claimpilot/analyze' && request.method === 'POST') response = (await enforceAiRateLimit(env, url.pathname), await analyzeClaimDocuments(request, env));
+      else if (url.pathname === '/api/deadlineguard/analyze' && request.method === 'POST') response = (await enforceAiRateLimit(env, url.pathname), await analyzeDeadlineDocument(request, env));
+      else if (url.pathname === '/api/loadfit/analyze' && request.method === 'POST') response = (await enforceAiRateLimit(env, url.pathname), await analyzeLoadFit(request, env));
+      else if (url.pathname === '/api/specpack/analyze' && request.method === 'POST') response = (await enforceAiRateLimit(env, url.pathname), await analyzeSpecPack(request, env));
       else if (url.pathname === '/api/integrations' && request.method === 'GET') response = await integrationStatuses(env);
       else if (url.pathname === '/api/google/overview' && request.method === 'GET') response = await googleOverview(url, env);
       else if (/^\/api\/integrations\/(google|meta|linkedin|wordpress)\/test$/.test(url.pathname) && request.method === 'GET') response = await testIntegration(url.pathname.split('/')[3], env);
@@ -62,6 +62,12 @@ export default {
     ctx.waitUntil(runScheduledMrpBackups(env, scheduledAt));
   }
 };
+
+async function enforceAiRateLimit(env, route) {
+  if (!env.AI_RATE_LIMITER) throw httpError(503, 'AI rate limiting is not configured.');
+  const { success } = await env.AI_RATE_LIMITER.limit({ key: route });
+  if (!success) throw httpError(429, 'AI request limit reached. Please retry shortly.');
+}
 
 async function analyzeSpecPack(request, env) {
   if (!env.AI) throw httpError(503, 'Workers AI binding is not configured.');
