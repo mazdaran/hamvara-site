@@ -1,6 +1,12 @@
 name: Verify Cloudflare Worker
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - "wrangler.toml"
+      - ".github/workflows/*.yml"
   push:
     branches: [main]
     paths:

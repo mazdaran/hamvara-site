@@ -16,6 +16,6 @@
     "mrp:provision": "node scripts/create-mrp-workspace.mjs"
   },
   "devDependencies": {
-    "wrangler": "^4.33.1"
+    "wrangler": "4.131.1"
   }
 }
