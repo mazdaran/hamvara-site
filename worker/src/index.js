@@ -63,8 +63,15 @@ export default {
   }
 };
 
+function isProductionConfig(env) {
+  return allowedOrigins(env).includes('https://www.hamvara.com');
+}
+
 async function enforceAiRateLimit(env, route) {
-  if (!env.AI_RATE_LIMITER) throw httpError(503, 'AI rate limiting is not configured.');
+  if (!env.AI_RATE_LIMITER) {
+    if (isProductionConfig(env)) throw httpError(503, 'AI rate limiting is not configured.');
+    return;
+  }
   const { success } = await env.AI_RATE_LIMITER.limit({ key: route });
   if (!success) throw httpError(429, 'AI request limit reached. Please retry shortly.');
 }
