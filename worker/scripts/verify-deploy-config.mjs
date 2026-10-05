@@ -14,6 +14,11 @@ const tariffSnapshotBinding = r2Blocks.find((block) =>
   /^\s*binding\s*=\s*["']TARIFF_SNAPSHOTS["']\s*$/m.test(block),
 );
 
+const rateLimitBlocks = config.match(/\[\[ratelimits\]\][\s\S]*?(?=\n\[\[|$)/g) ?? [];
+const aiRateLimiter = rateLimitBlocks.find((block) =>
+  /^\s*name\s*=\s*["']AI_RATE_LIMITER["']\s*$/m.test(block),
+);
+
 const errors = [];
 const expectedProductionOrigins = ["https://hamvara.com", "https://www.hamvara.com"];
 
@@ -51,6 +56,17 @@ if (!tariffSnapshotBinding) {
   errors.push('TARIFF_SNAPSHOTS must target bucket_name "hamvara-tariff-snapshots"');
 }
 
+if (!/^\s*binding\s*=\s*["']AI["']\s*$/m.test(config)) {
+  errors.push('an AI binding named "AI" is required');
+}
+
+if (!aiRateLimiter) {
+  errors.push('a rate limit binding named "AI_RATE_LIMITER" is required');
+} else {
+  if (!/^\s*namespace_id\s*=\s*["']\d+["']\s*$/m.test(aiRateLimiter)) errors.push('AI_RATE_LIMITER must have a numeric namespace_id');
+  if (!/^\s*limit\s*=\s*20\s*$/m.test(aiRateLimiter) || !/^\s*period\s*=\s*60\s*$/m.test(aiRateLimiter)) errors.push('AI_RATE_LIMITER must enforce 20 requests per 60 seconds');
+}
+
 const promotionMatch = config.match(
   /^\s*TARIFF_PRODUCTION_PROMOTION_ENABLED\s*=\s*["'](true|false)["']\s*$/m,
 );
@@ -73,5 +89,5 @@ if (errors.length > 0) {
 }
 
 console.log(
-  `Deploy configuration verified: ${configPath} includes production DB, tariff snapshot R2, and an authorized promotion lock state.`,
+  `Deploy configuration verified: ${configPath} includes production DB, tariff snapshot R2, Workers AI rate limiting, and an authorized promotion lock state.`,
 );
