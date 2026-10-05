@@ -14,6 +14,15 @@ TARIFF_PRODUCTION_PROMOTION_ENABLED = "false"
 [ai]
 binding = "AI"
 
+# Protect public AI endpoints from accidental or abusive high-cost request bursts.
+[[ratelimits]]
+name = "AI_RATE_LIMITER"
+namespace_id = "41001"
+
+  [ratelimits.simple]
+  limit = 20
+  period = 60
+
 [triggers]
 crons = [ "0 6 * * *", "0 18 * * *" ]
 
