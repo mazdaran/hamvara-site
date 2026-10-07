@@ -5,6 +5,46 @@ database. No ERP, production authentication, Cloudflare or production D1 changes
 No packages need installation. Requires Node 24 with built-in node:sqlite (tested
 with 24.20.0). This is a test prototype, not a production service.
 
+## SKU Bridge product workspace (v5)
+
+Open `http://localhost:8081/sku-bridge/` using the fulfillment server on port 8081.
+The SKU page now has separate UI, styles and a shared validation module. The local
+server injects only the existing sandbox access adapter. Static hosting provides
+free preview without an export connection. No production deployment is included.
+
+- CSV/TSV handles quoted multiline cells, escaped quotes, explicit separators,
+  header selection and UTF-8/UTF-16 decoding. Malformed/oversized input fails clearly.
+- XLSX/XLS reading lazily loads SheetJS CE 0.20.3 from its official CDN. Internet
+  access is required for that reader. Sheet selection is supported; formulas and
+  merged cells are rejected. CSV remains available if the reader cannot load.
+- Review checks required SKU/price, case-insensitive duplicate SKUs (preserving
+  separators), GTIN length/check digit, nonnegative numeric fields, min/max order,
+  and three-letter uppercase currency syntax. No currency conversion or barcode
+  ownership validation is performed. Empty optional fields are allowed.
+- Safe changes are previewed, never merged automatically, and can be undone.
+  All rows require explicit approval. Table pagination, filtering, search and an
+  issue report help review larger files. One local column mapping can be remembered
+  or removed; product rows are not persisted in the browser.
+- The free preview is 200 rows. A verified personal SKU entitlement allows review
+  up to 10,000 rows and server-generated approved CSV. After payment, return to
+  mapping and review again to expand a truncated preview.
+- Export rechecks session, CSRF, ownership and durable entitlement every time.
+  Refunds, cancellations, pauses and expiry still revoke access under existing rules.
+  The server uses the same validation module and ignores client parsing overrides.
+- Approved rows go to the local server for validation/CSV creation and are not saved.
+  The CSV uses BOM, proper quotes/newlines and neutralizes formula-leading text.
+  Import identifier columns as Text in Excel to preserve leading zeros.
+- Limits: 10 MB import; 10,000 data rows; 100 source columns; 2,000 characters per
+  cell; 1 MiB export request. These technical limits are not new pricing allowances.
+- Working edits disappear on reload/close. English and Turkish copy are included.
+  No remote AI analysis or analytics collection is included in the SKU workspace.
+
+Use synthetic data with these fixture accounts. The UI/controller and server tests
+are automated; actual browser rendering and real XLSX-reader loading still need a
+local browser check. Live authentication, Paddle production provisioning and public
+launch remain separate work. ERP, Worker, production D1, price IDs and the local
+billing database are not modified by this patch.
+
 ## Start locally
 
 ```powershell
@@ -242,7 +282,7 @@ old checkouts and no automatic repair of uncertain transaction creation.
 ## Tests and remaining checks
 
 ```powershell
-node --test paddle-sandbox/app.test.cjs paddle-sandbox/fulfillment/fulfillment.test.mjs
+node --test sku-bridge/*.test.mjs paddle-sandbox/app.test.cjs paddle-sandbox/sku-access.test.cjs paddle-sandbox/fulfillment/*.test.mjs
 ```
 
 Tests use generated HMAC signatures with an explicit fake secret, fake Paddle API
@@ -254,9 +294,9 @@ persistence, browser completion non-authority and API reconciliation.
 
 Remaining real checks: API credentials/permissions, server-created sandbox checkout,
 authenticated sandbox API reconciliation and real signed webhook delivery.
-Refunds/chargebacks, plan switching and production provisioning/enforcement are
-outside this prototype. Before production, add their policies/handlers, replace
-fixture authentication, and review transport, retention and observability.
+Refund/chargeback handling and local SKU CSV enforcement are implemented. Plan
+switching and production provisioning remain outside this prototype. Before
+production, replace fixture authentication and review transport and retention.
 
 Guidance consulted through paddle-docs:
 

@@ -9,8 +9,11 @@ import { makePaddle } from './paddle.mjs';
 import { createCheckout } from './checkout.mjs';
 import { acceptEvent } from './webhooks.mjs';
 import { forActor } from './lifecycle.mjs';
+import { skuAccess, exportSkuCsv } from './sku-access.mjs';
+import { renderSkuPage } from './sku-page.mjs';
 const PAGE_DIR=resolve(dirname(fileURLToPath(import.meta.url)),'..');
-const files=new Map([['index.html','text/html'],['styles.css','text/css'],['config.js','text/javascript'],['app.js','text/javascript'],['README.md','text/plain']]);
+const files=new Map([['index.html','text/html'],['styles.css','text/css'],['config.js','text/javascript'],['app.js','text/javascript'],['sku-access.js','text/javascript'],['README.md','text/plain']]);
+const skuFiles=new Map([['styles.css','text/css'],['core.mjs','text/javascript'],['app.mjs','text/javascript'],['i18n.mjs','text/javascript']]);
 async function readBody(req) {
   const chunks=[];let length=0;
   for await(const chunk of req){length+=chunk.length;if(length>1024*1024)throw new HttpError(413,'body_too_large');chunks.push(chunk);}
@@ -48,6 +51,7 @@ export function createServer({db,paddle=null,webhookSecret='',port=8080,clock=Da
         const actor=session(db,req.headers.cookie,clock());
         if(req.method==='GET'&&url.pathname==='/api/sandbox/session')return json(200,{user:{id:actor.user_id,username:actor.username,kind:actor.kind},csrf:actor.csrf,checkoutConfigured:Boolean(paddle),webhookConfigured:Boolean(webhookSecret)});
         if(req.method==='GET'&&url.pathname==='/api/sandbox/entitlements')return json(200,{entitlements:forActor(db,actor,clock()),prototype:true});
+        if(req.method==='GET'&&url.pathname==='/api/sandbox/sku/access')return json(200,skuAccess(db,actor,clock()));
         if(req.method==='GET'&&url.pathname==='/api/sandbox/catalog')return json(200,{version:1,plans:publicCatalog().map(p=>{let eligible=false;try{resolveOwner(db,actor,PLANS[p.key]);eligible=true;}catch(error){if(!(error instanceof HttpError))throw error;}return {...p,eligible};})});
         const resource=/^\/api\/sandbox\/product\/([a-z][a-z0-9-]{0,79})$/.exec(url.pathname);
         if(resource&&!Object.values(PLANS).some(p=>p.product===resource[1]))throw new HttpError(404,'unknown_product');
@@ -57,6 +61,13 @@ export function createServer({db,paddle=null,webhookSecret='',port=8080,clock=Da
           return json(200,{prototype:true,product:resource[1],ownerId:entitlement.ownerId,limits:entitlement.limits,message:'Protected local test resource only. Production applications are unchanged.'});
         }
         if(req.method==='POST')requireCsrf(actor,req.headers['x-sandbox-csrf']);
+        if(req.method==='POST'&&url.pathname==='/api/sandbox/sku/export') {
+          const body=parseBody(await readBody(req)),current=session(db,req.headers.cookie,clock());
+          requireCsrf(current,req.headers['x-sandbox-csrf']);
+          const csv=exportSkuCsv(db,current,body,clock());
+          res.writeHead(200,{...headers,'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="Hamvara-approved-SKU.csv"'});
+          return res.end(csv);
+        }
         if(req.method==='POST'&&url.pathname==='/api/sandbox/logout') {
           db.prepare('DELETE FROM sessions WHERE token_hash=?').run(actor.token_hash);
           return json(200,{ok:true},{'Set-Cookie':'hamvara_sandbox_session=; HttpOnly; SameSite=Strict; Path=/api/sandbox; Max-Age=0'});
@@ -65,6 +76,20 @@ export function createServer({db,paddle=null,webhookSecret='',port=8080,clock=Da
         throw new HttpError(404,'not_found');
       }
       if(req.method!=='GET')throw new HttpError(405,'method_not_allowed');
+      if(url.pathname==='/sku-bridge/'||url.pathname==='/sku-bridge') {
+        const source=await readFile(join(PAGE_DIR,'..','sku-bridge','index.html'),'utf8');
+        const body=renderSkuPage(source);
+        res.writeHead(200,{...headers,'Content-Type':'text/html; charset=utf-8',
+          'Content-Security-Policy':"default-src 'self'; script-src 'self' https://cdn.sheetjs.com; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"});
+        return res.end(body);
+      }
+      if(url.pathname.startsWith('/sku-bridge/')) {
+        const asset=url.pathname.slice('/sku-bridge/'.length);
+        if(!skuFiles.has(asset))throw new HttpError(404,'not_found');
+        const body=await readFile(join(PAGE_DIR,'..','sku-bridge',asset));
+        res.writeHead(200,{...headers,'Content-Type':skuFiles.get(asset)+'; charset=utf-8'});
+        return res.end(body);
+      }
       const name=url.pathname==='/paddle-sandbox/'?'index.html':url.pathname.slice('/paddle-sandbox/'.length);
       if(!url.pathname.startsWith('/paddle-sandbox/')||!files.has(name))throw new HttpError(404,'not_found');
       const body=await readFile(join(PAGE_DIR,name));
