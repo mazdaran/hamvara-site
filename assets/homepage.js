@@ -96,7 +96,7 @@
       contactTitle: 'Request a demo',
       contactLead: 'Tell me what you are doing by hand right now. I will tell you honestly whether software is worth it.',
       contactNote: 'Usually a reply the same day. English, Persian and Turkish.',
-      chanEmailK: 'EMAIL', chanPhoneK: 'PHONE', chanWaIntlK: 'WHATSAPP — INTERNATIONAL', chanWaTrK: 'WHATSAPP — TÜRKİYE', chanInstagramK: 'INSTAGRAM', socialFollow: 'Follow Hamvara',
+      chanEmailK: 'EMAIL', chanPhoneK: 'PHONE', chanWaIntlK: 'WHATSAPP — INTERNATIONAL', chanWaTrK: 'WHATSAPP — TÜRKİYE', chanInstagramK: 'INSTAGRAM', chanLinkedInK: 'LINKEDIN', socialFollow: 'Follow Hamvara',
       footPlace: 'Istanbul, Türkiye',
     },
 
@@ -192,7 +192,7 @@
       contactTitle: 'درخواست دمو',
       contactLead: 'بگویید همین حالا چه کاری را دستی انجام می‌دهید. صادقانه می‌گویم که نرم‌افزار به آن می‌ارزد یا نه.',
       contactNote: 'معمولاً همان روز جواب می‌دهم. انگلیسی، فارسی و ترکی.',
-      chanEmailK: 'ایمیل', chanPhoneK: 'تلفن', chanWaIntlK: 'واتساپ — بین‌المللی', chanWaTrK: 'واتساپ — ترکیه', chanInstagramK: 'اینستاگرام', socialFollow: 'دنبال‌کردن Hamvara',
+      chanEmailK: 'ایمیل', chanPhoneK: 'تلفن', chanWaIntlK: 'واتساپ — بین‌المللی', chanWaTrK: 'واتساپ — ترکیه', chanInstagramK: 'اینستاگرام', chanLinkedInK: 'لینکدین', socialFollow: 'دنبال‌کردن Hamvara',
       footPlace: 'استانبول، ترکیه',
     },
 
@@ -288,7 +288,7 @@
       contactTitle: 'Demo isteyin',
       contactLead: 'Şu anda elle ne yaptığınızı anlatın. Yazılıma değip değmeyeceğini dürüstçe söyleyeyim.',
       contactNote: 'Genellikle aynı gün yanıt. İngilizce, Farsça ve Türkçe.',
-      chanEmailK: 'E-POSTA', chanPhoneK: 'TELEFON', chanWaIntlK: 'WHATSAPP — ULUSLARARASI', chanWaTrK: 'WHATSAPP — TÜRKİYE', chanInstagramK: 'INSTAGRAM', socialFollow: 'Hamvara’yı takip edin',
+      chanEmailK: 'E-POSTA', chanPhoneK: 'TELEFON', chanWaIntlK: 'WHATSAPP — ULUSLARARASI', chanWaTrK: 'WHATSAPP — TÜRKİYE', chanInstagramK: 'INSTAGRAM', chanLinkedInK: 'LINKEDIN', socialFollow: 'Hamvara’yı takip edin',
       footPlace: 'İstanbul, Türkiye',
     },
   };
