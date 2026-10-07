@@ -9,7 +9,7 @@ import { makePaddle } from './paddle.mjs';
 import { createCheckout } from './checkout.mjs';
 import { acceptEvent } from './webhooks.mjs';
 import { forActor } from './lifecycle.mjs';
-import { skuAccess, exportSkuCsv } from './sku-access.mjs';
+import { skuAccess, exportSkuFile } from './sku-access.mjs';
 import { renderSkuPage } from './sku-page.mjs';
 const PAGE_DIR=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const files=new Map([['index.html','text/html'],['styles.css','text/css'],['config.js','text/javascript'],['app.js','text/javascript'],['sku-access.js','text/javascript'],['README.md','text/plain']]);
@@ -64,9 +64,9 @@ export function createServer({db,paddle=null,webhookSecret='',port=8080,clock=Da
         if(req.method==='POST'&&url.pathname==='/api/sandbox/sku/export') {
           const body=parseBody(await readBody(req)),current=session(db,req.headers.cookie,clock());
           requireCsrf(current,req.headers['x-sandbox-csrf']);
-          const csv=exportSkuCsv(db,current,body,clock());
-          res.writeHead(200,{...headers,'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="Hamvara-approved-SKU.csv"'});
-          return res.end(csv);
+          const file=exportSkuFile(db,current,body,clock());
+          res.writeHead(200,{...headers,'Content-Type':file.contentType,'Content-Disposition':`attachment; filename="${file.filename}"`});
+          return res.end(file.data);
         }
         if(req.method==='POST'&&url.pathname==='/api/sandbox/logout') {
           db.prepare('DELETE FROM sessions WHERE token_hash=?').run(actor.token_hash);

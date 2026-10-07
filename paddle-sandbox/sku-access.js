@@ -5,7 +5,9 @@
   const L = (en,tr) => document.documentElement?.lang === 'tr' ? tr : en;
   const errors = {
     test_login_required: 'Sign in on the test checkout page, then return here.',
-    verified_sku_payment_required: 'CSV export is locked. A verified SKU Bridge payment is required.',
+    verified_sku_payment_required: 'Export is locked. A verified SKU Bridge payment is required.',
+    invalid_export_format: 'Choose Excel (.xlsx) or CSV.',
+    xlsx_number_range: 'A number is too small for Excel to preserve. Review it or choose CSV.',
     csrf_failed: 'Your session changed. Refresh access and try again.',
     rows_need_review: 'Review SKU, numeric fields, stock limits, currency and barcodes before export.',
     row_approval_required: 'Approve the READY rows before export.',
@@ -15,7 +17,9 @@
   };
   const errorsTR = {
     test_login_required:'Test ödeme sayfasında giriş yapıp buraya dönün.',
-    verified_sku_payment_required:'CSV dışa aktarma kilitli. Doğrulanmış SKU Bridge ödemesi gerekli.',
+    verified_sku_payment_required:'Dışa aktarma kilitli. Doğrulanmış SKU Bridge ödemesi gerekli.',
+    invalid_export_format:'Excel (.xlsx) veya CSV seçin.',
+    xlsx_number_range:'Excel’in koruyamayacağı kadar küçük bir sayı var. Kontrol edin veya CSV seçin.',
     csrf_failed:'Oturum değişti. Erişimi yenileyip tekrar deneyin.',
     rows_need_review:'SKU, sayısal alanlar, stok sınırları, para birimi ve barkodları kontrol edin.',
     row_approval_required:'Dışa aktarmadan önce hazır satırları onaylayın.',
@@ -53,18 +57,19 @@
       : 'Review and approve rows before export.');
     return rows.slice(0, limit);
   }
-  async function exportRows(rows) {
+  async function exportRows(rows, format = 'csv') {
     if (exporting) return false;
     exporting = true;
     try {
+      if (!['csv', 'xlsx'].includes(format)) throw Error('invalid_export_format');
       const sessionResponse = await request('session');
       if (!sessionResponse.ok) throw Error('test_login_required');
       const current = await sessionResponse.json();
       const response = await request('sku/export', {method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-Sandbox-CSRF': current.csrf}, body: JSON.stringify({rows})});
+        headers: {'Content-Type': 'application/json', 'X-Sandbox-CSRF': current.csrf}, body: JSON.stringify(format === 'csv' ? {rows} : {rows, format})});
       if (!response.ok) { const body = await response.json(); throw Error(body.error || 'export_failed'); }
       const blob = await response.blob(), url = URL.createObjectURL(blob), a = document.createElement('a');
-      a.href = url; a.download = 'Hamvara-approved-SKU.csv'; a.click();
+      a.href = url; a.download = `Hamvara-approved-SKU.${format}`; a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       await refresh();
       text('sku-export-message', L(`Downloaded ${rows.length} approved rows. Payment was verified by the local server.`,`${rows.length} onaylı satır indirildi. Ödeme yerel sunucuda doğrulandı.`));

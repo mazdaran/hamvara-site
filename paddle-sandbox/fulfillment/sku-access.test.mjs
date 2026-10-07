@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { Script } from 'node:vm';
+import { inflateRawSync, crc32 } from 'node:zlib';
 import { openStore, seed, TEST_PASSWORD } from './store.mjs';
 import { login } from './auth.mjs';
 import { PLANS } from './catalog.mjs';
@@ -91,4 +92,42 @@ test('local product uses the existing SKU application, removes ungated export an
   assert.equal((await fetch(f.base+'/paddle-sandbox/sku-access.js')).status,200);
   const source=readFileSync(new URL('../../sku-bridge/index.html',import.meta.url),'utf8');
   assert.throws(()=>renderSkuPage(source.replace('<!-- SKU_ACCESS_ADAPTER -->','<!-- changed -->')),/contract_changed/);
+});
+
+// Inspect the actual HTTP ZIP payload; CSV disguised with an Excel extension would fail here.
+function unzip(buffer) {
+ const entries=new Map();let at=0;
+ while(buffer.readUInt32LE(at)===0x04034b50){
+   assert.equal(buffer.readUInt16LE(at+6),0);assert.equal(buffer.readUInt16LE(at+8),8);
+   const length=buffer.readUInt32LE(at+18),nameLength=buffer.readUInt16LE(at+26),extraLength=buffer.readUInt16LE(at+28),start=at+30+nameLength+extraLength;
+   const name=buffer.subarray(at+30,at+30+nameLength).toString();const data=inflateRawSync(buffer.subarray(start,start+length));
+   assert.equal(data.length,buffer.readUInt32LE(at+22));assert.equal(crc32(data),buffer.readUInt32LE(at+14));entries.set(name,data.toString());at=start+length;
+ }
+ assert.equal(buffer.readUInt32LE(at),0x02014b50);assert.equal(buffer.readUInt32LE(buffer.length-22),0x06054b50);
+ return entries;
+}
+test('XLSX retains textual identifiers and numeric prices, with no formula or external links',async t=>{
+ const f=await fixture(t);f.paid();
+ const rows=[{...row('000012345678901234567890'),barcode:'0012345678905',description:'=HYPERLINK("https://example.test") & <tag>\nİstanbul فارسی 😀 _x000A_\rEnd',price:'1.05',stock:'0'}];
+ const response=await f.request('/api/sandbox/sku/export',{method:'POST',body:{rows,format:'xlsx'}});
+ assert.equal(response.status,200);assert.equal(response.headers.get('content-type'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');assert.match(response.headers.get('content-disposition'),/Hamvara-approved-SKU.xlsx/);assert.equal(response.headers.get('cache-control'),'no-store');
+ const files=unzip(Buffer.from(await response.arrayBuffer())),sheet=files.get('xl/worksheets/sheet1.xml');
+ assert.match(sheet,/<c r="A2" s="1" t="inlineStr"><is><t xml:space="preserve">000012345678901234567890<\/t>/);
+ assert.match(sheet,/<c r="C2" s="1" t="inlineStr"><is><t xml:space="preserve">0012345678905<\/t>/);
+ assert.match(sheet,/<c r="E2" s="2" t="n"><v>1.05<\/v>/);assert.match(sheet,/<c r="G2" s="2" t="n"><v>0<\/v>/);
+ assert.match(sheet,/_x005F_x000A__x000D_End/);assert.ok(sheet.includes('&amp; &lt;tag&gt;'));assert.ok(sheet.includes('فارسی 😀'));
+ assert.ok(sheet.includes('ySplit="1"'));assert.ok(sheet.includes('autoFilter ref="A1:J2"'));assert.match(files.get('xl/styles.xml'),/numFmtId="49"/);
+ assert.equal([...files].some(([name,body])=>name.includes('external')||/<f[ >]|<hyperlink[ >]/.test(body)),false);
+});
+test('XLSX enforces auth, approval, validation, CSRF and refunds just like CSV',async t=>{
+ const f=await fixture(t);const request=(rows,extra={})=>f.request('/api/sandbox/sku/export',{method:'POST',body:{rows,format:'xlsx'},...extra});
+ assert.equal((await request([row()])).status,403);const {subscription}=f.paid();
+ assert.equal((await request([row()],{who:f.bob})).status,403);
+ assert.equal((await request([row()],{headers:{'X-Sandbox-CSRF':''}})).status,403);
+ assert.equal((await request([row()],{headers:{Origin:'https://example.test'}})).status,403);
+ for(const rows of [[{...row(),approved:false}],[row(),row()],[{...row(),price:'1,25'}],[{...row(),barcode:'bad'}],[{...row(),description:'\uFFFF'}],[{...row(),description:'\uD800'}]])assert.equal((await request(rows)).status,422);
+ const tiny=await request([{...row(),price:'0.'+'0'.repeat(400)+'1'}]);assert.equal(tiny.status,422);assert.equal((await tiny.json()).error,'xlsx_number_range');
+ assert.equal((await f.request('/api/sandbox/sku/export',{method:'POST',body:{rows:[row()],format:'xlsm'}})).status,400);
+ f.deliver('adjustment.updated',{id:id('adj',90),transaction_id:id('txn',1),subscription_id:subscription.id,customer_id:id('ctm',1),currency_code:'USD',action:'refund',type:'full',status:'approved',totals:{total:PLANS.skuMonthly.amount,currency_code:'USD'}},'2026-01-10T00:00:00Z');
+ assert.equal((await request([row()])).status,403);f.setTime(NOW+3600001);assert.equal((await request([row()])).status,401);
 });

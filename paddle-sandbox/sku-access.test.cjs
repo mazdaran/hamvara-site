@@ -33,3 +33,9 @@ test('SKU UI fails closed when the server becomes unavailable',async()=>{
   const f=fixture();f.paid();await f.api.refresh();f.offline();await f.api.refresh();assert.equal(f.api.preview(Array(201).fill({})).length,200);
   assert.equal(await f.api.exportRows([{sku:'TEST'}]),false);assert.equal(f.downloads.length,0);
 });
+test('Excel posts its format, downloads the server response and rejects revoked access',async()=>{
+ const f=fixture();f.paid();await f.api.refresh();assert.equal(await f.api.exportRows([{sku:'00012',approved:true}],'xlsx'),true);
+ const call=f.calls.find(x=>x.url.endsWith('/export'));assert.equal(JSON.parse(call.options.body).format,'xlsx');assert.equal(call.options.headers['X-Sandbox-CSRF'],'synthetic');assert.deepEqual(f.downloads,['Hamvara-approved-SKU.xlsx']);
+ f.error('verified_sku_payment_required');assert.equal(await f.api.exportRows([{sku:'00012',approved:true}],'xlsx'),false);assert.equal(f.downloads.length,1);
+ assert.equal(await f.api.exportRows([], 'xlsm'),false);assert.equal(f.downloads.length,1);
+});

@@ -1,6 +1,7 @@
 import { HttpError } from './auth.mjs';
 import { forActor } from './lifecycle.mjs';
 import { COLUMNS, reviewRows, serializeCsv } from '../../sku-bridge/core.mjs';
+import { serializeXlsx, XLSX_TYPE } from './sku-xlsx.mjs';
 
 export const FREE_PREVIEW_ROWS = 200;
 // Transport/DOM safety cap for this local test, not a commercial plan allowance.
@@ -14,7 +15,7 @@ export function skuAccess(db, actor, now = Date.now()) {
     accessUntil: entitlement?.accessUntil || null, username: actor.username};
 }
 
-export function exportSkuCsv(db, actor, body, now = Date.now()) {
+function validatedRows(db, actor, body, now) {
   // Always re-project durable payment evidence at the actual export boundary.
   // Browser flags, submitted owner IDs and stale access responses are irrelevant.
   if (!skuAccess(db, actor, now).exportAllowed) throw new HttpError(403, 'verified_sku_payment_required');
@@ -26,7 +27,7 @@ export function exportSkuCsv(db, actor, body, now = Date.now()) {
     const result = {approved:true};
     for (const key of COLUMNS) {
       const value = row[key] ?? '';
-      if (typeof value !== 'string' || value.length > 2000 || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(value))
+      if (typeof value !== 'string' || value.length > 2000 || !value.isWellFormed() || /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/.test(value))
         throw new HttpError(422, 'invalid_cell');
       result[key] = value.trim();
     }
@@ -34,5 +35,21 @@ export function exportSkuCsv(db, actor, body, now = Date.now()) {
   });
   // Ignore submitted status, exclusions and parsing overrides. Export accepts canonical numbers only.
   if(reviewRows(rows,'canonical').some(row=>row.status!=='READY'))throw new HttpError(422,'rows_need_review');
-  return serializeCsv(rows);
+  return rows;
+}
+
+export function exportSkuCsv(db, actor, body, now = Date.now()) {
+  return serializeCsv(validatedRows(db, actor, body, now));
+}
+
+export function exportSkuFile(db, actor, body, now = Date.now()) {
+  const rows = validatedRows(db, actor, body, now), format = body.format ?? 'csv';
+  if (!['csv', 'xlsx'].includes(format)) throw new HttpError(400, 'invalid_export_format');
+  let data;
+  try { data = format === 'xlsx' ? serializeXlsx(rows) : serializeCsv(rows); }
+  catch (error) {
+    if (error.message === 'xlsx_number_range') throw new HttpError(422, 'xlsx_number_range');
+    throw error;
+  }
+  return {data, contentType: format === 'xlsx' ? XLSX_TYPE : 'text/csv; charset=utf-8', filename: `Hamvara-approved-SKU.${format}`};
 }
