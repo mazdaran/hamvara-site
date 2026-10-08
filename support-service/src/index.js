@@ -55,7 +55,7 @@ export default {
  }
 };
 export class SupportDesk {
- constructor(ctx,env){this.ctx=ctx;this.env=env;this.sql=ctx.storage.sql;this.sql.exec(`
+ constructor(ctx,env){this.activeAI=0;this.ctx=ctx;this.env=env;this.sql=ctx.storage.sql;this.sql.exec(`
  CREATE TABLE IF NOT EXISTS conversations(id TEXT PRIMARY KEY, secret TEXT NOT NULL, lang TEXT NOT NULL, mode TEXT NOT NULL, owner TEXT, created INTEGER NOT NULL, updated INTEGER NOT NULL, pending TEXT, pending_at INTEGER);
  CREATE TABLE IF NOT EXISTS messages(seq INTEGER PRIMARY KEY AUTOINCREMENT, cid TEXT NOT NULL, mid TEXT NOT NULL, role TEXT NOT NULL, text TEXT NOT NULL, sources TEXT NOT NULL DEFAULT '[]', at INTEGER NOT NULL, UNIQUE(cid,mid));
  CREATE INDEX IF NOT EXISTS messages_cid ON messages(cid,seq);
@@ -65,25 +65,31 @@ export class SupportDesk {
  rows(q,...b){return [...this.sql.exec(q,...b)];}
  one(q,...b){return this.rows(q,...b)[0];}
  rate(key,limit,ms=60000){const now=Date.now();this.sql.exec('DELETE FROM counters WHERE expires < ?',now);const k=key+':'+Math.floor(now/ms);const r=this.one('SELECT n FROM counters WHERE key=?',k);if((r?.n||0)>=limit)fail(429,'rate_limited');this.sql.exec('INSERT INTO counters(key,n,expires) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET n=n+1',k,now+ms);}
+ checkRate(key,limit,ms=60000){const r=this.one('SELECT n FROM counters WHERE key=?',key+':'+Math.floor(Date.now()/ms));if((r?.n||0)>=limit)fail(429,'rate_limited');}
  clean(){const cutoff=Date.now()-30*DAY;this.sql.exec('DELETE FROM messages WHERE cid IN (SELECT id FROM conversations WHERE created < ?)',cutoff);this.sql.exec('DELETE FROM conversations WHERE created < ?',cutoff);this.sql.exec('DELETE FROM presence WHERE at < ?',Date.now()-DAY);}
  online(){const ids=new Set(operators(this.env).map(o=>o.id));return this.rows('SELECT id FROM presence WHERE at>?',Date.now()-75000).some(o=>ids.has(o.id));}
- async admin(req){const key=(req.headers.get('Authorization')||'').replace(/^Bearer /,'');if(key.length<32||key.length>200)fail(401,'unauthorized');const digest=await hash(key);const op=operators(this.env).find(o=>o.tokenHash===digest);if(!op)fail(401,'unauthorized');return op;}
+ async admin(req){const ip=req.headers.get('X-Support-IP')||'internal';this.checkRate('admin-failure:'+ip,10,900000);try{const key=(req.headers.get('Authorization')||'').replace(/^Bearer /,'');if(key.length<32||key.length>200)fail(401,'unauthorized');const digest=await hash(key);const op=operators(this.env).find(o=>o.tokenHash===digest);if(!op)fail(401,'unauthorized');return op;}catch(e){if(e.status===401)this.rate('admin-failure:'+ip,10,900000);throw e;}}
  async visitor(req,id){if(!validId(id))fail(404,'not_found');const key=(req.headers.get('Authorization')||'').replace(/^Bearer /,'');if(key.length<32||key.length>200)fail(401,'unauthorized');const digest=await hash(key),c=this.one('SELECT * FROM conversations WHERE id=?',id);if(!c||c.secret!==digest)fail(401,'unauthorized');return c;}
  view(id){const c=this.one('SELECT id,lang,mode,owner,created,updated,pending,pending_at FROM conversations WHERE id=?',id);if(!c)fail(404,'not_found');return {...c,pending:Boolean(c.pending&&c.pending_at>Date.now()-30000),online:this.online(),messages:this.rows('SELECT seq,role,text,sources,at FROM messages WHERE cid=? ORDER BY seq',id).map(m=>({...m,sources:JSON.parse(m.sources)}))};}
  add(id,mid,role,text,sources=[]){this.sql.exec('INSERT INTO messages(cid,mid,role,text,sources,at) VALUES(?,?,?,?,?,?)',id,mid,role,text,JSON.stringify(sources),Date.now());this.sql.exec('UPDATE conversations SET updated=? WHERE id=?',Date.now(),id);}
  async scheduleCleanup(){const first=this.one('SELECT MIN(created) AS at FROM conversations');if(first?.at)await this.ctx.storage.setAlarm(first.at+30*DAY+1000);}
  async alarm(){this.clean();await this.scheduleCleanup();}
- async fetch(req){try{return await this.handle(req);}catch(e){return json({error:e.code||'service_error'},e.status||500);}}
+ async fetch(req){try{return await this.handle(req);}catch(e){const r=json({error:e.code||'service_error'},e.status||500);if(e.status===429)r.headers.set('Retry-After',new URL(req.url).pathname.startsWith('/admin/')?'900':'60');return r;}}
  async handle(req){
   this.clean();const path=new URL(req.url).pathname,ip=req.headers.get('X-Support-IP')||'internal',method=req.method;
+  // Bound public traffic before creating per-IP counters. Operators retain their own access.
+  if(!path.startsWith('/admin/'))this.rate('public-global',600);
   this.rate('request:'+ip,180);
   if(path==='/status'&&method==='GET')return json({ready:operators(this.env).length>0,ai:aiEnabled(this.env),online:this.online(),retentionDays:30});
   if(path.startsWith('/admin/'))return this.handleAdmin(req,path,await this.admin(req));
   if(path==='/sessions'&&method==='POST'){
    if(!operators(this.env).length)fail(503,'operators_not_configured');
+   if(this.env.CHAT_ACCEPT_NEW_SESSIONS==='false')fail(503,'new_sessions_paused');
    const b=await body(req);if(b.consent!==true)fail(400,'consent_required');this.rate('new:'+ip,5,DAY);this.rate('new-global',200,DAY);
    if(this.one('SELECT COUNT(*) AS n FROM conversations').n>=2000)fail(503,'capacity_reached');
    const id=crypto.randomUUID(),secret=token(),digest=await hash(secret),lang=['en','fa','tr'].includes(b.lang)?b.lang:'en',now=Date.now();
+   // Recheck after hashing: parallel creates must not bypass the storage cap.
+   if(this.one('SELECT COUNT(*) AS n FROM conversations').n>=2000)fail(503,'capacity_reached');
    this.sql.exec('INSERT INTO conversations(id,secret,lang,mode,created,updated) VALUES(?,?,?,?,?,?)',id,digest,lang,b.aiConsent===true&&aiEnabled(this.env)?'ai':'queued',now,now);
    await this.scheduleCleanup();
    return json({id,token:secret,...this.view(id)},201);
@@ -111,7 +117,9 @@ export class SupportDesk {
   try{
    if(!aiEnabled(this.env))throw Error('ai_disabled');
    this.rate('ai-global',Math.min(500,Math.max(1,Number(this.env.CHAT_DAILY_AI_LIMIT)||100)),DAY);
-   const answer=await this.answer(text,chunks,c.lang);
+   this.rate('ai-session:'+c.id,12,DAY);this.rate('ai-ip:'+ip,20,DAY);
+   if(this.activeAI>=5)throw Error('ai_busy');
+   this.activeAI++;let answer;try{answer=await this.answer(text,chunks,c.lang);}finally{this.activeAI--;}
    const current=this.one('SELECT mode,pending FROM conversations WHERE id=?',c.id);
    if(current?.mode==='ai'&&current.pending===task){
     if(answer.handoff)this.sql.exec("UPDATE conversations SET mode='queued',pending=NULL WHERE id=?",c.id);

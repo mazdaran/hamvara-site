@@ -81,3 +81,31 @@ test('reviewed workflow honors opt-in and handoff without calling a provider',as
   assert.equal((await send(ai)).data.messages.length,3); // new visitor message only
  }finally{globalThis.fetch=old;}
 });
+
+
+test('operator key guessing is throttled without locking other IPs',async()=>{
+ const {desk}=await setup();
+ for(let i=0;i<10;i++)assert.equal((await call(desk,'/admin/conversations','GET',null,'wrong-key-at-least-32-characters-long','attacker')).status,401);
+ assert.equal((await call(desk,'/admin/conversations','GET',null,key,'attacker')).status,429);
+ assert.equal((await call(desk,'/admin/conversations','GET',null,key,'operator')).status,200);
+});
+test('distributed public flooding is bounded and operator inbox remains accessible',async()=>{
+ const {desk}=await setup();desk.rate('public-global',600);const k='public-global:'+Math.floor(Date.now()/60000);
+ desk.sql.exec('UPDATE counters SET n=600 WHERE key=?',k);
+ assert.equal((await call(desk,'/status','GET',null,null,'new-bot-ip')).status,429);
+ assert.equal((await call(desk,'/admin/conversations','GET',null,key,'operator')).status,200);
+});
+test('emergency pause stops new sessions while existing conversations work',async()=>{
+ const {desk,env}=await setup();const s=await start(desk);env.CHAT_ACCEPT_NEW_SESSIONS='false';
+ assert.equal((await call(desk,'/sessions','POST',{consent:true})).status,503);
+ assert.equal((await call(desk,'/sessions/'+s.id,'GET',null,s.token)).status,200);
+});
+test('AI session budget and concurrent work cap stop provider calls safely',async()=>{
+ for(const limit of ['session','concurrency']){
+  const {desk}=await setup({CHAT_AI_ENABLED:'true',OPENAI_API_KEY:'test',CHAT_MODEL:'configured-model'});const s=await start(desk,true);let calls=0;
+  desk.answer=async()=>{calls++;throw Error('must not call');};
+  if(limit==='session')for(let i=0;i<12;i++)desk.rate('ai-session:'+s.id,12,86400000);else desk.activeAI=5;
+  const r=await call(desk,'/sessions/'+s.id+'/messages','POST',{text:'How do I save a BOM?',messageId:crypto.randomUUID()},s.token);
+  assert.equal(calls,0);assert.equal(r.data.mode,'queued');assert.equal(r.data.pending,false);
+ }
+});

@@ -46,3 +46,31 @@ Knowledge is generated from our own `_site-preview-source/manuals/*.json`. Revie
 ## Reviewed workflow responses
 
 Broad SKU Bridge import plus review/export questions use an original, reviewed nine-step answer in EN/FA/TR, with all six guide sources. This route runs only inside the existing opted-in assistant flow and preserves handoff and quota controls; it makes no OpenAI request. It is labeled as a reviewed guide. Narrow questions still use the model with product guide context. Keep `src/reviewed-workflows.js` synchronized with the product guide when controls change. The call counter remains a conservative assistant-turn cap, including reviewed responses.
+
+
+## Abuse controls (application layer)
+
+Additional limits: 600 public requests/minute across IPs; 10 failed operator
+credentials per IP per 15-minute fixed window; 12 assistant turns/conversation/day;
+20 assistant turns/IP/day; at most 5 concurrently processed assistant answers per
+Durable Object instance. Existing daily global AI, message and session limits stay
+in force. Rate windows are fixed, so boundary bursts are possible. Shared office
+IPs share limits. Operator routes do not consume the public global request budget.
+HTTP 429 includes Retry-After. Exhausted AI budgets or concurrency transfer the
+conversation to the human queue without calling the provider. Reviewed answers
+also consume the conservative assistant budget.
+
+Emergency: set Worker variable CHAT_ACCEPT_NEW_SESSIONS=false to pause new chats;
+existing conversations and the operator inbox remain accessible. Remove it or set
+true to reopen. CHAT_AI_ENABLED=false disables AI provider calls. These are Worker
+variables, not frontend secrets; preserve the existing manual deployment gate.
+
+These limits do NOT identify humans and are NOT an edge DDoS defence. Requests
+still reach the Worker/DO and can incur infrastructure cost; distributed attackers
+can exhaust public quotas and deny chat to legitimate visitors. CORS is not bot
+authentication. Next production layer requires Cloudflare account configuration:
+Turnstile on session creation with server-side token validation and expected
+hostname/action checks, plus edge rules appropriate to the actual Worker hostname.
+Neither Turnstile nor account-level WAF/edge protection has been enabled by this
+commit. Do not imply whole-site/ERP protection from support-only limits. No external
+runtime package or open-source implementation was added.
