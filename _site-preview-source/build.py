@@ -1,6 +1,7 @@
 from pathlib import Path
 from html import escape
 import json
+from experience import X, process, guide_cards, ai_help, offline_guide
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'site-preview'
@@ -34,9 +35,9 @@ def link(url, text, cls='button', external=False):
 def head(lang, page, title, description):
     d = DATA[lang]
     languages = ''.join(f'<a href="{href(code,page)}" lang="{code}" hreflang="{code}" aria-current="{"page" if lang==code else "false"}">{label}</a>' for code,label in [('en','EN'),('fa','فارسی'),('tr','TR')])
-    nav = ''.join(f'<a href="{href(lang)}#{key}">{E(d["nav"][key])}</a>' for key in ['products','pricing','workflow','contact'])
+    nav = ''.join(f'<a href="{href(lang)}#{key}">{E(label)}</a>' for key,label in zip(['products','how-we-work','guides','about','pricing','contact'],X[lang]['nav']))
     return f'''<!doctype html>
-<html lang="{lang}" dir="{'rtl' if lang=='fa' else 'ltr'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="description" content="{E(description)}"><meta name="theme-color" content="#102b3b"><title>{E(title)} — Hamvara</title><link rel="stylesheet" href="/site-preview/assets/site.css?v=20261007-1"><script src="/site-preview/assets/site.js?v=20261007-1" defer></script></head><body>
+<html lang="{lang}" dir="{'rtl' if lang=='fa' else 'ltr'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="description" content="{E(description)}"><meta name="theme-color" content="#102b3b"><title>{E(title)} — Hamvara</title><link rel="stylesheet" href="/site-preview/assets/site.css?v=20261008-1"><link rel="stylesheet" href="/site-preview/assets/experience.css?v=20261008-1"><script src="/site-preview/assets/site.js?v=20261008-1" defer></script><script src="/site-preview/assets/experience.js?v=20261008-1" defer></script></head><body>
 <a class="skip-link" href="#main">{E(d['skip'])}</a>
 <div class="review-strip"><div class="shell"><span class="review-dot"></span><strong>{E(d['preview'])}</strong><span>{E(d['previewNote'])}</span></div></div>
 <header class="site-header"><div class="shell header-inner"><a class="brand" href="{href(lang)}" aria-label="Hamvara"><span class="brand-mark">{icon('grid')}</span>Hamvara<span class="brand-dot">.</span></a><nav class="main-nav" aria-label="{E(d['navigation'])}">{nav}</nav><div class="language-switch" aria-label="{E(d['language'])}">{languages}</div>{link(href(lang)+'#products', d['getStarted'], 'button compact')}</div></header>'''
@@ -44,7 +45,7 @@ def head(lang, page, title, description):
 def footer(lang):
     d=DATA[lang]
     links=''.join(f'<a href="{href(lang,key)}">{E(d["legalNames"][key])}</a>' for key in ['terms','privacy','refunds'])
-    return f'''<footer class="site-footer"><div class="shell footer-top"><a class="brand" href="{href(lang)}"><span class="brand-mark">{icon('grid')}</span>Hamvara<span class="brand-dot">.</span></a><p>{E(d['footerTag'])}</p><nav aria-label="{E(d['legalNav'])}">{link(href(lang,'tools'),d['allTools'],'text-link')}{links}<a href="{href(lang)}#contact">{E(d['nav']['contact'])}</a></nav></div><div class="shell footer-bottom"><span>© 2026 Mohammad Bagher Yahya Mazdarani</span><span>{E(d['location'])}</span><span>{E(d['preview'])} · 07 Oct 2026</span></div></footer></body></html>'''
+    return f'''<footer class="site-footer"><div class="shell footer-top"><a class="brand" href="{href(lang)}"><span class="brand-mark">{icon('grid')}</span>Hamvara<span class="brand-dot">.</span></a><p>{E(d['footerTag'])}</p><nav aria-label="{E(d['legalNav'])}">{link(href(lang,'tools'),d['allTools'],'text-link')}{link(href(lang,'guides'),X[lang]['nav'][2],'text-link')}{link(href(lang,'about'),X[lang]['nav'][3],'text-link')}{links}<a href="{href(lang)}#contact">{E(d['nav']['contact'])}</a></nav></div><div class="shell footer-bottom"><span>© 2026 Mohammad Bagher Yahya Mazdarani</span><span>{E(d['location'])}</span><span>{E(d['preview'])} · 08 Oct 2026</span></div></footer></body></html>'''
 
 def feature_list(items):
     return '<ul class="feature-list">'+''.join(f'<li>{icon("check")}<span>{E(item)}</span></li>' for item in items)+'</ul>'
@@ -88,15 +89,45 @@ def faq(lang):
 
 def contact(lang):
     d=DATA[lang]['contact']
-    channels=[('mail','mailto:info@hamvara.com',d['email'],'info@hamvara.com',False),('phone','tel:+905526281004',d['phone'],'+90 552 628 10 04',False),('whatsapp','https://wa.me/905369247371',d['waIntl'],'+90 536 924 73 71',True),('whatsapp','https://wa.me/905526281004',d['waTr'],'+90 552 628 10 04',True),('instagram','https://www.instagram.com/hamvaramrp/','Instagram','Hamvara',True),('linkedin','https://www.linkedin.com/company/145269324/','LinkedIn','Hamvara',True)]
+    channels=[('mail','mailto:info@hamvara.com',d['email'],'info@hamvara.com',False),('phone','tel:+905369247371',d['phone'],'+90 536 924 73 71',False),('whatsapp','https://wa.me/905369247371','WhatsApp','+90 536 924 73 71',True),('instagram','https://www.instagram.com/hamvaramrp/','Instagram','Hamvara',True),('linkedin','https://www.linkedin.com/company/145269324/','LinkedIn','Hamvara',True)]
     cards=''.join(f'<a class="contact-link" href="{url}"'+(' target="_blank" rel="noopener noreferrer"' if ext else '')+f'><span class="contact-icon">{icon(ic)}</span><span><small>{E(label)}</small><strong><bdi>{E(value)}</bdi></strong></span><span class="contact-arrow">↗</span></a>' for ic,url,label,value,ext in channels)
     return f'<section id="contact" class="contact-section"><div class="shell contact-grid"><div><span class="eyebrow">{E(d["eyebrow"])}</span><h2>{E(d["title"])}</h2><p>{E(d["lead"])}</p><p class="contact-note">{E(d["note"])}</p></div><div class="contact-links">{cards}</div></div></section>'
 
+def mrp_tour(lang):
+    x=X[lang]
+    tour=(Path(__file__).parent/'mrp-tour.html').read_text()
+    tour=tour.replace('● AUTO TOUR','● SAMPLE TOUR')
+    return f'<div class="tour-wrapper">{tour}<div class="tour-footer"><span>{E(x["tourNote"])}</span><button type="button" data-tour-toggle data-play="{E(x["play"])}" data-pause="{E(x["pause"])}" aria-pressed="true">{E(x["pause"])}</button></div></div>'
+
+def help_section(lang):
+    x=X[lang]
+    return f'<section id="guides" class="section shell"><div class="section-heading"><div><span class="eyebrow">{E(x["guideKicker"])}</span><h2>{E(x["guideTitle"])}</h2></div><p>{E(x["guideLead"])}</p></div>{guide_cards(lang,base(lang))}<div class="download-bar"><div><p>{E(x["downloadNote"])}</p></div><a class="button outline" href="/site-preview/downloads/hamvara-products-sample.csv" download>{E(x["sample"])}</a>{link(href(lang,"guides")+"#ai-help",x["aiTitle"],"text-link")}</div></section>'
+
+def about_teaser(lang):
+    x=X[lang]
+    return f'<section id="about" class="about-section"><div class="shell about-grid"><div><span class="eyebrow">{E(x["aboutKicker"])}</span><h2>{E(x["aboutTitle"])}</h2></div><div><p>{E(x["aboutLead"])}</p><p>{E(x["aboutExperience"])}</p>{link(href(lang,"about"),x["aboutMore"],"text-link")}</div></div></section>'
+
 def home(lang):
-    d=DATA[lang]; h=d['hero']
-    trust=''.join(f'<span>{icon("check")}{E(x)}</span>' for x in h['trust'])
-    audience=''.join(f'<span>{E(x)}</span>' for x in d['audience'])
-    return head(lang,'index',d['pageTitle'],h['lead'])+f'''<main id="main"><section class="hero"><div class="shell hero-grid"><div class="hero-copy"><span class="eyebrow"><span class="tiny-line"></span>{E(h['eyebrow'])}</span><h1>{E(h['title'])}<span>{E(h['accent'])}</span></h1><p class="hero-lead">{E(h['lead'])}</p><div class="hero-actions">{link('#products',h['primary'],'button')}{link('#workflow',h['secondary'],'button ghost')}</div><div class="hero-trust">{trust}</div></div><div class="hero-visual">{demo(lang)}<span class="visual-caption">{E(h['caption'])}</span></div></div><div class="shell audience-line"><span class="audience-label">{E(d['builtFor'])}</span>{audience}</div></section>{products(lang)}{workflow(lang)}{pricing(lang)}{tools_teaser(lang)}{faq(lang)}{contact(lang)}</main>'''+footer(lang)
+    d=DATA[lang]; h=d['hero']; x=X[lang]
+    trust=''.join(f'<span>{icon("check")}{E(t)}</span>' for t in h['trust'])
+    steps=process(x['service'],x['serviceLead'],'service')
+    tracks=''.join(f'<track kind="captions" srclang="{code}" label="{label}" src="/site-preview/assets/media/sku-bridge-{code}.vtt"{(" default" if code==lang else "")}>' for code,label in [('en','English'),('fa','فارسی'),('tr','Türkçe')])
+    return head(lang,'index',d['pageTitle'],h['lead'])+f'''<main id="main">
+<section class="hero" id="products"><div class="shell"><div class="hero-intro"><span class="eyebrow">{E(h['eyebrow'])}</span><h1>{E(h['title'])} <span>{E(h['accent'])}</span></h1><p class="hero-lead">{E(h['lead'])}</p><div class="journey-shortcut"><a href="#how-we-work">{E(x['serviceTitle'])} ↓</a><a href="#guides">{E(x['nav'][2])} ↗</a></div></div><div class="product-showcase" id="mrp-demo"><div class="showcase-copy"><span class="eyebrow">{E(x['mrpKicker'])}</span><h2>{E(x['mrpTitle'])}</h2><p>{E(x['mrpLead'])}</p>{feature_list(d['mrp']['features'])}<div class="hero-actions">{link('/mrp/',d['mrp']['cta'])}{link(href(lang,'guides')+'#mrp',x['readGuide'],'text-link')}</div></div>{mrp_tour(lang)}</div>{process(x['mrpFlow'],x['flowTitle'])}</div></section>
+<section class="sku-showcase" id="sku-demo"><div class="shell"><div class="product-showcase"><div class="showcase-copy"><span class="eyebrow">{E(x['skuKicker'])}</span><h2>{E(x['skuTitle'])}</h2><p>{E(x['skuLead'])}</p><div class="hero-actions">{link('/sku-bridge/',d['sku']['cta'])}{link(href(lang,'guides')+'#sku',x['readGuide'],'text-link')}</div><p class="fine-print">{E(d['sku']['availability'])}</p></div><figure class="promo-video"><video controls playsinline preload="none" poster="/site-preview/assets/media/sku-bridge-poster.jpg" aria-label="SKU Bridge"><source src="/site-preview/assets/media/sku-bridge-intro.mp4" type="video/mp4">{tracks}<a href="/site-preview/assets/media/sku-bridge-intro.mp4">SKU Bridge MP4</a></video><figcaption>{E(x['videoNote'])}</figcaption><details><summary>{E(x['transcript'])}</summary><p>{E(x['videoText'])}</p></details></figure></div>{process(x['skuFlow'],x['flowTitle'])}</div></section>
+<section id="how-we-work" class="workflow-section"><div class="shell"><div class="section-heading"><div><span class="eyebrow">{E(x['serviceKicker'])}</span><h2>{E(x['serviceTitle'])}</h2></div></div>{steps}{link('#contact',x['serviceCta'],'button')}</div></section>
+{help_section(lang)}{about_teaser(lang)}
+<div class="shell compact-extras"><details id="pricing" class="pricing-details"><summary>{E(x['priceSummary'])}<span aria-hidden="true">＋</span></summary>{pricing(lang).replace('id="pricing"','id="pricing-content"')}</details><div class="toolbox-link"><p>{E(x['toolsSummary'])}</p>{link(href(lang,'tools'),d['allTools'],'text-link')}</div></div>{faq(lang)}{contact(lang)}</main>'''+footer(lang)
+
+def about_page(lang):
+    x=X[lang]
+    sections=''.join('<section><h2>'+E(section[0])+'</h2>'+''.join('<p>'+E(t)+'</p>' for t in section[1:])+'</section>' for section in x['aboutSections'])
+    return head(lang,'about',x['nav'][3],x['aboutLead'])+f'<main id="main" class="legal-main shell"><div class="page-intro"><span class="eyebrow">{E(x["aboutKicker"])}</span><h1>{E(x["aboutTitle"])}</h1></div><article class="legal-copy about-copy"><p>{E(x["aboutLead"])}</p><p>{E(x["aboutExperience"])}</p>{sections}<p><a href="mailto:info@hamvara.com">info@hamvara.com</a><br><a href="tel:+905369247371"><bdi>+90 536 924 73 71</bdi></a></p>{link(href(lang)+"#how-we-work",x["serviceCta"],"button")}</article></main>'+footer(lang)
+
+def guides_page(lang):
+    x=X[lang]
+    quick=''.join(f'<a href="#{key}">{E(title)}</a>' for key,title,_ in x['guides'])
+    return head(lang,'guides',x['nav'][2],x['guideLead'])+f'<main id="main" class="guides-main shell"><div class="page-intro"><span class="eyebrow">{E(x["guideKicker"])}</span><h1>{E(x["guideTitle"])}</h1><p>{E(x["guideLead"])}</p><p class="fine-print">{E(x["guideVersion"])}</p></div><nav class="guide-index" aria-label="{E(x["nav"][2])}">{quick}<a href="#ai-help">{E(x["aiTitle"])}</a></nav><div class="download-bar"><p>{E(x["downloadNote"])}</p><a class="button outline" href="/site-preview/downloads/hamvara-products-sample.csv" download>{E(x["sample"])}</a>{link("mailto:info@hamvara.com?subject=Hamvara%20software%20version",x["installer"],"text-link")}<button class="button outline" type="button" data-print>{E(x["print"])}</button></div>{guide_cards(lang,base(lang),True)}{ai_help(lang)}</main>'+footer(lang)
 
 def tools_page(lang):
     d=DATA[lang]; t=d['tools']
@@ -119,9 +150,15 @@ def build():
         dest.mkdir(exist_ok=True)
         (dest/'index.html').write_text(home(lang),encoding='utf-8')
         (dest/'tools.html').write_text(tools_page(lang),encoding='utf-8')
+        (dest/'about.html').write_text(about_page(lang),encoding='utf-8')
+        (dest/'guides.html').write_text(guides_page(lang),encoding='utf-8')
+        downloads=OUT/'downloads'
+        downloads.mkdir(exist_ok=True)
+        for key,title,_ in X[lang]['guides']:
+            (downloads/f'hamvara-{key}-guide-{lang}.html').write_text(offline_guide(lang,key,title),encoding='utf-8')
         for kind in ['terms','privacy','refunds']:
             (dest/(kind+'.html')).write_text(legal_page(lang,kind),encoding='utf-8')
-    print('Built 15 HTML pages in three languages.')
+    print('Built 21 HTML pages and 9 offline guides in three languages.')
 
 if __name__=='__main__':
     build()

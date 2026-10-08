@@ -1,0 +1,5 @@
+SKU,Description,UOM,Stock,Warehouse
+RAW-100,Sample raw material,kg,1250,Raw Materials
+PKG-020,Sample product label,pc,200,Packaging
+FG-001,Sample finished product,pc,24,Finished Goods
+raw-100,Duplicate code for review only,kg,45,Raw Materials
