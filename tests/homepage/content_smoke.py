@@ -37,6 +37,8 @@ with sync_playwright() as p:
  page.goto('https://hamvara.test/sku-bridge/?demo=1')
  assert page.locator('#mappingPanel').is_visible()
  assert '6 rows' in page.locator('#filemeta').inner_text()
+ page.locator('#analyze').click()
+ assert page.locator('#resultsPanel').is_visible()
  page.locator('#reset').click()
  assert page.locator('#mappingPanel').is_hidden()
  print('PASS SKU sample deep link and reset',flush=True)
