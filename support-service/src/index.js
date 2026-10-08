@@ -72,7 +72,7 @@ export class SupportDesk {
   const c=await this.visitor(req,m[1]);
   if(method==='DELETE'&&!m[2]){this.sql.exec('DELETE FROM messages WHERE cid=?',c.id);this.sql.exec('DELETE FROM conversations WHERE id=?',c.id);return json({deleted:true});}
   if(method==='GET'&&!m[2])return json(this.view(c.id));
-  if(method==='POST'&&m[2]==='handoff'){this.sql.exec("UPDATE conversations SET mode=CASE WHEN mode='human' THEN 'human' ELSE 'queued' END,pending=NULL WHERE id=?",c.id);return json(this.view(c.id));}
+  if(method==='POST'&&m[2]==='handoff'){if(c.mode==='closed')fail(409,'conversation_closed');this.sql.exec("UPDATE conversations SET mode=CASE WHEN mode='human' THEN 'human' ELSE 'queued' END,pending=NULL WHERE id=?",c.id);return json(this.view(c.id));}
   if(method!=='POST'||m[2]!=='messages')fail(405,'method_not_allowed');
   const b=await body(req),text=typeof b.text==='string'?b.text.trim():'';if(!text||text.length>1800||!validId(b.messageId))fail(400,'invalid_message');
   if(this.one('SELECT seq FROM messages WHERE cid=? AND mid=?',c.id,b.messageId))return json(this.view(c.id));
