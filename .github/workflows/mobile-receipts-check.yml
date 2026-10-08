@@ -17,3 +17,9 @@ jobs:
           node-version: '24'
       - run: npm run check
         working-directory: worker
+      - run: npm ci
+        working-directory: worker
+      - name: Validate isolated staging package without deployment
+        run: |
+          node worker/scripts/prepare-mobile-staging.mjs aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+          node worker/node_modules/wrangler/bin/wrangler.js deploy --dry-run --config .mobile-staging/wrangler.json

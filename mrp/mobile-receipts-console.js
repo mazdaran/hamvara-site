@@ -15,7 +15,7 @@ $('logout').onclick=()=>{clearInterval(timer);credentials=null;location.reload()
 $('pair').onclick=()=>action($('pair'),async()=>{
  if(pairing)await api(`/pairings/${pairing.id}`,{action:'revoke'});
  pairing=await api('/pairings',{warehouse:$('warehouse').value});$('qr').replaceChildren();
- new QRCode($('qr'),{text:`https://hamvara.com/mrp/mobile-receipt.html#token=${encodeURIComponent(pairing.token)}`,width:180,height:180});
+ new QRCode($('qr'),{text:`${location.origin}/mrp/mobile-receipt.html#token=${encodeURIComponent(pairing.token)}`,width:180,height:180});
  $('approveDevice').hidden=true;$('revokeDevice').hidden=false;$('pairStatus').textContent='Scan in the updated Android app within 60 seconds.';
  delete pairing.token;
 });
