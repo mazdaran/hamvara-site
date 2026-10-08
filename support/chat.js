@@ -1,5 +1,6 @@
 import {request,renderMessages} from './common.js';
 import {Verification} from './verification.js';
+import {startError,startingText} from './start-errors.js';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search),api=window.HAMVARA_SUPPORT_CONFIG.apiBase;
 let lang=['en','fa','tr'].includes(params.get('lang'))?params.get('lang'):'en',session=null,busy=false,retry=null,timer=null,view=null;
 try{session=JSON.parse(sessionStorage.getItem('hamvara-support-session')||'null');if(session&&!session.id)session=null;if(session)lang=session.lang||lang;}catch{}
@@ -17,11 +18,11 @@ $('language').onchange=()=>{lang=$('language').value;translate();status();};
 $('begin').onclick=async()=>{
  error('');if(starting||!serviceReady||!verification.token)return;
  if(!$('consent').checked){error(copy().consentRequired);return;}
- starting=true;$('begin').disabled=true;
+ starting=true;$('begin').disabled=true;$('begin').textContent=startingText(lang);
  try{const data=await request('/sessions',{api,method:'POST',body:{lang,consent:true,aiConsent:$('ai-consent').checked,turnstileToken:verification.token}});
   session={id:data.id,token:data.token,lang};save();verification.stop();show(data);poll();
- }catch{error(copy().unavailable);verification.reset();}
- finally{starting=false;$('begin').disabled=!serviceReady||!verification.token;}
+ }catch(e){error(startError(e,lang));verification.reset();}
+ finally{starting=false;$('begin').textContent=copy().start;$('begin').disabled=!serviceReady||!verification.token;}
 };
 $('composer').onsubmit=async e=>{e.preventDefault();if(!session||busy)return;const text=$('text').value.trim();if(!text)return;error('');if(!retry||retry.text!==text)retry={text,messageId:crypto.randomUUID()};busy=true;$('send').disabled=true;try{const data=await request('/sessions/'+session.id+'/messages',{api,token:session.token,method:'POST',body:retry});$('text').value='';retry=null;show(data);}catch{error(copy().failure);}finally{busy=false;if(view)show(view);}};
 $('human').onclick=async()=>{try{show(await request('/sessions/'+session.id+'/handoff',{api,token:session.token,method:'POST',body:{}}));}catch{error(copy().error);}};
