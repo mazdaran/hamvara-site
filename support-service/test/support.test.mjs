@@ -56,3 +56,28 @@ test('provider receives the missing SKU analysis and correction chapters',async(
  };
  try{const r=await desk.answer('SKU Bridge CSV',retrieve('SKU Bridge CSV','fa'),'fa');assert.equal(r.sources.length,2);assert.ok(r.text.includes('\n'));}finally{globalThis.fetch=old;}
 });
+
+test('reviewed broad SKU workflow cannot omit mapping or analysis, in all three languages',async()=>{
+ const {desk}=await setup(),old=globalThis.fetch;
+ const questions={en:'I am a beginner. How do I import my CSV into SKU Bridge, check and correct errors, and download only approved rows?',fa:'من تازه کارم. چطور فایل CSV کالاهایم را در SKU Bridge وارد کنم و خطاهای آن را بررسی کنم؟',tr:'SKU Bridge CSV dosyamı nasıl yüklerim ve hataları kontrol ederim?'};
+ globalThis.fetch=async()=>{throw Error('A reviewed workflow must not depend on generated summarization');};
+ try{for(const [lang,q] of Object.entries(questions)){
+  const result=await desk.answer(q,retrieve(q,lang),lang);
+  const labels=['Choose Excel or CSV','Confirm column mapping','Analyze data','Data quality report','Recheck corrections','USE','Download approved rows'];
+  let previous=-1;for(const label of labels){const i=result.text.indexOf(label);assert.ok(i>previous,`${lang}: ${label} in order`);previous=i;}
+  assert.ok(result.text.length<=2600);assert.equal(result.sources.length,6);assert.ok(!/DEMO-TAPE|2\.00/.test(result.text));
+ }}finally{globalThis.fetch=old;}
+});
+test('reviewed workflow honors opt-in and handoff without calling a provider',async()=>{
+ const {desk}=await setup({CHAT_AI_ENABLED:'true',OPENAI_API_KEY:'test',CHAT_MODEL:'configured-model'}),old=globalThis.fetch;
+ globalThis.fetch=async()=>{throw Error('No provider call expected');};
+ const q='How do I import a CSV into SKU Bridge and check errors?';
+ try{
+  const ai=await start(desk,true),off=await start(desk,false);
+  const send=s=>call(desk,'/sessions/'+s.id+'/messages','POST',{text:q,messageId:crypto.randomUUID()},s.token);
+  const r=await send(ai);assert.equal(r.data.messages.at(-1).role,'assistant');assert.equal(r.data.mode,'ai');
+  assert.equal((await send(off)).data.messages.length,1);
+  await call(desk,'/sessions/'+ai.id+'/handoff','POST',{},ai.token);
+  assert.equal((await send(ai)).data.messages.length,3); // new visitor message only
+ }finally{globalThis.fetch=old;}
+});

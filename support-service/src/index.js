@@ -1,5 +1,6 @@
 // Original Hamvara support implementation. Native Web APIs only; no runtime packages.
 import { KNOWLEDGE } from './knowledge.js';
+import { reviewedWorkflow } from './reviewed-workflows.js';
 const DAY=86400000, MAX_MESSAGES=100;
 const fail=(status,code)=>{throw Object.assign(new Error(code),{status,code});};
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
@@ -120,6 +121,7 @@ export class SupportDesk {
   return json(this.view(c.id));
  }
  async answer(question,chunks,lang){
+  const reviewed=reviewedWorkflow(question,chunks,lang);if(reviewed)return reviewed;
   const response=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{'Authorization':'Bearer '+this.env.OPENAI_API_KEY,'Content-Type':'application/json'},signal:AbortSignal.timeout(18000),body:JSON.stringify({model:this.env.CHAT_MODEL,store:false,max_output_tokens:1600,instructions:GUIDE_INSTRUCTIONS+' Reply in '+lang+'.',input:JSON.stringify({question,excerpts:chunks.map(k=>({id:k.id,title:k.title,text:k.text}))})})});
   if(!response.ok)throw Error('provider_failed');const r=await response.json();if(r.status!=='completed')throw Error('incomplete');
   const raw=(r.output||[]).filter(x=>x.type==='message').flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text).join('');

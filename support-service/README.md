@@ -42,3 +42,7 @@ node --test support-service/test/*.test.mjs
 ```
 
 Knowledge is generated from our own `_site-preview-source/manuals/*.json`. Review these sources, rebuild, and deploy the support service when guides change. Tests use built-in Node APIs and real in-memory SQLite; no model charges or customer data. Existing CI browser checks additionally verify the public fallback and widget rendering. No runtime dependencies are installed in this folder.
+
+## Reviewed workflow responses
+
+Broad SKU Bridge import plus review/export questions use an original, reviewed nine-step answer in EN/FA/TR, with all six guide sources. This route runs only inside the existing opted-in assistant flow and preserves handoff and quota controls; it makes no OpenAI request. It is labeled as a reviewed guide. Narrow questions still use the model with product guide context. Keep `src/reviewed-workflows.js` synchronized with the product guide when controls change. The call counter remains a conservative assistant-turn cap, including reviewed responses.
