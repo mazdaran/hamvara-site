@@ -25,3 +25,34 @@ test('pricing escalates without a model call and AI disabled is honest',async()=
 test('origin rejection and credential-free preflight',async()=>{const env={ALLOWED_ORIGINS:'https://hamvara.com'};assert.equal((await worker.fetch(new Request('https://api/status',{headers:{Origin:'https://evil.test'}}),env)).status,403);const r=await worker.fetch(new Request('https://api/status',{method:'OPTIONS',headers:{Origin:'https://hamvara.com'}}),env);assert.equal(r.status,204);assert.equal(r.headers.get('Access-Control-Allow-Origin'),'https://hamvara.com');});
 
 test('successful AI response has validated guide links and no cross-chat history',async()=>{const {desk}=await setup({CHAT_AI_ENABLED:'true',OPENAI_API_KEY:'test',CHAT_MODEL:'configured-model'});const s=await start(desk,true),old=globalThis.fetch;globalThis.fetch=async(url,opts)=>{const payload=JSON.parse(opts.body),input=JSON.parse(payload.input);assert.equal(url,'https://api.openai.com/v1/responses');assert.deepEqual(Object.keys(input),['question','excerpts']);return new Response(JSON.stringify({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({answer:'Use the BOM guide.',sourceIds:[input.excerpts[0].id],handoff:false})}]}]}));};try{const r=await call(desk,'/sessions/'+s.id+'/messages','POST',{text:'How do I save BOM?',messageId:crypto.randomUUID()},s.token);assert.equal(r.data.messages.at(-1).role,'assistant');assert.ok(r.data.messages.at(-1).sources[0].url.startsWith('https://hamvara.com/guides/'));assert.equal(r.data.pending,false);}finally{globalThis.fetch=old;}});
+
+test('beginner import questions retain the complete ordered SKU workflow in each language',()=>{
+ const questions={fa:'من تازه کارم. چطور فایل CSV کالاهایم را در SKU Bridge وارد کنم و خطاهای آن را بررسی کنم؟',en:'I am a beginner. How do I import a CSV into SKU Bridge and review errors?',tr:'SKU Bridge CSV dosyamı nasıl yüklerim ve hataları kontrol ederim?'};
+ for(const [lang,q] of Object.entries(questions)){
+  const chunks=retrieve(q,lang);
+  assert.deepEqual(chunks.map(k=>k.id),['prepare','load','mapping','review','correct','export'].map(id=>`${lang}-sku-bridge-${id}`));
+  const context=chunks.map(k=>k.text).join('\n');
+  for(const label of ['Analyze data','Data quality report','Recheck corrections','USE','Download approved rows'])assert.ok(context.includes(label),`${lang}: ${label}`);
+ }
+});
+test('MRP questions retain saving, actual-stock caveats and receipt approval prerequisites',()=>{
+ for(const lang of ['fa','en','tr']){
+  const chunks=retrieve('Hamvara MRP SaaS opening stock Goods Receipt',lang);
+  for(const id of ['save','items','opening','receipt'])assert.ok(chunks.some(k=>k.id===`${lang}-mrp-saas-${id}`));
+  assert.ok(chunks.every(k=>k.lang===lang&&!k.id.includes('sku-bridge')));
+  const context=chunks.map(k=>k.text).join('\n');
+  for(const label of ['Cloud saved','Reserved','Submit for QC','Apply decision','Manager approve'])assert.ok(context.includes(label));
+ }
+ assert.deepEqual(retrieve('zzqxvzzqxv','fa'),[]);
+});
+test('provider receives the missing SKU analysis and correction chapters',async()=>{
+ const {desk}=await setup(),old=globalThis.fetch;
+ globalThis.fetch=async(_url,opts)=>{
+  const payload=JSON.parse(opts.body),excerpts=JSON.parse(payload.input).excerpts;
+  assert.ok(excerpts.some(k=>k.id==='fa-sku-bridge-mapping'));
+  assert.ok(excerpts.some(k=>k.id==='fa-sku-bridge-correct'));
+  assert.match(payload.instructions,/training examples ONLY/);
+  return new Response(JSON.stringify({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({answer:'۱. Analyze data\n۲. Recheck corrections',sourceIds:['fa-sku-bridge-mapping','fa-sku-bridge-correct'],handoff:false})}]}]}));
+ };
+ try{const r=await desk.answer('SKU Bridge CSV',retrieve('SKU Bridge CSV','fa'),'fa');assert.equal(r.sources.length,2);assert.ok(r.text.includes('\n'));}finally{globalThis.fetch=old;}
+});
