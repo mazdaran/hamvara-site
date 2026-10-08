@@ -61,6 +61,14 @@ export async function handleMobileReceiptPhone(request,env,url){
  }
  if(!row.public_key||!row.approved)fail(403,'Approve this device in the web receipts console.');
  const nonce=await verifyProof(request,raw,row.public_key);await consumeNonce(env,row,nonce);
+ if(url.pathname==='/api/mrp/mobile-receipts/lookup'&&request.method==='POST'){
+  const code=text(body.code,256,true),{state}=await stateRow(env,row.workspace_id);
+  const matches=(state.skus||[]).filter(item=>item.active!==false&&(item.code===code||item.barcode===code));
+  if(!matches.length)fail(422,'Unknown barcode or SKU. Ask a manager to define the item.');
+  if(matches.length!==1)fail(409,'This code matches multiple items. Ask a manager to correct the catalog.');
+  const item=matches[0];
+  return json({item:{sku:item.code,name:item.name,unit:item.unit,barcode:item.barcode||'',lotTracked:!!item.lotTracked,serialTracked:!!item.serialTracked},warehouse:row.warehouse});
+ }
  if(url.pathname!=='/api/mrp/mobile-receipts'||request.method!=='POST')fail(404,'Mobile endpoint not found.');
  return submit(env,actorFrom(row),row,body);
 }

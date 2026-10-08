@@ -104,3 +104,23 @@ test('legacy state reads and writes cannot bypass the opt-in pilot',async()=>{
  const req=new Request('https://api.test/api/mrp/state',{method:'PUT',headers:{'X-Hamvara-Workspace':'factory-one','X-Hamvara-User':'ceo','X-Hamvara-Key':'ceo-secret'},body:JSON.stringify({state:{...state(),stock:{'SKU-1':{'WH-RM':999}}},expectedRevision:0})});
  await assert.rejects(handleMrpRequest(req,f.env,new URL(req.url)),status(403));
 });
+
+test('phone lookup resolves barcode and SKU without exposing costs, rejects ambiguous and inactive codes',async()=>{
+ const f=await fixture(),p=await f.pair(),st=state();st.skus[0].barcode='8690526693361';
+ const save=()=>f.sql.prepare("UPDATE mrp_state SET state_json=? WHERE workspace_id='w1'").run(JSON.stringify(st));save();
+ const lookup=async code=>(await f.phone(p.token,'mobile-receipts/lookup',{code})).json();
+ const result=await lookup('8690526693361');assert.equal(result.item.sku,'SKU-1');assert.equal(result.item.unit,'pcs');assert.equal(result.item.cost,undefined);
+ assert.equal((await lookup('SKU-1')).item.sku,'SKU-1');
+ const submitted=await f.submit(p,f.payload({sku:result.item.sku,unit:result.item.unit}));assert.equal(submitted.receipt.status,'SUBMITTED');
+ await assert.rejects(lookup('0008690526693361'),status(422));
+ st.skus.push({code:'OTHER',barcode:'8690526693361',unit:'pcs'});save();await assert.rejects(lookup('8690526693361'),status(409));
+ st.skus[1].active=false;st.skus[0].active=false;save();await assert.rejects(lookup('8690526693361'),status(422));
+});
+test('phone lookup requires approved device and remains tenant scoped',async()=>{
+ const f=await fixture(),p=await(await f.web('operator','receipt-console/pairings',{warehouse:'WH-RM'})).json();
+ await f.phone(p.token,'mobile-receipts/pair',{publicKey});
+ await assert.rejects(f.phone(p.token,'mobile-receipts/lookup',{code:'SKU-1'}),status(403));
+ await f.web('operator',`receipt-console/pairings/${p.id}`,{action:'approve'});
+ const other=state();other.skus[0].barcode='OTHER-COMPANY';f.sql.prepare("UPDATE mrp_state SET state_json=? WHERE workspace_id='w2'").run(JSON.stringify(other));
+ await assert.rejects(f.phone(p.token,'mobile-receipts/lookup',{code:'OTHER-COMPANY'}),status(422));
+});

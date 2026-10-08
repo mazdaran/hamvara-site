@@ -8,7 +8,7 @@ const MRP_ARTIFACT_THRESHOLD_BYTES = 256 * 1024;
 export async function handleMrpRequest(request, env, url) {
   if (!env.DB) throw httpError(503, 'MRP database is not configured.');
 
-  if (url.pathname === '/api/mrp/mobile-receipts' || url.pathname === '/api/mrp/mobile-receipts/pair') return handleMobileReceiptPhone(request,env,url);
+  if (url.pathname === '/api/mrp/mobile-receipts' || url.pathname === '/api/mrp/mobile-receipts/pair' || url.pathname === '/api/mrp/mobile-receipts/lookup') return handleMobileReceiptPhone(request,env,url);
 
   if (url.pathname === '/api/mrp/mobile-scan/session' && request.method === 'GET') return mobileScanSession(request, env);
   if (url.pathname === '/api/mrp/mobile-scan/events' && request.method === 'GET') return mobileScanEvents(request, env, url);
