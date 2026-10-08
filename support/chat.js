@@ -1,6 +1,6 @@
-import {request,renderMessages} from './common.js';
+import {request,renderMessages} from './common.js?v=session-quota-2';
 import {Verification} from './verification.js';
-import {startError,startingText} from './start-errors.js';
+import {startError,startingText} from './start-errors.js?v=session-quota-2';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search),api=window.HAMVARA_SUPPORT_CONFIG.apiBase;
 let lang=['en','fa','tr'].includes(params.get('lang'))?params.get('lang'):'en',session=null,busy=false,retry=null,timer=null,view=null;
 try{session=JSON.parse(sessionStorage.getItem('hamvara-support-session')||'null');if(session&&!session.id)session=null;if(session)lang=session.lang||lang;}catch{}

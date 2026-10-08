@@ -96,3 +96,18 @@ verification cannot load. Frontend changes include the required CSP allowances a
 EN/FA/TR privacy notices. Local tests mock Siteverify and widget callbacks; a real
 browser test after deployment must confirm the actual Cloudflare keys/domains work.
 This does not replace edge DDoS controls or protect unrelated ERP endpoints.
+
+
+## Session quota correction
+
+Successful verified sessions now have distinct counters: five per IP per fixed
+15-minute window and twenty per IP per UTC day. The global 200/day limit remains.
+Before verification, separate attempt limits allow ten per IP/minute and 120
+across IPs/minute; existing public request limits still apply. Failed verification
+does not spend the successful-session allowance. The quota is checked again after
+all asynchronous verification/hash work, immediately before insertion, so parallel
+requests cannot pass the same stale quota check. Old five-attempt/day counters are
+no longer used; no conversation data or counters are deleted. This is an explicit
+policy change, not an operator bypass. AI budgets remain unchanged. Rate-limit
+responses now include the actual fixed-window wait in Retry-After and JSON
+retryAfter; the start form displays the rounded-up minutes in EN/FA/TR.

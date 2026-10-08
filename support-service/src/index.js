@@ -79,8 +79,13 @@ export class SupportDesk {
  `);}
  rows(q,...b){return [...this.sql.exec(q,...b)];}
  one(q,...b){return this.rows(q,...b)[0];}
- rate(key,limit,ms=60000){const now=Date.now();this.sql.exec('DELETE FROM counters WHERE expires < ?',now);const k=key+':'+Math.floor(now/ms);const r=this.one('SELECT n FROM counters WHERE key=?',k);if((r?.n||0)>=limit)fail(429,'rate_limited');this.sql.exec('INSERT INTO counters(key,n,expires) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET n=n+1',k,now+ms);}
- checkRate(key,limit,ms=60000){const r=this.one('SELECT n FROM counters WHERE key=?',key+':'+Math.floor(Date.now()/ms));if((r?.n||0)>=limit)fail(429,'rate_limited');}
+ rate(key,limit,ms=60000){const now=Date.now();this.sql.exec('DELETE FROM counters WHERE expires < ?',now);const k=key+':'+Math.floor(now/ms);const r=this.one('SELECT n FROM counters WHERE key=?',k);if((r?.n||0)>=limit)throw Object.assign(new Error('rate_limited'),{status:429,code:'rate_limited',retryAfter:Math.max(1,Math.ceil((ms-Date.now()%ms)/1000))});this.sql.exec('INSERT INTO counters(key,n,expires) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET n=n+1',k,now+ms);}
+ checkRate(key,limit,ms=60000){const r=this.one('SELECT n FROM counters WHERE key=?',key+':'+Math.floor(Date.now()/ms));if((r?.n||0)>=limit)throw Object.assign(new Error('rate_limited'),{status:429,code:'rate_limited',retryAfter:Math.max(1,Math.ceil((ms-Date.now()%ms)/1000))});}
+ sessionQuota(ip,consume){
+  const limits=[['verified-session-window:'+ip,5,900000],['verified-session-day:'+ip,20,DAY],['new-global',200,DAY]];
+  for(const [key,limit,ms] of limits)this.checkRate(key,limit,ms);
+  if(consume)for(const [key,limit,ms] of limits)this.rate(key,limit,ms);
+ }
  clean(){const cutoff=Date.now()-30*DAY;this.sql.exec('DELETE FROM messages WHERE cid IN (SELECT id FROM conversations WHERE created < ?)',cutoff);this.sql.exec('DELETE FROM conversations WHERE created < ?',cutoff);this.sql.exec('DELETE FROM presence WHERE at < ?',Date.now()-DAY);}
  online(){const ids=new Set(operators(this.env).map(o=>o.id));return this.rows('SELECT id FROM presence WHERE at>?',Date.now()-75000).some(o=>ids.has(o.id));}
  async admin(req){const ip=req.headers.get('X-Support-IP')||'internal';this.checkRate('admin-failure:'+ip,10,900000);try{const key=(req.headers.get('Authorization')||'').replace(/^Bearer /,'');if(key.length<32||key.length>200)fail(401,'unauthorized');const digest=await hash(key);const op=operators(this.env).find(o=>o.tokenHash===digest);if(!op)fail(401,'unauthorized');return op;}catch(e){if(e.status===401)this.rate('admin-failure:'+ip,10,900000);throw e;}}
@@ -89,7 +94,7 @@ export class SupportDesk {
  add(id,mid,role,text,sources=[]){this.sql.exec('INSERT INTO messages(cid,mid,role,text,sources,at) VALUES(?,?,?,?,?,?)',id,mid,role,text,JSON.stringify(sources),Date.now());this.sql.exec('UPDATE conversations SET updated=? WHERE id=?',Date.now(),id);}
  async scheduleCleanup(){const first=this.one('SELECT MIN(created) AS at FROM conversations');if(first?.at)await this.ctx.storage.setAlarm(first.at+30*DAY+1000);}
  async alarm(){this.clean();await this.scheduleCleanup();}
- async fetch(req){try{return await this.handle(req);}catch(e){const r=json({error:e.code||'service_error'},e.status||500);if(e.status===429)r.headers.set('Retry-After',new URL(req.url).pathname.startsWith('/admin/')?'900':'60');return r;}}
+ async fetch(req){try{return await this.handle(req);}catch(e){const retryAfter=e.status===429?(e.retryAfter||60):undefined;const r=json({error:e.code||'service_error',...(retryAfter?{retryAfter}: {})},e.status||500);if(retryAfter)r.headers.set('Retry-After',String(retryAfter));return r;}}
  async handle(req){
   this.clean();const path=new URL(req.url).pathname,ip=req.headers.get('X-Support-IP')||'internal',method=req.method;
   // Bound public traffic before creating per-IP counters. Operators retain their own access.
@@ -100,12 +105,17 @@ export class SupportDesk {
   if(path==='/sessions'&&method==='POST'){
    if(!operators(this.env).length)fail(503,'operators_not_configured');
    if(this.env.CHAT_ACCEPT_NEW_SESSIONS==='false')fail(503,'new_sessions_paused');
-   const b=await body(req);if(b.consent!==true)fail(400,'consent_required');this.rate('new:'+ip,5,DAY);this.rate('new-global',200,DAY);
+   const b=await body(req);if(b.consent!==true)fail(400,'consent_required');// Bound verification traffic separately from successful session creation.
+   this.rate('start-attempt-global',120);this.rate('start-attempt:'+ip,10);
+   this.sessionQuota(ip,false);
    await verifyHuman(b.turnstileToken,this.env);
    if(this.one('SELECT COUNT(*) AS n FROM conversations').n>=2000)fail(503,'capacity_reached');
    const id=crypto.randomUUID(),secret=token(),digest=await hash(secret),lang=['en','fa','tr'].includes(b.lang)?b.lang:'en',now=Date.now();
    // Recheck after hashing: parallel creates must not bypass the storage cap.
    if(this.one('SELECT COUNT(*) AS n FROM conversations').n>=2000)fail(503,'capacity_reached');
+   // No await between the final quota check and insert: concurrent verified
+   // requests cannot overrun the quota while token validation is in flight.
+   this.sessionQuota(ip,true);
    this.sql.exec('INSERT INTO conversations(id,secret,lang,mode,created,updated) VALUES(?,?,?,?,?,?)',id,digest,lang,b.aiConsent===true&&aiEnabled(this.env)?'ai':'queued',now,now);
    await this.scheduleCleanup();
    return json({id,token:secret,...this.view(id)},201);

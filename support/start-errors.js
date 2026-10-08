@@ -9,5 +9,7 @@ export function startError(error,lang){
  const words=text[lang]||text.en,known=['rate_limited','verification_required','verification_failed','verification_unavailable','new_sessions_paused','capacity_reached','operators_not_configured','service_error','service_unavailable'];
  const code=known.includes(error?.message)?error.message:(error?.status?'http_'+error.status:'connection_or_client_error');
  const kind=error?.status===429?'limit':['verification_required','verification_failed'].includes(code)?'verify':code==='verification_unavailable'?'verifyDown':code==='new_sessions_paused'?'paused':code==='capacity_reached'?'capacity':!error?.status?'network':'other';
- return words[kind]+' ['+code+']';
+ const seconds=Number(error?.retryAfter),minutes=Number.isFinite(seconds)&&seconds>0?Math.ceil(seconds/60):0;
+ const wait=kind==='limit'&&minutes?({fa:' زمان انتظار: حداکثر '+minutes+' دقیقه.',en:' Retry in up to '+minutes+' minutes.',tr:' En fazla '+minutes+' dakika sonra tekrar deneyin.'}[lang]||' Retry in up to '+minutes+' minutes.'):'';
+ return words[kind]+wait+' ['+code+']';
 }

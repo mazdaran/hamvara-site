@@ -147,3 +147,25 @@ test('verified token creates a session once; provider failure and missing secret
   assert.equal((await call(missing,'/admin/conversations','GET',null,key)).status,200);
  }finally{globalThis.fetch=old;}
 });
+
+test('failed security checks do not consume successful-session quotas',async()=>{
+ const {desk,db}=await setup({CHAT_TURNSTILE_REQUIRED:'true',TURNSTILE_SECRET_KEY:'test'}),old=globalThis.fetch;
+ try{
+  globalThis.fetch=async()=>new Response(JSON.stringify({success:false}));
+  for(let i=0;i<6;i++)assert.equal((await call(desk,'/sessions','POST',{consent:true,turnstileToken:'invalid'})).status,403);
+  assert.equal(db.prepare("SELECT COUNT(*) n FROM counters WHERE key LIKE 'verified-session-%' OR key LIKE 'new-global:%'").get().n,0);
+  globalThis.fetch=async()=>new Response(JSON.stringify({success:true,hostname:'hamvara.com',action:'support_start'}));
+  assert.equal((await call(desk,'/sessions','POST',{consent:true,turnstileToken:'valid'})).status,201);
+ }finally{globalThis.fetch=old;}
+});
+test('parallel verified starts cannot exceed five per window and return a real wait time',async()=>{
+ const {desk,db}=await setup({CHAT_TURNSTILE_REQUIRED:'true',TURNSTILE_SECRET_KEY:'test'}),old=globalThis.fetch,resolvers=[];
+ try{
+  globalThis.fetch=async()=>new Promise(resolve=>resolvers.push(()=>resolve(new Response(JSON.stringify({success:true,hostname:'hamvara.com',action:'support_start'})))));
+  const calls=Array.from({length:8},(_,i)=>call(desk,'/sessions','POST',{consent:true,turnstileToken:'valid-'+i}));
+  while(resolvers.length<8)await new Promise(r=>setTimeout(r,1));
+  resolvers.forEach(resolve=>resolve());const results=await Promise.all(calls);
+  assert.equal(results.filter(r=>r.status===201).length,5);assert.equal(db.prepare('SELECT COUNT(*) n FROM conversations').get().n,5);
+  for(const r of results.filter(r=>r.status===429))assert.ok(r.data.retryAfter>0&&r.data.retryAfter<=900);
+ }finally{globalThis.fetch=old;}
+});
