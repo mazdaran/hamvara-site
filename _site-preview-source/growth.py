@@ -27,7 +27,7 @@ def head(lang,p=None):
  schema={'@context':'https://schema.org','@type':'Article' if p else 'CollectionPage','headline':title,'description':desc,'url':url,'inLanguage':lang}
  if p:schema.update(datePublished=p['date'],author={'@type':'Organization','name':'Hamvara'},publisher={'@type':'Organization','name':'Hamvara'},mainEntityOfPage=url)
  return f'''<!doctype html><html lang="{lang}" dir="{'rtl' if lang=='fa' else 'ltr'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{E(title)} | Hamvara</title><meta name="description" content="{E(desc)}"><link rel="canonical" href="{url}">{alts}<meta property="og:title" content="{E(title)}"><meta property="og:description" content="{E(desc)}"><meta property="og:url" content="{url}"><meta property="og:type" content="{'article' if p else 'website'}"><meta property="og:site_name" content="Hamvara">{assets()}<script type="application/ld+json">{json.dumps(schema,ensure_ascii=False).replace('<','&lt;')}</script></head><body class="gx-page"><a class="gx-skip" href="#main">{E(d['articles'])}</a><header class="gx-top"><a class="gx-brand" href="/">Hamvara<span>.</span></a><nav><a href="/">{E(d['home'])}</a><a href="{base(lang)}">{E(d['articles'])}</a><a href="{base(lang,'guides')}">{E(d['guides'])}</a></nav><nav aria-label="Language">{langs}</nav></header>'''
-def foot(lang):return '<footer class="gx-footer">© 2026 Hamvara · <a href="mailto:info@hamvara.com">info@hamvara.com</a></footer></body></html>'
+def foot(lang):return '<footer class="gx-footer">© 2026 Hamvara · <a href="mailto:info@hamvara.com">info@hamvara.com</a></footer><script src="/support/widget.js?v=20261008-1" defer></script></body></html>'
 def hub(lang):
  d=D[lang];cards=''
  for p in POSTS:

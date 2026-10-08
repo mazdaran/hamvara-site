@@ -1,0 +1,18 @@
+name = "hamvara-support"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGINS = "https://hamvara.com,https://www.hamvara.com"
+CHAT_AI_ENABLED = "false"
+CHAT_MODEL = ""
+CHAT_DAILY_AI_LIMIT = "100"
+
+[[durable_objects.bindings]]
+name = "DESK"
+class_name = "SupportDesk"
+
+[[migrations]]
+tag = "support-v1"
+new_sqlite_classes = ["SupportDesk"]

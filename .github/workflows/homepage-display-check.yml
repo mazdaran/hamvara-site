@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'index.html'
+      - 'support/**'
       - 'site-preview/**'
       - 'assets/**'
       - 'tests/homepage/**'
@@ -12,6 +13,7 @@ on:
     branches: [main]
     paths:
       - 'index.html'
+      - 'support/**'
       - 'site-preview/**'
       - 'assets/**'
       - 'tests/homepage/**'

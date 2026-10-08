@@ -1,0 +1,34 @@
+name: Verify Hamvara Support
+on:
+  push:
+    branches: [main]
+    paths: ['support/**', 'support-service/**', '.github/workflows/support-service.yml']
+  pull_request:
+    paths: ['support/**', 'support-service/**', '.github/workflows/support-service.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test support-service/test/*.test.mjs
+      - name: Check original browser modules
+        run: |
+          node --check support/chat.js
+          node --check support/admin.js
+          node --check support/common.js
+          node --check support/widget.js
+      - name: Verify separate service configuration
+        run: |
+          python - <<'PY'
+          import tomllib
+          from pathlib import Path
+          c=tomllib.loads(Path('support-service/wrangler.toml').read_text())
+          assert c['name']=='hamvara-support'
+          assert 'd1_databases' not in c and 'r2_buckets' not in c and 'ai' not in c
+          assert c['vars']['CHAT_AI_ENABLED']=='false'
+          PY

@@ -47,6 +47,33 @@ with sync_playwright() as p:
    assert page.evaluate('document.documentElement.scrollWidth-innerWidth')<=1
    print('PASS white/black Times theme',width,lang,flush=True)
    context.close()
+ # Chat must fail closed when the independent backend is absent.
+ for lang in ['en','fa','tr']:
+  context=browser.new_context(viewport={'width':320,'height':800});context.route('**/*',route_local)
+  page=context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+  page.goto('https://hamvara.test/support/?lang='+lang)
+  page.wait_for_function("!document.querySelector('#status').textContent.includes('Checking support')")
+  assert page.locator('#begin').is_disabled()
+  assert page.locator('#conversation').is_hidden()
+  assert page.locator('html').get_attribute('lang')==lang
+  assert page.locator('a[href="mailto:info@hamvara.com"]').is_visible()
+  assert page.evaluate('document.documentElement.scrollWidth-innerWidth')<=1
+  assert not errors,errors
+  print('PASS chat unavailable fallback',lang,flush=True);context.close()
+ context=browser.new_context();context.route('**/*',route_local);page=context.new_page()
+ page.goto('https://hamvara.test/')
+ page.locator('#hamvara-support-widget button').click()
+ assert page.locator('#hamvara-support-widget iframe').is_visible()
+ page.locator('#hamvara-support-widget button').click()
+ assert page.locator('#hamvara-support-widget iframe').count()==0
+ page.goto('https://hamvara.test/support/setup.html')
+ page.locator('#generate button').click()
+ page.wait_for_function("document.querySelector('#private-key').value.length === 72")
+ entry=json.loads(page.locator('#registry').input_value())[0]
+ import hashlib
+ assert entry['tokenHash']==hashlib.sha256(page.locator('#private-key').input_value().encode()).hexdigest()
+ print('PASS chat launcher and local-only operator-key generation',flush=True)
+ context.close()
  context=browser.new_context(reduced_motion='reduce');context.route('**/*',route_local);page=context.new_page()
  page.goto('https://hamvara.test/sku-bridge/?demo=1')
  assert page.locator('#mappingPanel').is_visible()

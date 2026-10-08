@@ -1,0 +1,54 @@
+name: Deploy Hamvara Support Manually
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type DEPLOY-SUPPORT to deploy the separate support service'
+        required: true
+      enable_ai:
+        description: 'Enable paid OpenAI replies (requires API secret and model)'
+        type: boolean
+        default: false
+      model:
+        description: 'Exact model ID available in your OpenAI account; blank when AI is disabled'
+        required: false
+        default: ''
+permissions:
+  contents: read
+jobs:
+  deploy:
+    if: ${{ inputs.confirmation == 'DEPLOY-SUPPORT' }}
+    environment: production
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CHAT_OPERATORS: ${{ secrets.HAMVARA_CHAT_OPERATORS }}
+      OPENAI_API_KEY: ${{ secrets.HAMVARA_CHAT_OPENAI_API_KEY }}
+      CHAT_AI_ENABLED: ${{ inputs.enable_ai && 'true' || 'false' }}
+      CHAT_MODEL: ${{ inputs.model }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate configuration without displaying credentials
+        run: |
+          node --input-type=module - <<'JS'
+          import {operators} from './support-service/src/index.js';
+          if(!operators(process.env).length)throw Error('Configure HAMVARA_CHAT_OPERATORS first');
+          if(process.env.CHAT_AI_ENABLED==='true'&&(!process.env.OPENAI_API_KEY||!process.env.CHAT_MODEL))throw Error('AI requires HAMVARA_CHAT_OPENAI_API_KEY and a model ID');
+          if(process.env.CHAT_MODEL&&!/^[a-zA-Z0-9._:-]{1,100}$/.test(process.env.CHAT_MODEL))throw Error('Invalid model ID');
+          JS
+      - run: node --test support-service/test/*.test.mjs
+      # Reuse the repository's existing pinned Cloudflare deployment CLI as a build tool.
+      # No SDK or third-party package is included in the support application.
+      - run: npm ci --prefix worker
+      - name: Deploy only the support service
+        run: worker/node_modules/.bin/wrangler deploy --config support-service/wrangler.toml --var "CHAT_AI_ENABLED:$CHAT_AI_ENABLED" --var "CHAT_MODEL:$CHAT_MODEL"
+      - name: Configure server secrets
+        run: |
+          printf '%s' "$CHAT_OPERATORS" | worker/node_modules/.bin/wrangler secret put CHAT_OPERATORS --config support-service/wrangler.toml
+          if [ -n "$OPENAI_API_KEY" ]; then
+            printf '%s' "$OPENAI_API_KEY" | worker/node_modules/.bin/wrangler secret put OPENAI_API_KEY --config support-service/wrangler.toml
+          fi
