@@ -1,0 +1,28 @@
+/* Owner-selected presentation theme: white paper, black text, Times New Roman.
+   Loaded last so older dark-hero and component styles cannot reduce contrast. */
+html:has(body.readable-theme),body.readable-theme{
+  background:#fff!important;
+  color:#000!important;
+  color-scheme:light;
+}
+body.readable-theme,body.readable-theme *{
+  font-family:"Times New Roman",Times,serif!important;
+  color:#000!important;
+  text-shadow:none!important;
+}
+body.readable-theme *{
+  background-color:transparent!important;
+  background-image:none!important;
+}
+body.readable-theme :is(.site-header,.review-strip,.site-footer,.command-shell,.command-nav,.command-view,.tour-footer,.gx,.gx-result,.gx-card,.guide-card,.price-card,.contact-link,.decision-box,.draft-notice,input,select,textarea,button,.button,.skip-link){
+  background-color:#fff!important;
+}
+body.readable-theme :is(button,.button,input,select,textarea){border-color:#555!important}
+body.readable-theme :is(button[aria-pressed="true"],a[aria-current="page"],.command-nav button.on){
+  background-color:#eee!important;
+  box-shadow:inset 0 -2px #000;
+}
+body.readable-theme :is(a:hover,button:hover){text-decoration:underline}
+body.readable-theme :is(.bar i,.command-progress i,.review-dot){background-color:#087f8c!important}
+body.readable-theme :is(.hero,.hero-intro,.hero-lead,.showcase-copy,.section-heading,.workflow-section,.contact-section,.legal-copy,.guide-card){opacity:1}
+body.readable-theme :focus-visible{outline:3px solid #000!important;outline-offset:3px}

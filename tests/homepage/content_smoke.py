@@ -33,6 +33,20 @@ with sync_playwright() as p:
    assert page.evaluate('document.documentElement.scrollWidth-innerWidth')<=1
    assert not errors,errors
    print('PASS articles',width,lang,flush=True);context.close()
+ for width in [320,1280]:
+  for lang in ['en','fa','tr']:
+   context=browser.new_context(viewport={'width':width,'height':900},reduced_motion='reduce');context.route('**/*',route_local)
+   page=context.new_page();suffix='' if lang=='en' else lang+'/'
+   page.goto('https://hamvara.test/site-preview/'+suffix)
+   assert page.locator('body').evaluate('e=>getComputedStyle(e).backgroundColor')=='rgb(255, 255, 255)'
+   for selector in ['.hero h1','.hero h1 span','.hero-lead','.gx-heading h2','.showcase-copy h2']:
+    for item in page.locator(selector).all():
+     style=item.evaluate('e=>({color:getComputedStyle(e).color,font:getComputedStyle(e).fontFamily})')
+     assert style['color']=='rgb(0, 0, 0)',(selector,style)
+     assert 'Times New Roman' in style['font'],(selector,style)
+   assert page.evaluate('document.documentElement.scrollWidth-innerWidth')<=1
+   print('PASS white/black Times theme',width,lang,flush=True)
+   context.close()
  context=browser.new_context(reduced_motion='reduce');context.route('**/*',route_local);page=context.new_page()
  page.goto('https://hamvara.test/sku-bridge/?demo=1')
  assert page.locator('#mappingPanel').is_visible()
