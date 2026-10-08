@@ -33,6 +33,21 @@ If the guide does not directly answer the question, or it requires a person, ret
 Return only JSON: {"answer":"plain text, at most 2600 characters","sourceIds":["exact excerpt ids"],"handoff":false}. Every answer must cite provided excerpts supporting its steps. No Markdown formatting or URLs in answer; numbered lines are allowed.`;
 export function operators(env){try{return JSON.parse(env.CHAT_OPERATORS||'[]').filter(x=>/^[a-z0-9_-]{1,40}$/.test(x.id)&&typeof x.name==='string'&&/^[a-f0-9]{64}$/.test(x.tokenHash));}catch{return [];}}
 const aiEnabled=env=>env.CHAT_AI_ENABLED==='true'&&Boolean(env.OPENAI_API_KEY&&env.CHAT_MODEL);
+// Original integration: Cloudflare validates single-use tokens; never trust the browser alone.
+export async function verifyHuman(value,env){
+ if(env.CHAT_TURNSTILE_REQUIRED!=='true')return;
+ if(!env.TURNSTILE_SECRET_KEY)fail(503,'verification_unavailable');
+ if(typeof value!=='string'||!value||value.length>2048)fail(403,'verification_required');
+ let result;
+ try{
+  const response=await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify',{
+   method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(8000),
+   body:JSON.stringify({secret:env.TURNSTILE_SECRET_KEY,response:value})
+  });
+  if(!response.ok)throw Error('verification_http');result=await response.json();
+ }catch{fail(503,'verification_unavailable');}
+ if(result?.success!==true||!['hamvara.com','www.hamvara.com'].includes(result.hostname)||result.action!=='support_start')fail(403,'verification_failed');
+}
 async function body(request){
  if(!request.headers.get('Content-Type')?.includes('application/json'))fail(415,'json_required');
  const reader=request.body?.getReader();if(!reader)fail(400,'body_required');let size=0;const parts=[];
@@ -80,12 +95,13 @@ export class SupportDesk {
   // Bound public traffic before creating per-IP counters. Operators retain their own access.
   if(!path.startsWith('/admin/'))this.rate('public-global',600);
   this.rate('request:'+ip,180);
-  if(path==='/status'&&method==='GET')return json({ready:operators(this.env).length>0,ai:aiEnabled(this.env),online:this.online(),retentionDays:30});
+  if(path==='/status'&&method==='GET')return json({ready:operators(this.env).length>0&&this.env.CHAT_ACCEPT_NEW_SESSIONS!=='false'&&(this.env.CHAT_TURNSTILE_REQUIRED!=='true'||Boolean(this.env.TURNSTILE_SECRET_KEY)),verificationRequired:this.env.CHAT_TURNSTILE_REQUIRED==='true',ai:aiEnabled(this.env),online:this.online(),retentionDays:30});
   if(path.startsWith('/admin/'))return this.handleAdmin(req,path,await this.admin(req));
   if(path==='/sessions'&&method==='POST'){
    if(!operators(this.env).length)fail(503,'operators_not_configured');
    if(this.env.CHAT_ACCEPT_NEW_SESSIONS==='false')fail(503,'new_sessions_paused');
    const b=await body(req);if(b.consent!==true)fail(400,'consent_required');this.rate('new:'+ip,5,DAY);this.rate('new-global',200,DAY);
+   await verifyHuman(b.turnstileToken,this.env);
    if(this.one('SELECT COUNT(*) AS n FROM conversations').n>=2000)fail(503,'capacity_reached');
    const id=crypto.randomUUID(),secret=token(),digest=await hash(secret),lang=['en','fa','tr'].includes(b.lang)?b.lang:'en',now=Date.now();
    // Recheck after hashing: parallel creates must not bypass the storage cap.

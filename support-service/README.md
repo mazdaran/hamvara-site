@@ -68,9 +68,31 @@ variables, not frontend secrets; preserve the existing manual deployment gate.
 These limits do NOT identify humans and are NOT an edge DDoS defence. Requests
 still reach the Worker/DO and can incur infrastructure cost; distributed attackers
 can exhaust public quotas and deny chat to legitimate visitors. CORS is not bot
-authentication. Next production layer requires Cloudflare account configuration:
-Turnstile on session creation with server-side token validation and expected
-hostname/action checks, plus edge rules appropriate to the actual Worker hostname.
-Neither Turnstile nor account-level WAF/edge protection has been enabled by this
-commit. Do not imply whole-site/ERP protection from support-only limits. No external
+authentication. The Turnstile layer below requires a configured Cloudflare widget and secret.
+Additional edge rules must target the actual Worker hostname.
+Turnstile integration is included below; account-level WAF/edge protection is
+not configured by this code. Do not imply whole-site/ERP protection from support-only limits. No external
 runtime package or open-source implementation was added.
+
+
+## Turnstile activation
+
+Production config requires Turnstile for every new visitor session. GitHub secret
+HAMVARA_CHAT_TURNSTILE_SECRET_KEY is uploaded as Worker TURNSTILE_SECRET_KEY before
+the manual deployment. The public sitekey is in support/config.js. Configure the
+widget for hamvara.com, Managed mode, no pre-clearance. The application checks
+Siteverify success, exact hamvara.com/www.hamvara.com hostname and support_start
+action. Missing, reused, expired or invalid tokens are rejected; unavailable
+verification fails closed. No verification tokens or secrets are stored in chat
+records or application logs. Existing bearer-authenticated conversations and
+operator login are unaffected. Turnstile is a hosted Cloudflare service, not a
+copied open-source implementation; integration code is Hamvara-authored.
+
+The browser loads the widget only for a new conversation when the backend reports
+verificationRequired=true. During rollout an old backend does not enable the new
+start form; deploy the support workflow after Pages publication. The widget resets
+after a failed start and clears expired tokens. Email/WhatsApp remain available if
+verification cannot load. Frontend changes include the required CSP allowances and
+EN/FA/TR privacy notices. Local tests mock Siteverify and widget callbacks; a real
+browser test after deployment must confirm the actual Cloudflare keys/domains work.
+This does not replace edge DDoS controls or protect unrelated ERP endpoints.

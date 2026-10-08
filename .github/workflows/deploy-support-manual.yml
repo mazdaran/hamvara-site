@@ -25,6 +25,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CHAT_OPERATORS: ${{ secrets.HAMVARA_CHAT_OPERATORS }}
       OPENAI_API_KEY: ${{ secrets.HAMVARA_CHAT_OPENAI_API_KEY }}
+      TURNSTILE_SECRET_KEY: ${{ secrets.HAMVARA_CHAT_TURNSTILE_SECRET_KEY }}
       CHAT_AI_ENABLED: ${{ inputs.enable_ai && 'true' || 'false' }}
       CHAT_MODEL: ${{ inputs.model }}
     steps:
@@ -36,6 +37,7 @@ jobs:
         run: |
           node --input-type=module - <<'JS'
           import {operators} from './support-service/src/index.js';
+          if(!process.env.TURNSTILE_SECRET_KEY)throw Error('Configure HAMVARA_CHAT_TURNSTILE_SECRET_KEY first');
           if(!operators(process.env).length)throw Error('Configure HAMVARA_CHAT_OPERATORS first');
           if(process.env.CHAT_AI_ENABLED==='true'&&(!process.env.OPENAI_API_KEY||!process.env.CHAT_MODEL))throw Error('AI requires HAMVARA_CHAT_OPENAI_API_KEY and a model ID');
           if(process.env.CHAT_MODEL&&!/^[a-zA-Z0-9._:-]{1,100}$/.test(process.env.CHAT_MODEL))throw Error('Invalid model ID');
@@ -44,11 +46,12 @@ jobs:
       # Reuse the repository's existing pinned Cloudflare deployment CLI as a build tool.
       # No SDK or third-party package is included in the support application.
       - run: npm ci --prefix worker
-      - name: Deploy only the support service
-        run: worker/node_modules/.bin/wrangler deploy --config support-service/wrangler.toml --var "CHAT_AI_ENABLED:$CHAT_AI_ENABLED" --var "CHAT_MODEL:$CHAT_MODEL"
       - name: Configure server secrets
         run: |
+          printf '%s' "$TURNSTILE_SECRET_KEY" | worker/node_modules/.bin/wrangler secret put TURNSTILE_SECRET_KEY --config support-service/wrangler.toml
           printf '%s' "$CHAT_OPERATORS" | worker/node_modules/.bin/wrangler secret put CHAT_OPERATORS --config support-service/wrangler.toml
           if [ -n "$OPENAI_API_KEY" ]; then
             printf '%s' "$OPENAI_API_KEY" | worker/node_modules/.bin/wrangler secret put OPENAI_API_KEY --config support-service/wrangler.toml
           fi
+      - name: Deploy only the support service
+        run: worker/node_modules/.bin/wrangler deploy --config support-service/wrangler.toml --var "CHAT_AI_ENABLED:$CHAT_AI_ENABLED" --var "CHAT_MODEL:$CHAT_MODEL"

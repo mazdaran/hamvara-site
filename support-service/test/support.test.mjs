@@ -109,3 +109,41 @@ test('AI session budget and concurrent work cap stop provider calls safely',asyn
   assert.equal(calls,0);assert.equal(r.data.mode,'queued');assert.equal(r.data.pending,false);
  }
 });
+
+test('Turnstile blocks missing, forged, wrong-domain and wrong-action tokens before storing sessions',async()=>{
+ const old=globalThis.fetch;
+ try{
+  for(const result of [{success:false,'error-codes':['timeout-or-duplicate']},{success:true,hostname:'evil.test',action:'support_start'},{success:true,hostname:'hamvara.com',action:'login'}]){
+   const {desk,db}=await setup({CHAT_TURNSTILE_REQUIRED:'true',TURNSTILE_SECRET_KEY:'test-secret'});
+   globalThis.fetch=async()=>new Response(JSON.stringify(result));
+   assert.equal((await call(desk,'/sessions','POST',{consent:true,turnstileToken:'invalid'})).status,403);
+   assert.equal(db.prepare('SELECT COUNT(*) n FROM conversations').get().n,0);
+  }
+  const {desk}=await setup({CHAT_TURNSTILE_REQUIRED:'true',TURNSTILE_SECRET_KEY:'test-secret'});
+  let calls=0;globalThis.fetch=async()=>{calls++;throw Error('should not call');};
+  for(const value of [undefined,'','x'.repeat(2049)])assert.equal((await call(desk,'/sessions','POST',{consent:true,turnstileToken:value})).status,403);
+  assert.equal(calls,0);
+ }finally{globalThis.fetch=old;}
+});
+test('verified token creates a session once; provider failure and missing secret fail closed',async()=>{
+ const old=globalThis.fetch;
+ try{
+  const {desk,db}=await setup({CHAT_TURNSTILE_REQUIRED:'true',TURNSTILE_SECRET_KEY:'test-secret'});let used=false;
+  globalThis.fetch=async(url,options)=>{
+   assert.equal(url,'https://challenges.cloudflare.com/turnstile/v0/siteverify');
+   assert.deepEqual(JSON.parse(options.body),{secret:'test-secret',response:'valid-token'});
+   const result=used?{success:false,'error-codes':['timeout-or-duplicate']}:{success:true,hostname:'hamvara.com',action:'support_start'};used=true;
+   return new Response(JSON.stringify(result));
+  };
+  const body={consent:true,turnstileToken:'valid-token'};
+  assert.equal((await call(desk,'/sessions','POST',body)).status,201);
+  assert.equal((await call(desk,'/sessions','POST',body)).status,403);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM conversations').get().n,1);
+  globalThis.fetch=async()=>{throw Error('network timeout');};
+  assert.equal((await call(desk,'/sessions','POST',body)).status,503);
+  const {desk:missing}=await setup({CHAT_TURNSTILE_REQUIRED:'true'});
+  assert.equal((await call(missing,'/status')).data.ready,false);
+  assert.equal((await call(missing,'/sessions','POST',body)).status,503);
+  assert.equal((await call(missing,'/admin/conversations','GET',null,key)).status,200);
+ }finally{globalThis.fetch=old;}
+});

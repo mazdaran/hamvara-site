@@ -8,6 +8,7 @@ ALLOWED_ORIGINS = "https://hamvara.com,https://www.hamvara.com"
 CHAT_AI_ENABLED = "false"
 CHAT_MODEL = ""
 CHAT_DAILY_AI_LIMIT = "100"
+CHAT_TURNSTILE_REQUIRED = "true"
 
 [[durable_objects.bindings]]
 name = "DESK"
