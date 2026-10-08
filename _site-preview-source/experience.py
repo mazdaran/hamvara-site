@@ -129,8 +129,10 @@ def guide_cards(lang, base, full=False):
     x=X[lang]; cards=''
     for key,title,desc in x['guides']:
         body=guide_body(lang,key) if full else f'<p>{E(desc)}</p>'
-        action='' if full else f'<a class="text-link" href="{base}guides.html#{key}">{E(x["readGuide"])} →</a>'
-        cards+=f'<article class="guide-card" id="{key if full else "guide-"+key}"><span class="guide-icon" aria-hidden="true">↗</span><h{2 if full else 3}>{E(title)}</h{2 if full else 3}>{body}<div class="guide-actions">{action}<a href="/site-preview/downloads/hamvara-{key}-guide-{lang}.html" download>{E(x["downloadGuide"])}</a></div></article>'
+        manual_url='/guides/'+('' if lang=='en' else lang+'/')+('mrp-saas.html' if key=='mrp' else 'sku-bridge.html')
+        action=(f'<a class="text-link" href="{manual_url}">{E(x["readGuide"])} →</a>' if key in ['mrp','sku'] else ('' if full else f'<a class="text-link" href="{base}guides.html#{key}">{E(x["readGuide"])} →</a>'))
+        download_url=(f'/guides/downloads/{"mrp-saas" if key=="mrp" else "sku-bridge"}-{lang}.html' if key in ['mrp','sku'] else f'/site-preview/downloads/hamvara-{key}-guide-{lang}.html')
+        cards+=f'<article class="guide-card" id="{key if full else "guide-"+key}"><span class="guide-icon" aria-hidden="true">↗</span><h{2 if full else 3}>{E(title)}</h{2 if full else 3}>{body}<div class="guide-actions">{action}<a href="{download_url}" download>{E(x["downloadGuide"])}</a></div></article>'
     return f'<div class="{"guide-full" if full else "guide-grid"}">{cards}</div>'
 
 def ai_help(lang):

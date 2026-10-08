@@ -1,0 +1,414 @@
+{
+  "language": "Türkçe",
+  "help": "Yardım merkezi",
+  "home": "Hamvara ana sayfa",
+  "read": "Rehberi okuyun",
+  "open": "Uygulamayı açın",
+  "print": "Yazdır / PDF olarak kaydet",
+  "download": "Çevrimdışı rehberi indir",
+  "search": "Bu rehberde konu arayın",
+  "searchHint": "Örnek: stok, kayıt, yinelenen…",
+  "empty": "Eşleşen bölüm yok. Daha kısa bir kelime deneyin.",
+  "clear": "Tüm bölümleri göster",
+  "contents": "Bu rehberde",
+  "steps": "Yapılacaklar",
+  "expected": "Beklenen sonuç",
+  "note": "Dikkat edilmesi gereken",
+  "practice": "Örnek verilerle uygulama",
+  "sample": "Alıştırma CSV dosyasını indir",
+  "done": "Bu bölümü tamamladım",
+  "progress": "bölüm bu sayfada tamamlandı",
+  "contact": "Hamvara’dan yardım isteyin",
+  "updated": "Güncelleme: 8 Ekim 2026 · Mevcut web arayüzüne göre",
+  "offline": "Bu rehber çevrimdışı okunabilir. Uygulama bağlantıları internet gerektirir.",
+  "hubTitle": "Her seferinde bir yararlı işlem öğrenin.",
+  "hubLead": "Küçük atölyeler ve ilk kez kullananlar için pratik adımlar. Önce örnek verilerle başlayın, ardından kendi kayıtlarınızla ilerleyin.",
+  "website": "Hamvara web sitesi rehberi",
+  "websiteLead": "Ürünleri bulun, tanıtımları izleyin ve Hamvara ile iletişime geçin.",
+  "mrp": {
+    "title": "Hamvara MRP SaaS — başlangıç rehberi",
+    "lead": "İlk ürününüz, ilk siparişiniz ve ilk malzeme kontrolünüz. Önceden MRP deneyimi gerekmez.",
+    "goal": "İlk gün hedefi: basit bir ürün tanımlamak, açılış stokunu girmek ve bir sipariş için malzemelerin yeterli olup olmadığını anlamak.",
+    "scope": "Bu rehber /mrp/ adresindeki çevrimiçi SaaS içindir; taşınabilir Windows sürümü için değildir. Mevcut arayüz İngilizcedir; gerçek menü ve düğme adları aşağıda korunmuştur. Örneği eğitim çalışma alanında uygulayın. Erişiminiz yoksa Hamvara’dan isteyin.",
+    "glossary": [
+      [
+        "SKU",
+        "Vida veya kutu gibi her kalemin benzersiz kodu; barkodla aynı olmak zorunda değildir."
+      ],
+      [
+        "Product",
+        "Üretip satacağınız mamul."
+      ],
+      [
+        "BOM / Product BOM",
+        "BİR ürün için gereken malzeme listesi ve miktarları."
+      ],
+      [
+        "Warehouse",
+        "Stoğun kaydedildiği depo veya stok grubu."
+      ],
+      [
+        "Reserved",
+        "Başka işe ayrılmış, yeni sipariş için serbest olmayabilecek stok."
+      ],
+      [
+        "Post / Apply",
+        "İşlemi kayıtlara uygulayan adım; önce ayrıntıları kontrol edin."
+      ]
+    ],
+    "chapters": [
+      {
+        "id": "login",
+        "title": "1. Giriş yapın ve çalışma alanını doğrulayın",
+        "where": "Sign in to your workspace",
+        "steps": [
+          "Uygulama bağlantısıyla MRP’yi açın. İnternet bağlantısı gerekir.",
+          "Verilen Workspace, Username ve Access Key bilgilerini girip Sign in seçin. Access Key giriş anahtarıdır; ürün kodu değildir.",
+          "Üstteki şirket adını kontrol edin. Cloud connected ilk bulut bağlantısının kurulduğunu gösterir.",
+          "Örnek kayıtlar varsa bunun demo alanı olup olmadığını sorun; şirketi boşaltmak için kayıtları silmeyin."
+        ],
+        "expected": "Şirket ve hesap bilgisi üstte, Dashboard, Items & SKU, Warehouse Stock, Product BOM ve Orders solda görünür.",
+        "note": "SaaS adresine ?local=1 eklemeyin; bu, farklı bir yerel kayıt modudur. Giriş anahtarınızı paylaşmayın."
+      },
+      {
+        "id": "save",
+        "title": "2. Başlamadan önce kaydetmeyi öğrenin",
+        "where": "Top status badges · Settings",
+        "steps": [
+          "Settings bölümünde Company Name, Currency ve Device / Workstation Name alanlarını kontrol edin. Kararlaştırılan değerleri girip Save Settings seçin.",
+          "Tabloda bir alanı düzenledikten sonra Tab ile veya dışına tıklayarak alandan çıkın. Birçok tablo değişikliği kısa bir gecikmeyle otomatik kaydedilir.",
+          "Saving… göstergesinin Saved olmasını ve düzenleme sonrasında Cloud saved mesajını bekleyin.",
+          "Save failed durumunda düzenlemeyi durdurun, bağlantıyı kontrol edin. Yenilemeden önce hatayı not edip destek alın; son değişiklik sunucuda olmayabilir."
+        ],
+        "expected": "Kayıt göstergesi tamamlanır; ilgili bölümde değeri tekrar kontrol edebilirsiniz.",
+        "note": "SaaS verileri buluttadır. EXE yanındaki Data klasöründen söz eden metin taşınabilir sürüme aittir. Muhasebe politikalarını bu alıştırmada değiştirmeyin."
+      },
+      {
+        "id": "items",
+        "title": "3. İki malzeme ve bir ürün oluşturun",
+        "where": "Items & SKU → + New SKU · Products → + New Product",
+        "steps": [
+          "Eğitim alanında Items & SKU → + New SKU seçin. Geçici kodu DEMO-SCREW yapın. Description: Eğitim vidası; Type: Component; Unit: Piece (ADET); Main Warehouse: Raw Materials.",
+          "DEMO-BOX oluşturun: Eğitim kutusu; Type: Packaging; Unit: Piece (ADET); Main Warehouse: Packaging. Bu alıştırmada barkod boş kalabilir.",
+          "Products → + New Product ile DEMO-KIT, Eğitim kiti ve Piece (ADET) girin. Gerçek üretimden önce Planned Lead (h) değerini gözden geçirin.",
+          "Her satırdan sonra alandan çıkıp Cloud saved bekleyin. Kodları arayarak yinelenen kayıt olmadığını doğrulayın."
+        ],
+        "expected": "İki malzeme Items & SKU bölümünde, DEMO-KIT ise Products bölümünde görünür.",
+        "note": "Mamul ve malzemeleri farklı kayıtlardır. Sabit, benzersiz kodlar kullanın; gerçek hareketi olan kodları değiştirmeyin."
+      },
+      {
+        "id": "opening",
+        "title": "4. Mevcut stokları girin",
+        "where": "Warehouse Stock",
+        "steps": [
+          "Gerçek açılış stokları için fiziksel sayım yapın. Eğitimde aşağıdaki örnek miktarları kullanın.",
+          "Warehouse Stock → Raw Materials bölümünde DEMO-SCREW miktarını 30 yapın. Alandan çıkıp Cloud saved bekleyin.",
+          "Packaging deposunda DEMO-BOX miktarını 10 yapın ve kaydı doğrulayın.",
+          "Bu bağımsız örnekte Reserved sıfır olsun. Gerçek işletmede mevcut rezervasyonları sorumlu kişiyle doğrulayın."
+        ],
+        "expected": "Raw Materials içinde 30 vida, Packaging içinde 10 kutu görünür.",
+        "note": "Doğrudan stok tablosu açılış veya yetkili düzeltme içindir. Yeni teslimatları Goods Receipt ile kaydedin."
+      },
+      {
+        "id": "bom",
+        "title": "5. Bir kitin tüketimini tanımlayın",
+        "where": "Product BOM",
+        "steps": [
+          "Product BOM içinde DEMO-KIT seçip + Material ile malzeme satırı ekleyin.",
+          "DEMO-SCREW için Source Warehouse: Raw Materials; Usage Quantity: 4; Waste %: 0 girin.",
+          "DEMO-BOX için Packaging; Usage Quantity: 1; Waste %: 0 girin. İki birim de Piece (ADET) olsun.",
+          "Version: 1.0 ve Effective date girip Save New BOM Version seçin. Version History ve saved durumunu kontrol edin."
+        ],
+        "expected": "Bir kit dört vida ve bir kutu tüketir; 1.0 sürümü geçmişte görünür.",
+        "note": "Usage Quantity tüm sipariş için değil, TEK ürün içindir. Buraya 40 vida girilirse 10 kit için 400 vida istenir. Sonraki değişiklikte yeni sürüm numarası kullanın."
+      },
+      {
+        "id": "order",
+        "title": "6. Küçük bir sipariş kaydedin",
+        "where": "Orders → + New Order Line",
+        "steps": [
+          "Orders → + New Order Line seçin.",
+          "Order No.: DEMO-ORDER-01; Customer: Eğitim müşterisi; Product Code: DEMO-KIT; Quantity: 10 girin. Açıklamayı kontrol edin.",
+          "Date ve Due Date girin. Priority: Normal; Notes: Yalnız eğitim yazın.",
+          "Alanlardan çıkıp Cloud saved bekleyin. Bu örneği canlı müşteri ortamına girmeyin."
+        ],
+        "expected": "10 kitlik bir sipariş satırı oluşur. Sipariş oluşturmak üretimi tamamlamaz veya stok sevk etmez.",
+        "note": "Aynı müşteri siparişinde birden çok ürün varsa, her ürün için aynı sipariş numarasıyla ayrı satır kullanın."
+      },
+      {
+        "id": "requirements",
+        "title": "7. Malzemelerin yeterli olup olmadığını görün",
+        "where": "Requirements",
+        "steps": [
+          "Requirements bölümünde DEMO-ORDER-01 bulun.",
+          "Vida için Required 40, Available 30, Shortage 10; kutu için Required 10, Available 10, Shortage 0 beklenir.",
+          "Not Producible malzeme engelini, Incomplete BOM eksik reçeteyi gösterir. Producible yalnız malzeme kontrolünün geçtiğini belirtir; makine, personel veya teslim tarihi garantisi değildir.",
+          "Sonuç farklıysa miktar, reçete, kaynak depo, diğer siparişler, rezervasyon ve fireyi kontrol edin. Gerektiğinde Export CSV kullanın."
+        ],
+        "expected": "Hesabı açıklayabilirsiniz: 10 kit × 4 vida = 40 ihtiyaç; 30 mevcut, 10 eksik.",
+        "note": "Örnek, başka talep veya rezervasyon olmadığını ve sıfır fireyi varsayar. Göstergeyi yeşile çevirmek için gerçekte gelmemiş stok eklemeyin."
+      },
+      {
+        "id": "receipt",
+        "title": "8. Gerçekten gelen malzemeyi kaydedin",
+        "where": "Goods Receipt → + Manual Goods Receipt · Quality & NCR",
+        "steps": [
+          "Eğitim senaryosunda 10 vida gelince Goods Receipt → + Manual Goods Receipt açın. SKU: DEMO-SCREW; hedef: Raw Materials; Quantity: 10; tarih ve Reference / Document No.: DEMO-GR-01 girin. Tedarikçi ve ilgili parti bilgilerini ekleyin.",
+          "Submit for QC seçin. Kayıt önce Quarantine içinde PENDING_QC olur; henüz hedef depoda kullanılamaz.",
+          "Yetkili kalite görevlisi Quality & NCR bölümünde ilgili incelemenin gerçek Result değerini girip Apply decision seçer. ACCEPTED sonucu PENDING_MANAGER aşamasına geçirir.",
+          "Yetkili yönetici Goods Receipt bölümünde Manager approve seçer. POSTED durumunu ve hedef stoğu kontrol edip Requirements bölümüne dönün."
+        ],
+        "expected": "Onaylardan sonra Raw Materials içindeki vida stoğu 40 olur; bu bağımsız siparişin vida eksiği sıfırlanır.",
+        "note": "Reddedilen veya koşullu malzeme beklemede kalır. Atölyenizin yetkilendirme düzenini izleyin. Aynı teslimatı iki kez kaydetmeyin."
+      },
+      {
+        "id": "production",
+        "title": "9. Hazır siparişi üretime verin",
+        "where": "Production Execution",
+        "steps": [
+          "Production Execution bölümünde üretilebilir siparişi seçip + Work Order kullanın. Liste boşsa Requirements engelini çözün.",
+          "Release & reserve öncesi iş emrini inceleyin. Bu, malzeme ayırır; mamul oluştuğu anlamına gelmez.",
+          "Fiziksel malzeme üretime teslim edildiğinde yetkili kullanıcı Issue to Shop Floor adımını uygular. Gerçek iş ve çıktıyı etkin üretim kontrollerinde kaydedin.",
+          "İlk tamamlama için üretim sorumlusu veya Hamvara ile çıktı, malzeme tüketimi ve son kalite adımlarını birlikte uygulayın. Teslimata hazır saymadan önce son kalite kabulünü ve Product deposunu kontrol edin."
+        ],
+        "expected": "İş emri görünür ve durumu gerçek çalışmayı yansıtır. Released veya In production, Completed değildir.",
+        "note": "Tamamlama; backflush, kalite ve mali kontroller içerebilir. Bunları uyarıları kaldırmak için sırayla tıklamak yerine sorumlu kişiyle öğrenin."
+      },
+      {
+        "id": "daily",
+        "title": "10. Günü kısa bir kontrolle bitirin",
+        "where": "Dashboard · Reports & Analytics · Top bar",
+        "steps": [
+          "Dashboard → Action Required bölümünde eksikleri ve bekleyen işleri kontrol edin.",
+          "Reports & Analytics içinde Inventory by Warehouse veya Goods Receipts seçin; tarih/depo filtrelerini ayarlayıp Refresh kullanın. Gerekirse Export CSV veya Print / Save PDF seçin.",
+          "Önemli miktarları fiziksel stokla karşılaştırın. Yeni teslimat ve üretimi kendi bölümlerinde kaydedin; toplamları üzerine yazarak değiştirmeyin.",
+          "Cloud saved bekleyin. SaaS içinde Backup sunucuda yedek ister; onay mesajını kontrol edin. Full Backup hamvara_data.json dosyasını indirir; yetkili çevrimdışı kopya gerektiğinde dosyanın indiğini doğrulayın. Ortak bilgisayarda Sign out seçin."
+        ],
+        "expected": "Açık işleri ve son değişikliklerin buluta kaydedilip kaydedilmediğini bilirsiniz.",
+        "note": "Restore Backup eski veriyi içe aktarır ve güncel kayıtları değiştirebilir. Normal giriş veya yenileme değildir; sorumlu kişiyle kullanın."
+      }
+    ],
+    "practiceTitle": "İlk tam alıştırma: 10 eğitim kiti",
+    "practiceLead": "Başka talep veya rezervasyonu olmayan eğitim alanı; sıfır fire; bütün miktarlar adet.",
+    "practiceHeaders": [
+      "Kalem",
+      "Bir kit için",
+      "Açılış stoku",
+      "10 kit ihtiyacı",
+      "Eksik"
+    ],
+    "practiceRows": [
+      [
+        "DEMO-SCREW",
+        "4",
+        "30",
+        "40",
+        "10"
+      ],
+      [
+        "DEMO-BOX",
+        "1",
+        "10",
+        "10",
+        "0"
+      ]
+    ],
+    "faqTitle": "Sonuç doğru görünmüyorsa",
+    "faq": [
+      [
+        "Giriş yapamıyorum.",
+        "Workspace ve Username bilgilerini doğrulayın, Access Key’i dikkatle girin. 401 genellikle kimlik bilgileriyle ilgilidir. Hata metnini anahtarınızı paylaşmadan desteğe iletin."
+      ],
+      [
+        "Kalemi veya siparişi bulamıyorum.",
+        "Aramayı temizleyin; Previous / Next, seçilen depo ve şirketi kontrol edin. Kontrol etmeden ikinci kayıt oluşturmayın."
+      ],
+      [
+        "Malzeme geldi ama hâlâ eksik.",
+        "Quarantine durumunu, kalite ve yönetici onaylarını, reçete kaynak deposuyla teslimat hedefinin eşleşmesini kontrol edin."
+      ],
+      [
+        "Save failed veya yeni revizyon mesajı var.",
+        "Eşzamanlı düzenlemeyi durdurun. Yenilemeden önce diğer kullanıcı ve destekle görüşün; kaydedilmemiş değişiklikler kaybolabilir."
+      ],
+      [
+        "Düğme etkin değil veya erişim reddedildi.",
+        "Görünen engeli okuyup yetkili kişiden yardım isteyin. Düğmeyi açmak için rolleri veya kontrolleri değiştirmeyin."
+      ]
+    ],
+    "advancedTitle": "Daha sonra, destekle birlikte",
+    "advanced": "Universal Import, Planning & Standards, kapasite planlama, barkod eşleme, muhasebe politikaları ve üretim kapanışını temel akıştan sonra öğrenin. Yapay zekâ terimleri açıklayabilir; stok hareketinin kaydedildiğini doğrulayamaz veya işlem yetkisi veremez."
+  },
+  "sku": {
+    "title": "SKU Bridge — adım adım kullanım rehberi",
+    "lead": "Ürün dosyasını hazırlayın, uyarıları anlayın ve yalnızca incelediğiniz satırları indirin.",
+    "goal": "İlk kullanım hedefi: alıştırma dosyasını açmak, eksik bir satırı düzeltmek ve yinelenen kayıtların neden karar gerektirdiğini anlamak.",
+    "scope": "Bu rehber mevcut web betasını açıklar. Excel (.xlsx/.xls) ve CSV kabul edilir; Excel’de ilk çalışma sayfası okunur. Mevcut Download approved rows düğmesi CSV üretir. Çıktı hedef sistemin içe aktarma şablonuyla karşılaştırılmalıdır.",
+    "glossary": [
+      [
+        "Column mapping",
+        "Kaynak sütunun SKU, açıklama, fiyat veya stok anlamına geldiğini belirtmek."
+      ],
+      [
+        "READY",
+        "Satır bu betadaki kontrollerden geçti; tüm ticari bilgilerin doğru olduğunu garanti etmez."
+      ],
+      [
+        "Approved / USE",
+        "Bir READY satırını çıktıya dahil etme kararınız."
+      ],
+      [
+        "Issue flags",
+        "Bir satırı inceleme nedenleri; aynı satır birden çok uyarı alabilir."
+      ]
+    ],
+    "chapters": [
+      {
+        "id": "prepare",
+        "title": "1. Küçük bir alıştırma dosyası hazırlayın",
+        "where": "Before opening the tool",
+        "steps": [
+          "Bu sayfadaki alıştırma CSV dosyasını indirin. Kendi verinizle çalışırken orijinal dosyanın ayrı kopyasını saklayın.",
+          "İlk satır sütun başlıkları, sonraki her satır bir ürün olsun. Excel’de ilgili veriyi ilk çalışma sayfasına koyun.",
+          "SKU ve barkodları baştaki sıfırlar için metin olarak tutun. Tutarlı ondalık biçim ve TRY veya USD gibi açık para birimi kullanın.",
+          "Birkaç satırla başlayın. Hücre içi satır sonları gibi karmaşık içerikler için Excel tercih edin; mevcut CSV okuyucu basit virgülle ayrılmış dosya bekler."
+        ],
+        "expected": "Dosyada kasıtlı tekrarlar ve eksikler içeren dört eğitim satırı vardır.",
+        "note": "Lansman planlarında yazan limitleri mevcut betanın teknik olarak uyguladığı limitlerle karıştırmayın."
+      },
+      {
+        "id": "load",
+        "title": "2. Dosyayı yükleyin",
+        "where": "1. Add your inventory file",
+        "steps": [
+          "SKU Bridge içinde Choose Excel or CSV seçip alıştırma dosyasını açın. Bilgisayarda dosyayı yükleme alanına da sürükleyebilirsiniz.",
+          "Dosya adını ve 4 rows bilgisini kontrol edin.",
+          "2. Confirm column mapping bölümü açılır. Load demo file farklı, altı satırlı örnek yükler; bu rehberdeki sayımlar ona ait değildir."
+        ],
+        "expected": "Dosya adı, dört satır ve sütun eşleme listeleri görünür.",
+        "note": "Normal yükleme ve kontrol tarayıcıda çalışır. Refresh veya Start over mevcut çalışmayı temizler; çıkmadan önce sonucu indirin."
+      },
+      {
+        "id": "mapping",
+        "title": "3. Sütunların anlamını doğrulayın",
+        "where": "2. Confirm column mapping",
+        "steps": [
+          "SKU / Product code alanını SKU sütununa bağlayın; bu eşleme olmadan analiz yapılamaz.",
+          "Description, Unit of measure, Unit price, Currency, Current stock ve Warehouse alanlarını eşleyin. Bulunmayan isteğe bağlı sütunlarda — Not in file — bırakın.",
+          "Currency eşlemesini özellikle kontrol edin. Beta boş para birimini USD yapar; amaçladığınız para birimi bu olmayabilir.",
+          "Analyze data seçin. Bu çalışma için Analyze & Map with AI zorunlu değildir."
+        ],
+        "expected": "Data quality report, düzenlenebilir satırlar ve uyarılarla açılır.",
+        "note": "İsteğe bağlı AI düğmesi başlıkları ve en fazla 12 örnek satırı ayarlanan AI servisine gönderir. Yalnız paylaşabileceğiniz verilerle kullanın; başarısız olursa manuel eşleme devam eder."
+      },
+      {
+        "id": "review",
+        "title": "4. Değiştirmeden önce sonuçları okuyun",
+        "where": "3. Data quality report",
+        "steps": [
+          "Her satırın STATUS değerini okuyun. MISSING_SKU kodun, MISSING_PRICE birim fiyatın eksik olduğunu belirtir.",
+          "DUPLICATE_SKU büyük/küçük harf farkını da dikkate alarak tekrarları bulur. PRICE_CONFLICT aynı kod için farklı fiyatları; INVALID_BARCODE mevcut barkod kontrolünün ret sonucunu gösterir.",
+          "Alıştırmada yalnız DEMO-BOX ilk başta READY olur. İki vida satırında tekrar ve fiyat farkı, bant satırında eksik kod ve fiyat vardır.",
+          "Kalite puanı; stok doğruluğu, barkod sahipliği veya ERP uyumu sertifikası değildir."
+        ],
+        "expected": "Dört satırın durumunu açıklayabilirsiniz. Uyarı sayısı satır sayısından fazla olabilir.",
+        "note": "Uyarıyı kaldırmak için gerçek kod, fiyat veya barkod uydurmayın; kaynak kaydı kontrol edin."
+      },
+      {
+        "id": "correct",
+        "title": "5. Düzeltin, yeniden kontrol edin ve seçin",
+        "where": "Editable results table → Recheck corrections",
+        "steps": [
+          "Yalnız eğitim bandı satırına SKU: DEMO-TAPE ve Unit price: 2.00 girin. Bunlar gerçek fiyat önerisi değildir.",
+          "Recheck corrections seçin. Bant READY olmalıdır. Düzenleme onayı kaldırdığı için sonrasında USE kutusunu işaretleyin.",
+          "DEMO-BOX satırını ve USE kutusunu kontrol edin. İlk analizde hazır satırlar zaten seçilmiş olabilir; dışa aktarmadan önce seçimleri inceleyin.",
+          "İki vida satırını; aynı ürün, farklı ürün veya farklı depo kaydı olduklarına karar verene kadar dışarıda bırakın. Beta bunları sizin adınıza birleştirmez."
+        ],
+        "expected": "Yalnız DEMO-BOX ve DEMO-TAPE seçilidir; 2 approved görünür ve indirme etkinleşir.",
+        "note": "PRICE, CURRENCY, STOCK ve WAREHOUSE için tabloyu yatay kaydırın. Çıktıdan çıkarmak orijinal dosyadan silmek değildir."
+      },
+      {
+        "id": "export",
+        "title": "6. Çıktıyı indirin ve inceleyin",
+        "where": "Download approved rows",
+        "steps": [
+          "Onay sayısını doğrulayıp Download approved rows seçin. İndirilenlerde Hamvara-approved-SKU.csv dosyasını bulun.",
+          "Mümkünse CSV içe aktarma penceresiyle açın; SKU ve barkod alanlarını metin olarak ayarlayın.",
+          "Bir başlık ve iki veri satırı beklenir: DEMO-BOX ve DEMO-TAPE. Ayırıcıları, satır sonlarını, kodları, miktarları, fiyat ve para birimini kontrol edin.",
+          "Hedef sistem şablonuyla karşılaştırıp önce test ortamında küçük bir aktarım yapın. SKU Bridge dosyayı otomatik olarak MRP’ye işlemez."
+        ],
+        "expected": "Hangi kayıtları içerdiğini bildiğiniz ayrı bir CSV elde edersiniz.",
+        "note": "Çıktı tek uzun satırsa, fazladan ters eğik çizgi varsa veya kodlar değişmişse içe aktarmayın. Orijinali saklayıp hassas olmayan örneği desteğe iletin."
+      }
+    ],
+    "practiceTitle": "Dört satırlık basit alıştırma",
+    "practiceLead": "İki yinelenen vida ve bir eksik bant satırı kasıtlıdır. Gerçek barkod gerekmez.",
+    "practiceHeaders": [
+      "SKU",
+      "Açıklama",
+      "Fiyat",
+      "Stok",
+      "Öğrenilecek konu"
+    ],
+    "practiceRows": [
+      [
+        "DEMO-SCREW",
+        "Eğitim vidası",
+        "0.20",
+        "30",
+        "Tekrar / fiyat farkı"
+      ],
+      [
+        "DEMO-BOX",
+        "Eğitim kutusu",
+        "1.00",
+        "10",
+        "İlk başta READY"
+      ],
+      [
+        "demo-screw",
+        "Yinelenen eğitim vidası",
+        "0.25",
+        "5",
+        "Tekrar / fiyat farkı"
+      ],
+      [
+        "(boş)",
+        "Eğitim bandı",
+        "(boş)",
+        "2",
+        "Alıştırmada DEMO-TAPE ve 2.00 girin"
+      ]
+    ],
+    "faqTitle": "Sık sorulan sorular",
+    "faq": [
+      [
+        "İndirme düğmesi etkin değil.",
+        "En az bir READY satır onaylı olmalı. Düzenlemeden sonra Recheck corrections seçip USE kutularını yeniden kontrol edin."
+      ],
+      [
+        "Fiyat sütunu var ama MISSING_PRICE görünüyor.",
+        "Unit price eşlemesini kontrol edin. Analyze data tekrar çalıştırılırsa tablo kaynak dosyadan yeniden oluşturulur; mevcut düzeltmeleri önce not alın."
+      ],
+      [
+        "Doğru görünen barkod reddediliyor.",
+        "Orijinal kodu, baştaki sıfırları ve biçimi kontrol edin. Sorun sürerse örnekle bildirin; READY elde etmek için gerçek barkodu değiştirmeyin veya silmeyin."
+      ],
+      [
+        "Silinen baştaki sıfırlar geri gelir mi?",
+        "Orijinal kod olmadan güvenilir biçimde geri getirilemez; ana kayıttan düzeltin."
+      ],
+      [
+        "Excel çıktısı veya otomatik ERP aktarımı var mı?",
+        "Mevcut beta CSV verir. Hedef şablonu ve test aktarımını kullanın; evrensel uyum garanti edilmez."
+      ],
+      [
+        "AI eşleme çalışmıyor.",
+        "Sütunları elle seçip Analyze data kullanın. AI bu akışta isteğe bağlıdır."
+      ]
+    ],
+    "advancedTitle": "Daha sonra: büyük dosyalar ve AI yardımı",
+    "advanced": "Örnek başarılı olunca kendi dosyanızın küçük bir kopyasıyla devam edin. Eşlemeleri, sayısal biçimleri ve hedef kuralları kontrol edin. Yardım merkezi ChatGPT için soru hazırlayabilir; erişim anahtarı veya gizli dosya eklemeyin."
+  },
+  "glossaryTitle": "Birkaç yararlı terim"
+}

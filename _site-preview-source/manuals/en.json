@@ -1,0 +1,414 @@
+{
+  "language": "English",
+  "help": "Help center",
+  "home": "Hamvara home",
+  "read": "Read the guide",
+  "open": "Open application",
+  "print": "Print / save PDF",
+  "download": "Download offline guide",
+  "search": "Find a topic in this guide",
+  "searchHint": "Try: stock, save, duplicate…",
+  "empty": "No matching chapters. Try a shorter word or clear the search.",
+  "clear": "Show all chapters",
+  "contents": "In this guide",
+  "steps": "What to do",
+  "expected": "What you should see",
+  "note": "Keep in mind",
+  "practice": "Practice with sample data",
+  "sample": "Download the practice CSV",
+  "done": "I have completed this chapter",
+  "progress": "chapters completed on this page",
+  "contact": "Ask Hamvara for help",
+  "updated": "Updated 8 October 2026 · Matched to the current web interface",
+  "offline": "This guide is available offline. Application links still require an internet connection.",
+  "hubTitle": "Learn one useful task at a time.",
+  "hubLead": "Practical instructions for small workshops and first-time users. Start with sample data, then repeat the workflow with your own information.",
+  "website": "Using the Hamvara website",
+  "websiteLead": "Find products, watch demonstrations and contact Hamvara.",
+  "mrp": {
+    "title": "Hamvara MRP SaaS — beginner’s guide",
+    "lead": "Your first product, your first order and your first material check. No previous MRP experience required.",
+    "goal": "First-day goal: create one simple product, enter opening stock and understand whether you have enough materials for an order.",
+    "scope": "This guide is for the online SaaS at /mrp/, not the portable Windows application. The current interface uses English labels; those exact labels are shown here. Use a training workspace for the example. Request workspace access from Hamvara if you do not have it.",
+    "glossary": [
+      [
+        "SKU",
+        "A unique code for an item, such as a screw or carton. It is not necessarily its barcode."
+      ],
+      [
+        "Product",
+        "The finished item you plan to make and sell."
+      ],
+      [
+        "BOM / Product BOM",
+        "The list and quantity of materials needed to make ONE unit of a product."
+      ],
+      [
+        "Warehouse",
+        "The place or stock category where an item is recorded."
+      ],
+      [
+        "Reserved",
+        "Stock already allocated to work; it may not be available for another order."
+      ],
+      [
+        "Post / Apply",
+        "A step that applies an operation to records. Review the details before using it."
+      ]
+    ],
+    "chapters": [
+      {
+        "id": "login",
+        "title": "1. Sign in and check your workspace",
+        "where": "Sign in to your workspace",
+        "steps": [
+          "Open Hamvara MRP using the application link above. You need an internet connection.",
+          "Enter the Workspace, Username and Access Key provided for your business. Select Sign in. An access key is your login credential; it is not an order or product code.",
+          "Check the company workspace shown at the top before entering anything. Cloud connected confirms that a cloud session was established.",
+          "If sample products already exist, ask whether this is a demo workspace. Do not delete them to create an empty company."
+        ],
+        "expected": "Your workspace name and account appear above the application. The left-hand menu includes Dashboard, Items & SKU, Warehouse Stock, Product BOM and Orders.",
+        "note": "Do not add ?local=1 to the SaaS address. Local-browser mode is a different storage mode. Keep your access key private."
+      },
+      {
+        "id": "save",
+        "title": "2. Understand saving before you start",
+        "where": "Top status badges · Settings",
+        "steps": [
+          "Open Settings. Check Company Name, Currency and Device / Workstation Name; enter only settings agreed for your company. Select Save Settings.",
+          "In editable tables, finish a field and click or tab out of it. Many table changes save automatically after a short delay.",
+          "Wait until Saving… changes to Saved and the cloud badge shows Cloud saved after your edit.",
+          "If Save failed appears, stop editing and check your connection. Note the error and contact support before refreshing; your latest edit may not be on the server."
+        ],
+        "expected": "The saved indicator confirms the edit completed. You can return to the same section and check the value.",
+        "note": "SaaS records are stored in the cloud. Text elsewhere about a Data folder beside an EXE belongs to the portable version. Do not change accounting policies as part of this beginner exercise."
+      },
+      {
+        "id": "items",
+        "title": "3. Create two materials and one product",
+        "where": "Items & SKU → + New SKU · Products → + New Product",
+        "steps": [
+          "In a training workspace, open Items & SKU and select + New SKU. Replace the temporary code with DEMO-SCREW. Enter Description: Practice screw; Type: Component; Unit: Piece (ADET); Main Warehouse: Raw Materials.",
+          "Create DEMO-BOX with Description: Practice box; Type: Packaging; Unit: Piece (ADET); Main Warehouse: Packaging. A barcode can be left blank for this exercise.",
+          "Open Products and select + New Product. Enter Product Code: DEMO-KIT, Description: Practice kit, and Unit: Piece (ADET). Review Planned Lead (h) before real production.",
+          "After each row, leave the edited field and wait for Cloud saved. Search for the codes to check that each was created only once."
+        ],
+        "expected": "DEMO-SCREW and DEMO-BOX appear in Items & SKU; DEMO-KIT appears in Products.",
+        "note": "A product and its component materials are different records. Give each a unique, stable code. Do not rename codes that already have real stock movements."
+      },
+      {
+        "id": "opening",
+        "title": "4. Enter the stock you already have",
+        "where": "Warehouse Stock",
+        "steps": [
+          "Count your physical stock before entering opening quantities. For this exercise, use only the training quantities in the example below.",
+          "Open Warehouse Stock and select Raw Materials. Find DEMO-SCREW and set Qty in Raw Materials to 30. Leave the field and wait for Cloud saved.",
+          "Select Packaging. Set the DEMO-BOX quantity to 10 and wait for the save confirmation.",
+          "Keep Reserved at zero for this isolated exercise. For your own business, confirm existing reservations with the responsible person."
+        ],
+        "expected": "You have 30 screws in Raw Materials and 10 boxes in Packaging. Changing the selected warehouse changes the quantities you see.",
+        "note": "Direct stock-table edits are for opening balances or authorized corrections. Record new deliveries through Goods Receipt, so they follow the receipt and approval history."
+      },
+      {
+        "id": "bom",
+        "title": "5. Tell MRP what one kit consumes",
+        "where": "Product BOM",
+        "steps": [
+          "Open Product BOM and select DEMO-KIT. Select + Material to add a component line.",
+          "For DEMO-SCREW, choose Raw Materials as Source Warehouse and enter Usage Quantity = 4, Waste % = 0.",
+          "Add DEMO-BOX from Packaging with Usage Quantity = 1 and Waste % = 0. Check that both units are Piece (ADET).",
+          "Set Version = 1.0 and an Effective date, then select Save New BOM Version. Check Version History and the saved status beside the BOM."
+        ],
+        "expected": "One kit needs four screws and one box. Version 1.0 appears in Version History.",
+        "note": "Usage Quantity is per ONE finished product, not the entire order. Entering 40 screws here would ask for 400 screws when the order quantity is 10. Use a new version number for later BOM revisions."
+      },
+      {
+        "id": "order",
+        "title": "6. Enter a small customer or production order",
+        "where": "Orders → + New Order Line",
+        "steps": [
+          "Open Orders and select + New Order Line.",
+          "Enter Order No.: DEMO-ORDER-01; Customer: Practice customer; Product Code: DEMO-KIT; Quantity: 10. Check that the correct product description appears.",
+          "Set the order Date and a realistic Due Date. Leave Priority as Normal for this exercise. Write Training only in Notes.",
+          "Finish the edited fields and wait for Cloud saved. Do not enter this practice order in a live customer workspace."
+        ],
+        "expected": "The order table contains one line for 10 practice kits. Creating an order does not itself complete production or ship stock.",
+        "note": "For several products in one customer order, add one line per product and reuse the same order number."
+      },
+      {
+        "id": "requirements",
+        "title": "7. Find out whether you can produce",
+        "where": "Requirements",
+        "steps": [
+          "Open Requirements and find DEMO-ORDER-01.",
+          "Read Required, Available and Shortage for each material. In the isolated exercise, screws should show Required 40, Available 30, Shortage 10. Boxes should show Required 10, Available 10, Shortage 0.",
+          "Not Producible means the order is blocked by materials. Incomplete BOM means the recipe needs correction. Producible means the material check passes; it is not a promise that labor, machines or delivery dates are ready.",
+          "If your numbers differ, check the order quantity, BOM usage, source warehouse, existing orders, reserved stock and waste percentage. Use Export CSV if you need a copy of the requirement list."
+        ],
+        "expected": "You can explain the shortage: 10 kits × 4 screws = 40 screws required; only 30 are available, so 10 more are needed.",
+        "note": "The example assumes no other demand or reservations and zero waste. Do not increase recorded stock simply to turn a shortage indicator green."
+      },
+      {
+        "id": "receipt",
+        "title": "8. Record materials that actually arrive",
+        "where": "Goods Receipt → + Manual Goods Receipt · Quality & NCR",
+        "steps": [
+          "When the extra 10 screws physically arrive in the practice scenario, open Goods Receipt. Select + Manual Goods Receipt and enter SKU DEMO-SCREW, destination Raw Materials, Quantity 10, Receipt Date and Reference / Document No. DEMO-GR-01. Add the supplier and relevant lot details.",
+          "Select Submit for QC once. The receipt first goes to Quarantine with PENDING_QC; it is not yet available in the destination warehouse.",
+          "The authorized quality reviewer opens Quality & NCR, finds the linked inspection, records the actual Result and selects Apply decision. ACCEPTED moves the receipt to PENDING_MANAGER.",
+          "The authorized manager returns to Goods Receipt and selects Manager approve for that receipt. Check its POSTED status and the destination stock, then reopen Requirements."
+        ],
+        "expected": "After acceptance and manager approval, the training stock becomes 40 screws in Raw Materials. The screw shortage for this isolated order becomes zero.",
+        "note": "Rejected or conditional materials stay on hold. Follow your workshop’s authorization rules; ask the responsible person if an approval is unavailable. Do not submit the same delivery twice."
+      },
+      {
+        "id": "production",
+        "title": "9. Hand the ready order to production",
+        "where": "Production Execution",
+        "steps": [
+          "Open Production Execution. Select the now-producible order from the list and select + Work Order. If the list is empty, return to Requirements and resolve its blocker first.",
+          "Review the work order before Release & reserve. This allocates materials; it does not mean finished goods already exist.",
+          "When the physical materials are handed to production, the authorized user follows Issue to Shop Floor. Record actual work and output through the enabled production controls.",
+          "For your first completion, ask the production lead or Hamvara to walk through the configured output, material-consumption and final-quality steps. Check final quality acceptance and the Product warehouse before treating a batch as ready for delivery."
+        ],
+        "expected": "A work order is visible and its status reflects the real stage of work. Released or In production is not the same as Completed.",
+        "note": "Completion may involve backflush, quality and financial controls. These are a separate supervised learning step, not buttons to click through to clear warnings."
+      },
+      {
+        "id": "daily",
+        "title": "10. Finish the day with a simple check",
+        "where": "Dashboard · Reports & Analytics · Top bar",
+        "steps": [
+          "Review Dashboard → Action Required for shortages and pending actions.",
+          "Open Reports & Analytics. Select Inventory by Warehouse or Goods Receipts, set the date/warehouse filters and select Refresh. Use Export CSV or Print / Save PDF when needed.",
+          "Compare important stock quantities with physical stock. Record actual new deliveries and production activity in their proper sections, not by overwriting totals.",
+          "Wait for Cloud saved. Backup requests a server-side backup in SaaS; check its confirmation. Full Backup downloads hamvara_data.json; confirm that the file downloaded when you need an authorized offline copy. On a shared computer, select Sign out."
+        ],
+        "expected": "You know which tasks are unfinished and whether the last changes reached the cloud.",
+        "note": "Restore Backup imports a previous dataset and can replace current workspace data. It is not a normal sign-in or refresh step; use it only with the responsible person."
+      }
+    ],
+    "practiceTitle": "A complete first exercise: 10 practice kits",
+    "practiceLead": "Use a separate training workspace with no other demand or reservations. Zero waste; all quantities are pieces.",
+    "practiceHeaders": [
+      "Item",
+      "For one kit",
+      "Opening stock",
+      "Needed for 10 kits",
+      "Shortage"
+    ],
+    "practiceRows": [
+      [
+        "DEMO-SCREW",
+        "4",
+        "30",
+        "40",
+        "10"
+      ],
+      [
+        "DEMO-BOX",
+        "1",
+        "10",
+        "10",
+        "0"
+      ]
+    ],
+    "faqTitle": "If something does not look right",
+    "faq": [
+      [
+        "I cannot sign in.",
+        "Check Workspace and Username with the person who issued them. Re-enter the Access Key carefully. A 401 usually points to credentials; connection errors can have another cause. Send the error text to support without sending your key."
+      ],
+      [
+        "I cannot find my item or order.",
+        "Clear the search filter, check Previous / Next and confirm the selected warehouse and company workspace. Avoid creating a second record until you have checked."
+      ],
+      [
+        "The stock arrived but still shows a shortage.",
+        "Check whether it is in Quarantine, whether QC and manager approval are complete, and whether the BOM uses the same destination warehouse."
+      ],
+      [
+        "Saved failed or the page mentions a newer revision.",
+        "Stop parallel edits. Coordinate with the other user and support before reloading. Note your pending changes; refreshing can discard unsaved edits."
+      ],
+      [
+        "A button is disabled or access is denied.",
+        "Read the displayed blocker and ask the person responsible for your account or approvals. Do not change roles or controls just to make the button work."
+      ]
+    ],
+    "advancedTitle": "Later, with support",
+    "advanced": "Universal Import, Planning & Standards, finite-capacity scheduling, barcode pairing, accounting policies and production closing can be learned after the basic flow. Advanced AI guidance can explain terminology and prepare questions, but cannot confirm that a stock movement was saved or authorize a transaction."
+  },
+  "sku": {
+    "title": "SKU Bridge — step-by-step user guide",
+    "lead": "Prepare a product spreadsheet, understand the warnings and download only the rows you have reviewed.",
+    "goal": "First-use goal: load the practice file, correct one incomplete row and understand why duplicate rows need a decision.",
+    "scope": "This guide describes the current public web beta. It accepts Excel (.xlsx/.xls) and CSV; Excel uses the first worksheet. The current Download approved rows button produces CSV. A reviewed CSV still needs to match your destination system’s import template.",
+    "glossary": [
+      [
+        "Column mapping",
+        "Telling the tool which source column means SKU, description, price or stock."
+      ],
+      [
+        "READY",
+        "A row passed the checks implemented in this beta. It is not a guarantee that all business information is correct."
+      ],
+      [
+        "Approved / USE",
+        "Your decision to include a READY row in the download."
+      ],
+      [
+        "Issue flags",
+        "Reasons to review a row. A single row can have several flags."
+      ]
+    ],
+    "chapters": [
+      {
+        "id": "prepare",
+        "title": "1. Prepare a small practice file",
+        "where": "Before opening the tool",
+        "steps": [
+          "Download the practice CSV from this page. Keep a separate copy of your original business file when using your own data.",
+          "Put column names in the first row and one product record on each subsequent row. For Excel, place the intended data on the first worksheet.",
+          "Keep SKU and barcode columns as text to preserve leading zeros. Use plain quantities, a consistent decimal format and explicit currencies such as TRY or USD.",
+          "Start with a few rows. Prefer Excel for complex cells containing line breaks; the current CSV reader expects a simple comma-separated file."
+        ],
+        "expected": "The practice file contains four rows with deliberate duplicates and missing fields. It contains no customer data.",
+        "note": "Do not treat advertised launch-plan limits as enforced technical limits of the current beta. Begin with a small test file."
+      },
+      {
+        "id": "load",
+        "title": "2. Load the file",
+        "where": "1. Add your inventory file",
+        "steps": [
+          "Open SKU Bridge. Select Choose Excel or CSV and select the practice file. On a computer you can also drag the file onto the upload area.",
+          "Check the filename and row count shown under the upload area. For this guide’s practice file you should see 4 rows.",
+          "The section 2. Confirm column mapping appears. If you use Load demo file instead, it loads a different six-row example; the counts in this guide will not apply."
+        ],
+        "expected": "Your filename, four rows and the mapping dropdowns are visible.",
+        "note": "Ordinary file loading and checks run in your browser in this beta. Refresh or Start over clears the current work, so download your reviewed result before leaving."
+      },
+      {
+        "id": "mapping",
+        "title": "3. Confirm what each column means",
+        "where": "2. Confirm column mapping",
+        "steps": [
+          "Check SKU / Product code first. Map it to the SKU column; the tool cannot analyze a file without an SKU mapping.",
+          "Match Description, Unit of measure, Unit price, Currency, Current stock and Warehouse to their respective source columns. Leave absent optional columns as — Not in file —.",
+          "Check the Currency mapping explicitly. This beta fills a blank currency with USD, which may not be the currency you intended.",
+          "Select Analyze data. You do not need Analyze & Map with AI to complete this task."
+        ],
+        "expected": "The Data quality report opens with editable rows and issue counts.",
+        "note": "The optional AI mapping button sends column headers and up to 12 sample rows to the configured AI service. Use it only with data you are comfortable sharing. If it fails, manual mapping still works."
+      },
+      {
+        "id": "review",
+        "title": "4. Read the results before changing anything",
+        "where": "3. Data quality report",
+        "steps": [
+          "Read each row’s STATUS as well as the summary. MISSING_SKU means the product code is missing; MISSING_PRICE means this beta has no unit price for that row.",
+          "DUPLICATE_SKU marks repeated codes, including codes that differ only in case. PRICE_CONFLICT means rows for the same code show different prices. INVALID_BARCODE means the current barcode check rejected the supplied value.",
+          "In the practice file, DEMO-BOX is the only initially READY row. DEMO-SCREW and demo-screw are duplicates with different prices; the tape row has no SKU or price.",
+          "Treat the quality score as a summary of these checks, not a certificate of correct stock, pricing, barcode ownership or ERP compatibility."
+        ],
+        "expected": "You can explain why each of the four rows is ready or needs review. The number of issue flags can exceed the number of rows.",
+        "note": "Do not invent a new code, price or barcode merely to remove a warning. Check the source record and the intended business meaning."
+      },
+      {
+        "id": "correct",
+        "title": "5. Correct, recheck and choose rows",
+        "where": "Editable results table → Recheck corrections",
+        "steps": [
+          "For the training tape row only, enter SKU DEMO-TAPE and Unit price 2.00. These are practice values, not suggested business prices.",
+          "Select Recheck corrections. The tape row should now be READY. Editing a row clears its approval, so explicitly check its USE box after rechecking.",
+          "Review DEMO-BOX and its USE checkbox. Ready rows may already be selected on the first analysis; inspect the checkboxes before export.",
+          "Leave the two duplicate screw rows excluded until you decide whether they describe the same product, two distinct products, or stock in separate locations. This beta does not make that business decision or merge them for you."
+        ],
+        "expected": "Only DEMO-BOX and DEMO-TAPE are selected for this practice export. The summary shows 2 approved rows and Download approved rows becomes available.",
+        "note": "You can scroll the result table horizontally to reach PRICE, CURRENCY, STOCK and WAREHOUSE. Excluding a row from the export does not delete it from your original file."
+      },
+      {
+        "id": "export",
+        "title": "6. Download and inspect the result",
+        "where": "Download approved rows",
+        "steps": [
+          "Confirm the approved count, then select Download approved rows. Look for Hamvara-approved-SKU.csv in your browser’s downloads.",
+          "Open the downloaded file using a CSV import dialog where possible. Set SKU and barcode columns to text, rather than allowing Excel to interpret them as numbers.",
+          "Verify that the practice output has one header row and two data rows: DEMO-BOX and DEMO-TAPE. Check delimiters, line breaks, codes, quantities, prices and currencies.",
+          "Compare the headers and units with your destination system’s template. Import a small batch into a test workspace first; SKU Bridge does not automatically post the file into MRP."
+        ],
+        "expected": "You have a separate reviewed CSV and can explain exactly which rows it contains.",
+        "note": "If the CSV opens as one long line, shows literal backslash characters, loses codes or contains unexpected values, do not import it. Keep the original and send a non-sensitive example to Hamvara support."
+      }
+    ],
+    "practiceTitle": "Four rows, one safe learning exercise",
+    "practiceLead": "The file deliberately contains two duplicate screw records and an incomplete tape record. No real barcode is needed for this exercise.",
+    "practiceHeaders": [
+      "SKU",
+      "Description",
+      "Price",
+      "Stock",
+      "What to learn"
+    ],
+    "practiceRows": [
+      [
+        "DEMO-SCREW",
+        "Practice screw",
+        "0.20",
+        "30",
+        "Duplicate / price conflict"
+      ],
+      [
+        "DEMO-BOX",
+        "Practice box",
+        "1.00",
+        "10",
+        "Initially READY"
+      ],
+      [
+        "demo-screw",
+        "Duplicate practice screw",
+        "0.25",
+        "5",
+        "Duplicate / price conflict"
+      ],
+      [
+        "(blank)",
+        "Practice tape",
+        "(blank)",
+        "2",
+        "Add DEMO-TAPE and 2.00 in the exercise"
+      ]
+    ],
+    "faqTitle": "Common questions",
+    "faq": [
+      [
+        "Download approved rows is disabled.",
+        "At least one row must be READY and approved. After editing, select Recheck corrections and check the desired USE boxes again."
+      ],
+      [
+        "The file has a price column, but every row says MISSING_PRICE.",
+        "Return to the mapping dropdowns and check Unit price. If you re-run Analyze data from the source file, your table corrections are rebuilt from that source; save a record of your corrections first."
+      ],
+      [
+        "A valid-looking barcode is rejected.",
+        "Check the original code, leading zeros and supported barcode format. If it still fails, report it with a non-sensitive example; do not change a real barcode or erase it just to obtain READY."
+      ],
+      [
+        "Can the tool recover leading zeros that Excel already removed?",
+        "No reliable recovery is possible without the original code. Correct the source using your master record."
+      ],
+      [
+        "Can I export Excel directly or send to any ERP automatically?",
+        "This public beta currently exports CSV. Use the destination ERP’s required template and a test import; the tool does not guarantee universal compatibility."
+      ],
+      [
+        "AI mapping is unavailable.",
+        "Choose the columns manually and select Analyze data. AI is optional for this workflow."
+      ]
+    ],
+    "advancedTitle": "Later: larger files and AI assistance",
+    "advanced": "After the sample succeeds, use a small copy of your own file. Review mapping, number formats and destination rules each time. For additional guidance, the help center can prepare a question for ChatGPT; do not include access keys or confidential files."
+  },
+  "glossaryTitle": "A few useful words"
+}

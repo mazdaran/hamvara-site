@@ -1,0 +1,5 @@
+﻿SKU,Description,UOM,Price,Currency,Stock,Warehouse
+DEMO-SCREW,Practice screw,piece,0.20,TRY,30,Raw Materials
+DEMO-BOX,Practice box,piece,1.00,TRY,10,Packaging
+demo-screw,Duplicate practice screw,piece,0.25,TRY,5,Raw Materials
+,Practice tape,roll,,TRY,2,Packaging

@@ -1,0 +1,21 @@
+const fs = require('fs'), vm = require('vm'), assert = require('assert/strict');
+const source=fs.readFileSync('sku-bridge/index.html','utf8');
+const barcode=source.slice(source.indexOf('function barcodeValid'),source.indexOf('function validateRows'));
+const validation=source.slice(source.indexOf('function validateRows'),source.indexOf('function renderReview'));
+const exportCode=source.slice(source.indexOf("$('export').onclick="),source.indexOf("$('reset').onclick="));
+const elements={}; let captured;
+const c={Blob,URL:{createObjectURL:b=>{captured=b;return 'blob:test'},revokeObjectURL(){}},document:{createElement:()=>({click(){}})},$:id=>elements[id]??={},norm:s=>String(s??'').trim().toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' '),renderReview(){},step(){},alert(){throw Error('Unexpected alert')},lang:'en'};
+vm.createContext(c);
+vm.runInContext(barcode+validation+exportCode,c);
+assert.equal(c.barcodeValid('4006381333931'),true);
+assert.equal(c.barcodeValid('4006381333932'),false);
+assert.equal(c.barcodeValid('not-a-barcode'),false);
+const lines=fs.readFileSync('guides/downloads/sku-bridge-practice.csv','utf8').replace(/^\ufeff/,'').trim().split(/\r?\n/).map(l=>l.split(','));
+const cols=lines.shift().map(x=>x.toLowerCase());
+c.clean=lines.map(r=>Object.assign(Object.fromEntries(cols.map((col,i)=>[col,r[i]])),{barcode:'',min:'',max:'',approved:true}));
+c.validateRows();assert.equal(elements.rows.textContent,1);assert.equal(elements.missing.textContent,1);assert.equal(elements.dupes.textContent,2);
+c.clean[3].sku='DEMO-TAPE';c.clean[3].price='2.00';c.validateRows();c.clean[3].approved=true;
+assert.equal(elements.rows.textContent,2);elements.export.onclick();
+captured.text().then(text=>{
+ const rows=text.replace(/^\ufeff/,'').split('\r\n');assert.equal(rows.length,3);assert.ok(rows[1].includes('DEMO-BOX'));assert.ok(rows[2].includes('DEMO-TAPE'));assert.ok(!text.includes('\\n'));assert.ok(!text.includes('\\ufeff'));console.log('PASS: practice file → issues → correction → 2 approved CSV rows; valid and invalid barcode checks.');
+});
