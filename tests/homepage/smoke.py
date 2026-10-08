@@ -27,6 +27,11 @@ def fixture(root: Path, script_enabled: bool = True) -> str:
             raise ValueError('Cannot safely inline script in offline fixture')
         return '<script>' + content + '</script>'
     source = re.sub(r'<script\b[^>]*\bsrc="([^"]+)"[^>]*>\s*</script>',script,source)
+    def stylesheet(match):
+        url = urlsplit(match.group(1))
+        if url.scheme or url.netloc: return ''
+        return '<style>' + (root/url.path.lstrip('/')).read_text(encoding='utf-8') + '</style>'
+    source = re.sub(r'<link\b[^>]*rel="stylesheet"[^>]*href="([^"]+)"[^>]*>',stylesheet,source)
     return re.sub(r'<link\b[^>]*\bhref="https://[^>]*>','',source)
 
 def main(opts) -> dict:
@@ -110,6 +115,21 @@ def main(opts) -> dict:
                         need(page.locator(f'[data-scene="{i}"]').get_attribute('aria-pressed')=='true','Active scene not reflected in accessibility state')
                         bottom=page.locator('.command-slide.on').evaluate('e=>{let s=e.closest(".command-stage").getBoundingClientRect();return Math.max(...Array.from(e.children).map(n=>n.getBoundingClientRect().bottom))-s.bottom}')
                         need(bottom<=1,f'Tour content clipped by {bottom}px')
+                    page.locator('[data-need="data"]').click()
+                    need(page.locator('[data-need-title]').inner_text()=='SKU Bridge','Need selector did not update')
+                    need(page.locator('[data-need-open]').get_attribute('href')=='/sku-bridge/?demo=1','Sample route missing')
+                    guide_path='/guides/'+('' if language=='en' else language+'/')+'sku-bridge.html'
+                    need(page.locator('[data-need-guide]').get_attribute('href')==guide_path,'Wrong guide language')
+                    page.locator('[data-need="cost"]').click()
+                    need(page.locator('[data-need-guide]').is_hidden(),'Unrelated guide shown')
+                    page.locator('#demo-problem').fill('Training request & test')
+                    page.locator('#demo-time').fill('12 October 14:00 Istanbul')
+                    page.locator('[data-demo-form] button[type="submit"]').click()
+                    need(page.locator('[data-request-result]').is_visible(),'Message was not prepared')
+                    need('Training%20request%20%26%20test' in page.locator('[data-request-email]').get_attribute('href'),'Message was not encoded')
+                    page.locator('#demo-problem').fill('Changed request')
+                    need(page.locator('[data-request-result]').is_hidden(),'Stale prepared message remains visible')
+                    need(page.evaluate('document.documentElement.scrollWidth-window.innerWidth')<=1,'Growth components overflow')
                     need(not errors,f'JavaScript errors: {errors}')
                     if (width,height,language) in [(390,844,'en'),(1366,768,'en')]:
                         page.locator('[data-scene="0"]').click();page.evaluate('window.scrollTo(0,0)')

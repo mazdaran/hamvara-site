@@ -334,7 +334,7 @@ footer{background:#fff;border-color:#dfe8ee}
 .command-slide{position:relative;inset:auto;grid-area:1/1;min-width:0}
 
 </style>
-</head>
+<link rel="stylesheet" href="/articles/assets/growth.css?v=20261008-1"><script src="/articles/assets/growth.js?v=20261008-1" defer></script></head>
 <body>
 
 <header class="topbar">
@@ -368,13 +368,14 @@ footer{background:#fff;border-color:#dfe8ee}
       <a href="#top" data-t="navHome">Home</a>
       <a href="#products" data-t="navProducts">Products</a>
       <a href="#how" data-t="navHow">How we work</a>
-      <a href="/guides/">Guides</a>
+      <a href="/guides/" data-guides-link data-gx="guides">Guides</a>
+      <a href="/articles/" data-articles-link data-gx="articles">Articles</a>
       <a href="#contact" data-t="navContact">Contact</a>
     </nav>
     <select class="lang" id="lang" aria-label="Language" disabled>
       <option value="en" selected>EN</option><option value="fa">FA</option><option value="tr">TR</option>
     </select>
-    <a class="btn" href="#contact" data-t="ctaDemo">Request a demo</a>
+    <a class="btn" href="#request-demo" data-t="ctaDemo">Request a demo</a>
   </div>
 </header>
 
@@ -389,7 +390,7 @@ footer{background:#fff;border-color:#dfe8ee}
         <p class="hero-tagline" data-t="heroTagline">Know Your Stock. Make What You Need. Deliver On Time.</p>
         <p class="lead" data-t="heroLead">One clear view of inventory, purchasing and production — plus focused tools that turn operational data into confident decisions.</p>
         <div class="hero-cta">
-          <a class="btn" href="#contact" data-t="ctaDemo">Request a demo</a>
+          <a class="btn" href="#request-demo" data-t="ctaDemo">Request a demo</a>
           <a class="btn btn-ghost" href="/mrp/" data-t="ctaExploreMrp">Explore Hamvara MRP</a>
         </div>
         <div class="hero-points"><span><i></i><b data-t="point1">Live inventory visibility</b></span><span><i></i><b data-t="point2">Production and BOM control</b></span><span><i></i><b data-t="point3">Faster operational decisions</b></span></div>
@@ -414,13 +415,15 @@ footer{background:#fff;border-color:#dfe8ee}
 
   <div class="proof" aria-label="Hamvara product strengths"><div class="wrap proof-in"><div class="proof-item"><strong data-t="proof1Title">Built for operations</strong><span data-t="proof1Body">Inventory, purchasing and production</span></div><div class="proof-item"><strong data-t="proof2Title">Your data stays yours</strong><span data-t="proof2Body">Portable and self-hosted options</span></div><div class="proof-item"><strong data-t="proof3Title">Start without friction</strong><span data-t="proof3Body">Free tools and guided demos</span></div><div class="proof-item"><strong data-t="proof4Title">Made in Istanbul</strong><span data-t="proof4Body">English, Turkish and Persian</span></div></div></div>
 
-  <section id="products" class="wrap">
+  <p class="gx-tour-note" data-gx="tourNote">Illustrative dashboard with sample figures; these are not customer results.</p>
+<!-- growth:navigator --><section class="gx gx-nav" id="find-tool" aria-labelledby="need-title"><div class="gx-heading"><span class="gx-kicker">HAMVARA / START HERE</span><h2 id="need-title" data-gx="choose">What do you need to solve?</h2><p data-gx="chooseLead">Choose one task to see a focused starting point.</p></div><div class="gx-choices" role="group" aria-labelledby="need-title"><button type="button" data-need="production" aria-pressed="true">Production and material shortages</button><button type="button" data-need="data" aria-pressed="false">Messy stock spreadsheets</button><button type="button" data-need="cost" aria-pressed="false">Changes in material cost</button><button type="button" data-need="shipping" aria-pressed="false">Packing and loading capacity</button><button type="button" data-need="supply" aria-pressed="false">Supplier follow-ups</button></div><div class="gx-result" aria-live="polite" aria-atomic="true"><div><small data-gx="recommended">Suggested starting point</small><h3 data-need-title>Hamvara MRP SaaS</h3><p data-need-description>Connect items, stock, bills of materials and orders to review material shortages.</p></div><div class="gx-actions"><a class="gx-button" data-need-open href="/mrp/"><span data-gx="open">Open tool</span> ↗</a><a data-need-guide href="/guides/mrp-saas.html"><span data-gx="guide">Read the guide</span></a></div></div><div class="gx-sample"><a class="gx-button gx-outline" href="/sku-bridge/?demo=1"><span data-gx="sample">Try SKU Bridge with sample data</span> →</a><p data-gx="sampleNote">No registration or upload needed. Opens a sample file in the current tool; analysis starts when you choose it.</p></div><noscript><p><a href="/sku-bridge/">SKU Bridge</a> · <a href="/bom-costwatch/">BOM CostWatch</a> · <a href="/loadfit/">LoadFit</a> · <a href="/po-chaser/">PO Chaser</a></p></noscript></section><!-- /growth:navigator -->
+<section id="products" class="wrap">
     <div class="sec-head">
       <h2 data-t="productsTitle">Products</h2>
       <p data-t="productsLead">Each one started as a real problem in a real workshop, not as an idea on paper.</p>
     </div>
 
-    <div class="prods">
+    <details class="gx-catalog"><summary data-gx="catalog">Browse all 16 products</summary><div class="prods">
       <article class="prod">
         <span class="prod-code">MRP-01</span>
         <h3>Hamvara MRP</h3>
@@ -661,7 +664,7 @@ footer{background:#fff;border-color:#dfe8ee}
         </div>
       </article>
     </div>
-  </section>
+  </details></section>
 
   <section class="flow-section" aria-labelledby="flow-title">
     <div class="wrap">
@@ -714,7 +717,8 @@ footer{background:#fff;border-color:#dfe8ee}
     </div>
   </section>
 
-  <section id="contact" class="contact">
+  <!-- growth:articles --><section class="gx" id="articles"><div class="gx-heading"><h2 data-gx="newArticles">Read, learn, try</h2><p data-gx="newLead">Short practical articles, with links to the relevant product guides.</p></div><div class="gx-cards"><article class="gx-card"><span class="gx-kicker" data-gx="production">Production</span><h3><a href="/articles/first-material-plan.html" data-post-link="first-material-plan" data-post-title="first-material-plan">Your first material plan in a small workshop</a></h3><p data-post-summary="first-material-plan">Start with one product and one order to connect stock, material requirements and purchase shortages.</p></article><article class="gx-card"><span class="gx-kicker" data-gx="data">Inventory data</span><h3><a href="/articles/clean-sku-before-import.html" data-post-link="clean-sku-before-import" data-post-title="clean-sku-before-import">Five checks before importing an inventory spreadsheet</a></h3><p data-post-summary="clean-sku-before-import">Duplicate codes, unclear units and missing values can turn a simple file into an operational problem.</p></article></div><a class="gx-button gx-outline" href="/articles/" data-articles-link><span data-gx="archive">Browse articles</span> →</a></section><!-- /growth:articles -->
+<section id="contact" class="contact">
     <div class="wrap">
       <div class="contact-grid">
         <div>
@@ -736,11 +740,13 @@ footer{background:#fff;border-color:#dfe8ee}
     </div>
   </section>
 
+<!-- growth:request --><section class="gx gx-request" id="request-demo"><div class="gx-heading"><span class="gx-kicker">HAMVARA / LET’S TALK</span><h2 data-gx="request">Request a demo</h2><p data-gx="requestLead">Tell us your main challenge and preferred time. We will confirm availability with you.</p></div><form data-demo-form hidden><label for="demo-problem" data-gx="problem">Main challenge</label><textarea id="demo-problem" name="problem" required maxlength="800" rows="3"></textarea><label for="demo-time" data-gx="time">Preferred date and time (include timezone)</label><input id="demo-time" name="time" maxlength="120" placeholder="For example: 12 October, 14:00 Istanbul"><div class="gx-actions"><button class="gx-button" type="submit" data-gx="prepare">Prepare email</button></div><p class="gx-small" data-gx="requestNote">This form prepares a message on your device. Nothing is sent and no meeting is booked until you use the selected channel and receive confirmation.</p><div data-request-result hidden><p role="status" data-gx="requestReady">Your message is ready. Choose a channel to send it.</p><div class="gx-actions"><a class="gx-button" data-request-email href="mailto:info@hamvara.com"><span data-gx="prepare">Prepare email</span></a><a class="gx-button gx-outline" data-request-wa href="https://wa.me/905369247371" target="_blank" rel="noopener noreferrer"><span data-gx="whatsapp">Prepare WhatsApp message</span></a></div></div></form><noscript><a href="mailto:info@hamvara.com">info@hamvara.com</a> · <a href="https://wa.me/905369247371">WhatsApp</a></noscript></section><!-- /growth:request -->
 </main>
 
 <footer>
   <div class="wrap foot-in">
-    <a href="/guides/">Guides &amp; downloads</a>
+    <a href="/guides/" data-guides-link data-gx="guides">Guides</a>
+    <a href="/articles/" data-articles-link data-gx="articles">Articles</a>
     <span>© <span id="year">2026</span> Mohammad Bagher Yahya Mazdarani</span>
     <span data-t="footPlace">Istanbul, Türkiye</span>
   </div>

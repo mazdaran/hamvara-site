@@ -86,6 +86,7 @@ $('revalidate').onclick=()=>{validateRows();step(3)};
 $('export').onclick=()=>{const approved=clean.filter(o=>o.status==='READY'&&o.approved);if(!approved.length){alert(lang==='tr'?'İndirilecek onaylı ve hazır satır yok.':'There are no approved READY rows to download.');return}const cols=['sku','description','barcode','uom','price','currency','stock','warehouse','min','max'],csv=[cols.join(','),...approved.map(o=>cols.map(k=>'"'+String(o[k]??'').replace(/"/g,'""')+'"').join(','))].join('\r\n'),a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));a.download='Hamvara-approved-SKU.csv';a.click();URL.revokeObjectURL(a.href);step(4)};
 $('reset').onclick=()=>{headers=[];raw=[];clean=[];$('file').value='';$('filemeta').style.display='none';$('mappingPanel').hidden=true;$('resultsPanel').hidden=true;step(1);window.scrollTo({top:0,behavior:'smooth'})};
 say('en');
+if(new URLSearchParams(window.location.search).get('demo')==='1') $('demo').onclick();
 })();
 </script>
 </body></html>

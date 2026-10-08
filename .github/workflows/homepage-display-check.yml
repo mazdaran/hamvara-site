@@ -39,6 +39,8 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Check desktop, mobile, RTL, menus and content fallback
         run: python tests/homepage/smoke.py --output artifacts/homepage
+      - name: Check article discovery and SKU sample flow
+        run: python tests/homepage/content_smoke.py
       - name: Upload display-check results
         if: always()
         uses: actions/upload-artifact@v4
