@@ -169,3 +169,40 @@ test('parallel verified starts cannot exceed five per window and return a real w
   for(const r of results.filter(r=>r.status===429))assert.ok(r.data.retryAfter>0&&r.data.retryAfter<=900);
  }finally{globalThis.fetch=old;}
 });
+
+test('event tickets require an allowed origin, store only a hash, and stop after expiry',async()=>{
+ const {desk,db,env}=await setup({ALLOWED_ORIGINS:'https://hamvara.com'});
+ const req=(origin)=>new Request('https://test/admin/events-ticket',{method:'POST',headers:{Authorization:'Bearer '+key,Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({online:true})});
+ assert.equal((await desk.fetch(req('https://evil.test'))).status,403);
+ const response=await desk.fetch(req('https://hamvara.com')),data=await response.json();assert.equal(response.status,200);
+ const stored=db.prepare('SELECT * FROM event_tickets').get();assert.notEqual(stored.secret,data.ticket);assert.equal(stored.secret,await hash(data.ticket));assert.ok(!stored.meta.includes(key));
+ db.exec('UPDATE event_tickets SET expires=1');
+ assert.equal((await desk.fetch(new Request('https://test/events?ticket='+data.ticket,{headers:{Upgrade:'websocket',Origin:'https://hamvara.com'}}))).status,401);
+ assert.equal((await worker.fetch(new Request('https://test/events',{headers:{Upgrade:'websocket'}}),env)).status,403);
+});
+test('socket presence uses runtime health timestamps and rejects revoked identities',async()=>{
+ const {desk,env}=await setup();let pong=null;
+ const m={role:'operator',id:'yahya',digest:await hash(key),online:true,connectedAt:Date.now(),expires:Date.now()+3600000};
+ const ws={readyState:1,deserializeAttachment:()=>m};desk.ctx.getWebSockets=()=>[ws];desk.ctx.getWebSocketAutoResponseTimestamp=()=>pong;
+ assert.equal(desk.online(),true);m.connectedAt=Date.now()-100000;assert.equal(desk.online(),false);
+ pong=new Date();assert.equal(desk.online(),true);env.CHAT_OPERATORS='[]';assert.equal(desk.online(),false);assert.equal(desk.socketIdentity(ws),null);
+});
+test('event broadcast isolates visitors; expired connections reauthenticate; deleted sessions cannot listen',async()=>{
+ const {desk}=await setup();const a=await start(desk),b=await start(desk),now=Date.now();
+ const socket=meta=>({events:[],closed:[],deserializeAttachment:()=>meta,send(s){this.events.push(JSON.parse(s));},close(...args){this.closed.push(args);}});
+ const admin=socket({role:'operator',id:'yahya',digest:await hash(key),expires:now+60000});
+ const visitor=socket({role:'visitor',id:a.id,digest:await hash(a.token),expires:now+60000});
+ const other=socket({role:'visitor',id:b.id,digest:await hash(b.token),expires:now+60000});
+ desk.ctx.getWebSockets=tag=>tag==='operators'?[admin]:tag==='visitor:'+a.id?[visitor]:tag==='visitor:'+b.id?[other]:[admin,visitor,other];
+ desk.changed(a.id);assert.equal(admin.events.length,1);assert.equal(visitor.events.length,1);assert.equal(other.events.length,0);assert.deepEqual(Object.keys(visitor.events[0]).sort(),['id','type']);
+ await call(desk,'/sessions/'+a.id,'DELETE',null,a.token);assert.equal(visitor.events.at(-1).type,'deleted');assert.equal(desk.socketIdentity(visitor),null);
+ const expired=socket({expires:1});desk.push(expired,{type:'changed'});assert.equal(expired.closed[0][0],4000);
+});
+test('availability commands are bounded and visitors cannot impersonate operators',async()=>{
+ const {desk}=await setup();const s=await start(desk),now=Date.now(),m={role:'visitor',id:s.id,digest:await hash(s.token),expires:now+60000};
+ const ws={closed:[],deserializeAttachment:()=>m,close(...args){this.closed.push(args);}};
+ desk.webSocketMessage(ws,JSON.stringify({type:'availability',online:true}));assert.equal(ws.closed[0][0],1008);
+ Object.assign(m,{role:'operator',id:'yahya',digest:await hash(key),connectedAt:now,online:false});ws.serializeAttachment=()=>{};ws.send=()=>{};
+ for(let i=0;i<21;i++)desk.webSocketMessage(ws,JSON.stringify({type:'availability',online:true}));
+ assert.equal(ws.closed.at(-1)[1],'Too many commands');
+});

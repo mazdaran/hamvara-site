@@ -111,3 +111,69 @@ no longer used; no conversation data or counters are deleted. This is an explici
 policy change, not an operator bypass. AI budgets remain unchanged. Rate-limit
 responses now include the actual fixed-window wait in Retry-After and JSON
 retryAfter; the start form displays the rounded-up minutes in EN/FA/TR.
+
+## Event delivery (events-1)
+
+The inbox and visitor page use authenticated, hibernatable WebSockets. There is
+no timed inbox, transcript, or HTTP presence polling, including during active
+conversations. HTTP mutations continue to enforce the existing authorization,
+ownership, Turnstile, idempotency and quota checks. Successful changes send only
+an invalidation event; the relevant client loads its authorized snapshot. Every
+successful connection subscribes before fetching a snapshot, so reconnecting
+clients recover messages sent while disconnected. Selected inbox conversations
+remain dirty while the operator is busy or the page is hidden, then catch up.
+
+A 60-second, single-use ticket is issued by an authenticated POST, bound to the
+page's allowed Origin, and stored only as a hash. The long-lived operator or
+visitor key is never put in a WebSocket URL. Attachments preserve identity through
+hibernation; broadcasts validate the current operator digest or visitor session.
+Visitor sockets are scoped to one conversation. Tickets, connections and control
+messages are bounded. A socket reauthenticates on the next event after 12 hours.
+The existing Durable Object name and SQLite conversation/message tables remain.
+`src/worker.js` exports only runtime entrypoints; `index.js` retains test helpers.
+
+Idle sockets send `ping` every 45 seconds. `setWebSocketAutoResponse` answers with
+`pong` without running the application's event handler or writing SQL. This is
+connection-health traffic, not a conversation poll, and is not a promise of zero
+billable usage. Presence checks use active operator sockets and the last runtime
+pong timestamp (90-second freshness window). Normal disconnects/availability
+changes notify visitors; a silent network loss is reflected when presence is next
+read. Legacy `/admin/presence` remains compatible during rollout, with its existing
+75-second expiry. Reload old tabs to stop their old polling code.
+
+Reconnect uses exponential backoff with jitter, honors ticket Retry-After, and
+pauses after six consecutive failures. Rapid successful-handshake/disconnect
+cycles do not reset this budget. A stable connection or explicit user/network
+recovery can reset it. Snapshot failures expose manual recovery rather than
+starting fallback polling. Offline operators disconnect when the page is hidden;
+online operators keep the event channel open. Visitor channels start only after
+a session exists. Page teardown stops connections. Browser/OS suspension can
+interrupt connections; no closed-browser or mobile-background Web Push guarantee
+is made by this implementation.
+
+Validation:
+
+```sh
+node --test support-service/test/*.test.mjs
+npm ci --prefix worker
+node --test support-service/integration/events.mjs
+# Optional: use an existing Playwright installation with Chromium installed.
+PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node support-service/integration/browser.mjs
+```
+
+The runtime test uses the pinned Wrangler dependency's Miniflare/workerd, with
+local-only test credentials and Turnstile disabled only inside the test process.
+It checks ticket replay/origin denial, visitor isolation, delivery after an idle
+hibernation window, presence, replies, reconnect snapshots and deletion. Fake-clock
+browser-module tests cover 24 idle hours with no HTTP polling and finite retries.
+The browser test (also run by support CI) runs both actual pages against a local Worker; it seeds
+an authenticated test visitor so it does not bypass the production Turnstile gate.
+
+Deployment order: deploy the reviewed commit's backend using the existing manual
+workflow, then publish its frontend. Keep the currently enabled AI option and
+model unchanged. Check `/status` returns `eventsVersion:1` before merging the new
+frontend into the Pages branch. Backend rollout is backward-compatible with the
+previous HTTP clients; frontend-first rollout is not supported. Do not merge the
+combined change before the backend has deployed successfully. Rollback the
+frontend before rolling back the backend, so existing clients retain a working
+transport.
