@@ -233,6 +233,7 @@
   </div>
 </section>
 <section id="settings" class="page"><div class="panel narrow"><h2 data-i18n="systemSettings">System Settings</h2>
+<div id="companyManagement"><h3>Company profile &amp; named users</h3><p>Manage your cloud company profile and individual user access.</p><button id="loadCompanyManagement" type="button">Open company management</button><div id="companyManagementBody"></div><p id="companyManagementStatus" role="status"></p></div>
 <label><span>Interface Language</span><input id="interfaceLanguage" value="English" readonly></label>
 <label><span data-i18n="companyName">Company Name</span><input id="companyName"></label>
 <label><span data-i18n="currency">Currency</span><input id="currency"></label>
@@ -260,4 +261,4 @@
 </div><p class="section-hint">After creation, the BOM opens automatically with its first material row ready for entry.</p><div class="modal-actions"><button id="cancelNewBom" type="button">Cancel</button><button type="submit" class="primary">Create &amp; Open BOM</button></div></form></div>
 <div id="importReview" class="modal" hidden><div class="modal-card"><div class="page-head"><div><h2>Import Validation</h2><small id="importSummary"></small></div><button id="closeImportReview">×</button></div><div class="table-wrap import-review"><table id="importReviewTable"></table></div><div class="modal-actions import-pagination"><span id="importPageStatus"></span><button id="importPrev">Previous</button><button id="importNext">Next</button><button id="cancelImport">Cancel</button><button id="postImport" class="primary">Post READY Rows</button></div></div></div>
 <datalist id="skuOptions"></datalist><datalist id="productOptions"></datalist><div id="toast"></div>
-<script src="config.js?v=0.26.0"></script><script src="cloud.js?v=0.26.0"></script><script src="qrcode.min.js?v=0.26.0"></script><script type="module" src="app.js?v=0.26.0"></script></body></html>
+<script type="module" src="workspace-management.js?v=1"></script><script src="config.js?v=0.26.0"></script><script src="cloud.js?v=0.26.0"></script><script src="qrcode.min.js?v=0.26.0"></script><script type="module" src="app.js?v=0.26.0"></script></body></html>
