@@ -3,6 +3,7 @@ from html import escape
 import json
 from growth import assets as growth_assets, navigator as need_navigator, teaser as article_teaser, request as demo_request, D as GROWTH_COPY
 from experience import X, process, guide_cards, ai_help, offline_guide
+from trials import trial_offer
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'site-preview'
@@ -119,7 +120,7 @@ def home(lang):
 <section class="sku-showcase" id="sku-demo"><div class="shell"><div class="product-showcase"><div class="showcase-copy"><span class="eyebrow">{E(x['skuKicker'])}</span><h2>{E(x['skuTitle'])}</h2><p>{E(x['skuLead'])}</p><div class="hero-actions">{link('/sku-bridge/',d['sku']['cta'])}{link(href(lang,'guides')+'#sku',x['readGuide'],'text-link')}</div><p class="fine-print">{E(d['sku']['availability'])}</p></div><figure class="promo-video"><video controls playsinline preload="none" poster="/site-preview/assets/media/sku-bridge-poster.jpg" aria-label="SKU Bridge"><source src="/site-preview/assets/media/sku-bridge-intro.mp4" type="video/mp4">{tracks}<a href="/site-preview/assets/media/sku-bridge-intro.mp4">SKU Bridge MP4</a></video><figcaption>{E(x['videoNote'])}</figcaption><details><summary>{E(x['transcript'])}</summary><p>{E(x['videoText'])}</p></details></figure></div>{process(x['skuFlow'],x['flowTitle'])}</div></section>
 <section id="how-we-work" class="workflow-section"><div class="shell"><div class="section-heading"><div><span class="eyebrow">{E(x['serviceKicker'])}</span><h2>{E(x['serviceTitle'])}</h2></div></div>{steps}{link('#contact',x['serviceCta'],'button')}</div></section>
 {help_section(lang)}{about_teaser(lang)}{article_teaser(lang)}
-<div class="shell compact-extras"><details id="pricing" class="pricing-details"><summary>{E(x['priceSummary'])}<span aria-hidden="true">＋</span></summary>{pricing(lang).replace('id="pricing"','id="pricing-content"')}</details><div class="toolbox-link"><p>{E(x['toolsSummary'])}</p>{link(href(lang,'tools'),d['allTools'],'text-link')}</div></div>{faq(lang)}{contact(lang)}{demo_request(lang)}</main>'''+footer(lang)
+{trial_offer(lang)}<div class="shell compact-extras"><details id="pricing" class="pricing-details"><summary>{E(x['priceSummary'])}<span aria-hidden="true">＋</span></summary>{pricing(lang).replace('id="pricing"','id="pricing-content"')}</details><div class="toolbox-link"><p>{E(x['toolsSummary'])}</p>{link(href(lang,'tools'),d['allTools'],'text-link')}</div></div>{faq(lang)}{contact(lang)}{demo_request(lang)}</main>'''+footer(lang)
 
 def about_page(lang):
     x=X[lang]
