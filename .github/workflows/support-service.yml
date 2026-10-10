@@ -10,16 +10,26 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - run: node --test support-service/test/*.test.mjs
+      - run: npm ci --prefix worker
+      - name: Test event delivery in the Cloudflare runtime
+        run: node --test support-service/integration/events.mjs
+      - name: Test operator and visitor pages together
+        run: |
+          npm install --prefix /tmp/hamvara-browser --no-save playwright@1.57.0
+          node /tmp/hamvara-browser/node_modules/playwright/cli.js install --with-deps chromium
+          PLAYWRIGHT_MODULE=/tmp/hamvara-browser/node_modules/playwright/index.mjs node support-service/integration/browser.mjs
       - name: Check original browser modules
         run: |
           node --check support/chat.js
           node --check support/admin.js
+          node --check support/live.js
           node --check support/common.js
           node --check support/widget.js
       - name: Verify separate service configuration

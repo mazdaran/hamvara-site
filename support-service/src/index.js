@@ -58,6 +58,7 @@ export default {
  async fetch(request,env){
   const origin=request.headers.get('Origin'),allowed=(env.ALLOWED_ORIGINS||'').split(',');
   if(origin&&!allowed.includes(origin))return json({error:'origin_denied'},403);
+  if(new URL(request.url).pathname==='/events'&&(!origin||!allowed.includes(origin)))return json({error:'origin_denied'},403);
   const cors={'Access-Control-Allow-Origin':origin||allowed[0]||'https://hamvara.com','Vary':'Origin','Access-Control-Allow-Headers':'Content-Type, Authorization','Access-Control-Allow-Methods':'GET, POST, DELETE, OPTIONS','Access-Control-Max-Age':'600'};
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors});
   let response;
@@ -66,6 +67,7 @@ export default {
    const forwarded=new Request(request);forwarded.headers.set('X-Support-IP',await hash(request.headers.get('CF-Connecting-IP')||'unknown'));
    response=await env.DESK.get(env.DESK.idFromName('hamvara-support-v1')).fetch(forwarded);
   }catch{response=json({error:'service_unavailable'},503);}
+  if(response.status===101)return response;
   const result=new Response(response.body,response);for(const [k,v] of Object.entries(cors))result.headers.set(k,v);return result;
  }
 };
@@ -76,7 +78,10 @@ export class SupportDesk {
  CREATE INDEX IF NOT EXISTS messages_cid ON messages(cid,seq);
  CREATE TABLE IF NOT EXISTS counters(key TEXT PRIMARY KEY,n INTEGER NOT NULL,expires INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS presence(id TEXT PRIMARY KEY,at INTEGER NOT NULL);
- `);}
+ CREATE TABLE IF NOT EXISTS event_tickets(secret TEXT PRIMARY KEY,meta TEXT NOT NULL,expires INTEGER NOT NULL);
+ `);
+ if(globalThis.WebSocketRequestResponsePair)ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping','pong'));
+ }
  rows(q,...b){return [...this.sql.exec(q,...b)];}
  one(q,...b){return this.rows(q,...b)[0];}
  rate(key,limit,ms=60000){const now=Date.now();this.sql.exec('DELETE FROM counters WHERE expires < ?',now);const k=key+':'+Math.floor(now/ms);const r=this.one('SELECT n FROM counters WHERE key=?',k);if((r?.n||0)>=limit)throw Object.assign(new Error('rate_limited'),{status:429,code:'rate_limited',retryAfter:Math.max(1,Math.ceil((ms-Date.now()%ms)/1000))});this.sql.exec('INSERT INTO counters(key,n,expires) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET n=n+1',k,now+ms);}
@@ -86,21 +91,30 @@ export class SupportDesk {
   for(const [key,limit,ms] of limits)this.checkRate(key,limit,ms);
   if(consume)for(const [key,limit,ms] of limits)this.rate(key,limit,ms);
  }
- clean(){const cutoff=Date.now()-30*DAY;this.sql.exec('DELETE FROM messages WHERE cid IN (SELECT id FROM conversations WHERE created < ?)',cutoff);this.sql.exec('DELETE FROM conversations WHERE created < ?',cutoff);this.sql.exec('DELETE FROM presence WHERE at < ?',Date.now()-DAY);}
- online(){const ids=new Set(operators(this.env).map(o=>o.id));return this.rows('SELECT id FROM presence WHERE at>?',Date.now()-75000).some(o=>ids.has(o.id));}
+ clean(){const cutoff=Date.now()-30*DAY;const expired=this.rows('SELECT id FROM conversations WHERE created < ?',cutoff);this.sql.exec('DELETE FROM messages WHERE cid IN (SELECT id FROM conversations WHERE created < ?)',cutoff);this.sql.exec('DELETE FROM conversations WHERE created < ?',cutoff);this.sql.exec('DELETE FROM presence WHERE at < ?',Date.now()-DAY);for(const c of expired)this.changed(c.id);}
+ online(){if(this.sockets('operators').some(ws=>{const m=this.socketIdentity(ws);return m?.online&&this.socketFresh(ws,m);}))return true;const ids=new Set(operators(this.env).map(o=>o.id));return this.rows('SELECT id FROM presence WHERE at>?',Date.now()-75000).some(o=>ids.has(o.id));}
  async admin(req){const ip=req.headers.get('X-Support-IP')||'internal';this.checkRate('admin-failure:'+ip,10,900000);try{const key=(req.headers.get('Authorization')||'').replace(/^Bearer /,'');if(key.length<32||key.length>200)fail(401,'unauthorized');const digest=await hash(key);const op=operators(this.env).find(o=>o.tokenHash===digest);if(!op)fail(401,'unauthorized');return op;}catch(e){if(e.status===401)this.rate('admin-failure:'+ip,10,900000);throw e;}}
  async visitor(req,id){if(!validId(id))fail(404,'not_found');const key=(req.headers.get('Authorization')||'').replace(/^Bearer /,'');if(key.length<32||key.length>200)fail(401,'unauthorized');const digest=await hash(key),c=this.one('SELECT * FROM conversations WHERE id=?',id);if(!c||c.secret!==digest)fail(401,'unauthorized');return c;}
  view(id){const c=this.one('SELECT id,lang,mode,owner,created,updated,pending,pending_at FROM conversations WHERE id=?',id);if(!c)fail(404,'not_found');return {...c,pending:Boolean(c.pending&&c.pending_at>Date.now()-30000),online:this.online(),messages:this.rows('SELECT seq,role,text,sources,at FROM messages WHERE cid=? ORDER BY seq',id).map(m=>({...m,sources:JSON.parse(m.sources)}))};}
  add(id,mid,role,text,sources=[]){this.sql.exec('INSERT INTO messages(cid,mid,role,text,sources,at) VALUES(?,?,?,?,?,?)',id,mid,role,text,JSON.stringify(sources),Date.now());this.sql.exec('UPDATE conversations SET updated=? WHERE id=?',Date.now(),id);}
  async scheduleCleanup(){const first=this.one('SELECT MIN(created) AS at FROM conversations');if(first?.at)await this.ctx.storage.setAlarm(first.at+30*DAY+1000);}
  async alarm(){this.clean();await this.scheduleCleanup();}
- async fetch(req){try{return await this.handle(req);}catch(e){const retryAfter=e.status===429?(e.retryAfter||60):undefined;const r=json({error:e.code||'service_error',...(retryAfter?{retryAfter}: {})},e.status||500);if(retryAfter)r.headers.set('Retry-After',String(retryAfter));return r;}}
+ async fetch(req){try{const response=await this.handle(req);
+  if(response.ok&&!['GET','OPTIONS'].includes(req.method)){
+   const path=new URL(req.url).pathname;
+   if(path==='/sessions'){const data=await response.clone().json();this.changed(data.id);}
+   else if(path==='/admin/presence')this.presenceChanged();
+   else if(!path.endsWith('/events-ticket')){const m=path.match(/^\/(?:admin\/conversations|sessions)\/([a-zA-Z0-9-]+)/);if(m)this.changed(m[1]);}
+  }
+  return response;
+ }catch(e){const retryAfter=e.status===429?(e.retryAfter||60):undefined;const r=json({error:e.code||'service_error',...(retryAfter?{retryAfter}: {})},e.status||500);if(retryAfter)r.headers.set('Retry-After',String(retryAfter));return r;}}
  async handle(req){
   this.clean();const path=new URL(req.url).pathname,ip=req.headers.get('X-Support-IP')||'internal',method=req.method;
   // Bound public traffic before creating per-IP counters. Operators retain their own access.
   if(!path.startsWith('/admin/'))this.rate('public-global',600);
   this.rate('request:'+ip,180);
-  if(path==='/status'&&method==='GET')return json({ready:operators(this.env).length>0&&this.env.CHAT_ACCEPT_NEW_SESSIONS!=='false'&&(this.env.CHAT_TURNSTILE_REQUIRED!=='true'||Boolean(this.env.TURNSTILE_SECRET_KEY)),verificationRequired:this.env.CHAT_TURNSTILE_REQUIRED==='true',ai:aiEnabled(this.env),online:this.online(),retentionDays:30});
+  if(path==='/events'&&method==='GET')return this.upgrade(req);
+  if(path==='/status'&&method==='GET')return json({eventsVersion:1,ready:operators(this.env).length>0&&this.env.CHAT_ACCEPT_NEW_SESSIONS!=='false'&&(this.env.CHAT_TURNSTILE_REQUIRED!=='true'||Boolean(this.env.TURNSTILE_SECRET_KEY)),verificationRequired:this.env.CHAT_TURNSTILE_REQUIRED==='true',ai:aiEnabled(this.env),online:this.online(),retentionDays:30});
   if(path.startsWith('/admin/'))return this.handleAdmin(req,path,await this.admin(req));
   if(path==='/sessions'&&method==='POST'){
    if(!operators(this.env).length)fail(503,'operators_not_configured');
@@ -120,8 +134,9 @@ export class SupportDesk {
    await this.scheduleCleanup();
    return json({id,token:secret,...this.view(id)},201);
   }
-  const m=path.match(/^\/sessions\/([a-zA-Z0-9-]+)(?:\/(messages|handoff))?$/);if(!m)fail(404,'not_found');
+  const m=path.match(/^\/sessions\/([a-zA-Z0-9-]+)(?:\/(messages|handoff|events-ticket))?$/);if(!m)fail(404,'not_found');
   const c=await this.visitor(req,m[1]);
+  if(method==='POST'&&m[2]==='events-ticket'){await body(req);return this.ticket(req,{role:'visitor',id:c.id,digest:c.secret});}
   if(method==='DELETE'&&!m[2]){this.sql.exec('DELETE FROM messages WHERE cid=?',c.id);this.sql.exec('DELETE FROM conversations WHERE id=?',c.id);return json({deleted:true});}
   if(method==='GET'&&!m[2])return json(this.view(c.id));
   if(method==='POST'&&m[2]==='handoff'){if(c.mode==='closed')fail(409,'conversation_closed');this.sql.exec("UPDATE conversations SET mode=CASE WHEN mode='human' THEN 'human' ELSE 'queued' END,pending=NULL WHERE id=?",c.id);return json(this.view(c.id));}
@@ -140,6 +155,7 @@ export class SupportDesk {
    this.sql.exec("UPDATE conversations SET mode='queued',pending=NULL WHERE id=?",c.id);return json(this.view(c.id));
   }
   let task=crypto.randomUUID();this.sql.exec('UPDATE conversations SET pending=?,pending_at=? WHERE id=?',task,Date.now(),c.id);
+  this.changed(c.id);
   try{
    if(!aiEnabled(this.env))throw Error('ai_disabled');
    this.rate('ai-global',Math.min(500,Math.max(1,Number(this.env.CHAT_DAILY_AI_LIMIT)||100)),DAY);
@@ -164,8 +180,72 @@ export class SupportDesk {
   const sources=a.sourceIds.map(id=>chunks.find(k=>k.id===id));if(sources.some(x=>!x))throw Error('unknown_source');
   return {text:a.answer.trim(),sources:sources.map(k=>({title:k.title,url:k.url}))};
  }
+ // Tickets are short-lived, single-use and origin-bound; long-lived keys never
+ // appear in WebSocket URLs. Socket attachments survive Durable Object hibernation.
+ sockets(tag){return this.ctx.getWebSockets?.(tag)||[];}
+ socketIdentity(ws){
+  const m=ws.deserializeAttachment();if(!m||m.expires<=Date.now())return null;
+  if(m.role==='operator')return operators(this.env).some(o=>o.id===m.id&&o.tokenHash===m.digest)?m:null;
+  const c=this.one('SELECT secret,created FROM conversations WHERE id=?',m.id);
+  return c&&c.secret===m.digest&&c.created>Date.now()-30*DAY?m:null;
+ }
+ socketFresh(ws,m){const pong=this.ctx.getWebSocketAutoResponseTimestamp?.(ws);return ws.readyState===1&&Math.max(m.connectedAt,pong?.getTime()||0)>Date.now()-90000;}
+ async ticket(req,identity){
+  const origin=req.headers.get('Origin');if(!origin||!(this.env.ALLOWED_ORIGINS||'').split(',').includes(origin))fail(403,'origin_denied');
+  this.rate('event-ticket:'+identity.role+':'+identity.id,20);
+  this.sql.exec('DELETE FROM event_tickets WHERE expires < ?',Date.now());
+  const value=token(),secret=await hash(value),expires=Date.now()+60000;
+  // Cap outstanding tickets as well as accepted sockets; no unchecked allocation.
+  if(this.one('SELECT COUNT(*) AS n FROM event_tickets').n>=1000)fail(503,'capacity_reached');
+  this.sql.exec('INSERT INTO event_tickets(secret,meta,expires) VALUES(?,?,?)',secret,JSON.stringify({...identity,origin}),expires);
+  return json({ticket:value,expires});
+ }
+ async upgrade(req){
+  if(req.headers.get('Upgrade')?.toLowerCase()!=='websocket')fail(426,'websocket_required');
+  const value=new URL(req.url).searchParams.get('ticket');if(!value||value.length>200)fail(401,'unauthorized');
+  const secret=await hash(value),record=this.one('SELECT meta,expires FROM event_tickets WHERE secret=?',secret);
+  if(!record||record.expires<=Date.now())fail(401,'unauthorized');
+  const m=JSON.parse(record.meta);
+  if(req.headers.get('Origin')!==m.origin)fail(403,'origin_denied');
+  this.sql.exec('DELETE FROM event_tickets WHERE secret=?',secret);
+  const meta={...m,connectedAt:Date.now(),expires:Date.now()+12*60*60000};
+  if(!this.socketIdentity({deserializeAttachment:()=>meta}))fail(401,'unauthorized');
+  const tag=m.role==='operator'?'operator:'+m.id:'visitor:'+m.id;
+  if(this.sockets().length>=1024||this.sockets(tag).length>=(m.role==='operator'?6:3))fail(429,'connection_limit');
+  const before=this.online(),pair=new WebSocketPair(),client=pair[0],server=pair[1];
+  this.ctx.acceptWebSocket(server,[tag,m.role==='operator'?'operators':'visitors']);
+  server.serializeAttachment(meta);
+  server.send(JSON.stringify({type:'ready',version:1,online:m.online===true}));
+  if(before!==this.online())this.presenceChanged();
+  return new Response(null,{status:101,webSocket:client});
+ }
+ push(ws,message){try{if(ws.deserializeAttachment()?.expires<=Date.now()){ws.close(4000,'Reconnect required');return;}if(!this.socketIdentity(ws)){ws.close(4001,'Session expired');return;}ws.send(JSON.stringify(message));}catch{/* A disconnected client resyncs on reconnect. */}}
+ changed(id){
+  for(const ws of this.sockets('operators'))this.push(ws,{type:'changed',id});
+  const exists=this.one('SELECT id FROM conversations WHERE id=?',id);
+  for(const ws of this.sockets('visitor:'+id)){
+   if(exists)this.push(ws,{type:'changed',id});
+   else{try{ws.send(JSON.stringify({type:'deleted'}));ws.close(4001,'Conversation deleted');}catch{}}
+  }
+ }
+ presenceChanged(){const online=this.online();for(const ws of this.sockets('visitors'))this.push(ws,{type:'presence',online});}
+ webSocketMessage(ws,message){
+  if(ws.deserializeAttachment()?.expires<=Date.now()){ws.close(4000,'Reconnect required');return;}
+  const m=this.socketIdentity(ws);if(!m){ws.close(4001,'Session expired');return;}
+  // Only availability commands use JS. Health pings use the runtime auto-response.
+  if(typeof message!=='string'||message.length>256){ws.close(1008,'Invalid command');return;}
+  let data;try{data=JSON.parse(message);}catch{ws.close(1008,'Invalid command');return;}
+  if(m.role!=='operator'||data.type!=='availability'||typeof data.online!=='boolean'){ws.close(1008,'Invalid command');return;}
+  const now=Date.now();if(!m.window||now-m.window>=60000){m.window=now;m.count=0;}
+  if(++m.count>20){ws.close(1008,'Too many commands');return;}
+  const before=this.online();m.online=data.online;ws.serializeAttachment(m);
+  this.push(ws,{type:'available',online:m.online});if(before!==this.online())this.presenceChanged();
+ }
+ webSocketClose(ws){const m=ws.deserializeAttachment();if(m?.role==='operator'){m.online=false;ws.serializeAttachment(m);this.presenceChanged();}}
+ webSocketError(ws){try{ws.close(1011,'Connection error');}catch{}this.webSocketClose(ws);}
  async handleAdmin(req,path,op){
   const method=req.method;
+  if(path==='/admin/events-ticket'&&method==='POST'){const b=await body(req);return this.ticket(req,{role:'operator',id:op.id,digest:op.tokenHash,online:b.online===true});}
   if(path==='/admin/presence'&&method==='POST'){const b=await body(req);if(b.online===true)this.sql.exec('INSERT INTO presence(id,at) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET at=excluded.at',op.id,Date.now());else this.sql.exec('DELETE FROM presence WHERE id=?',op.id);return json({operator:op.name,online:this.online()});}
   if(path==='/admin/conversations'&&method==='GET')return json({operator:op.name,conversations:this.rows('SELECT id,lang,mode,owner,created,updated FROM conversations ORDER BY updated DESC LIMIT 100')});
   const m=path.match(/^\/admin\/conversations\/([a-zA-Z0-9-]+)(?:\/(claim|reply|close|release))?$/);if(!m)fail(404,'not_found');
