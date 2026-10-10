@@ -18,3 +18,9 @@ jobs:
       - name: Validate Worker and tenant isolation
         working-directory: worker
         run: npm run check
+      - name: Install isolated browser test dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/tenant-browser" --no-save --package-lock=false playwright@1.62.1
+          node "$RUNNER_TEMP/tenant-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Check company management UI against SQLite handler
+        run: NODE_PATH="$RUNNER_TEMP/tenant-browser/node_modules" node worker/scripts/check-workspace-ui.cjs

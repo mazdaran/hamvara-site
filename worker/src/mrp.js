@@ -1,3 +1,4 @@
+import {handleWorkspaceManagement,validateWorkspaceProfile,insertWorkspaceProfile} from './workspace-management.js';
 import {assembleMrpRunArtifacts,chunkMrpRunArtifacts,externalizeMrpRunPayloads,rehydrateMrpRunPayloads} from '../../mrp/mrp-run-artifacts.js';
 
 const MAX_STATE_BYTES = 5 * 1024 * 1024;
@@ -25,6 +26,8 @@ export async function handleMrpRequest(request, env, url) {
   }
 
   const actor = await authenticate(request, env);
+  const managed = await handleWorkspaceManagement(request, env, url, actor);
+  if (managed) return managed;
   if (url.pathname === '/api/mrp/session' && request.method === 'GET') {
     return json({ ok: true, workspace: actor.workspace, user: actor.user });
   }
@@ -219,7 +222,9 @@ function extractJson(value){const text=String(value||'').trim().replace(/^```(?:
 async function provisionWorkspace(request, env) {
   requireAdministrator(request, env);
 
-  const body = await request.json();
+  const body = await safeJson(request);
+  if (body.pilot !== undefined && typeof body.pilot !== 'boolean') throw httpError(400, 'pilot must be a boolean.');
+  const profile = body.profile || body.pilot ? validateWorkspaceProfile(body.profile) : null;
   const slug = normalizeSlug(body.workspace);
   const name = clean(body.name, 120);
   const username = normalizeUsername(body.username || 'owner');
@@ -235,6 +240,7 @@ async function provisionWorkspace(request, env) {
   const keyHash = await sha256(accessKey);
   await env.DB.batch([
     env.DB.prepare("INSERT INTO mrp_workspaces (id, slug, name, active, created_at, updated_at) VALUES (?, ?, ?, 1, datetime('now'), datetime('now'))").bind(workspaceId, slug, name),
+    ...(profile ? [insertWorkspaceProfile(env.DB, workspaceId, profile, body.pilot ? 3 : null)] : []),
     env.DB.prepare("INSERT INTO mrp_users (id, workspace_id, username, access_key_hash, role, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))").bind(userId, workspaceId, username, keyHash, role),
     env.DB.prepare("INSERT INTO mrp_state (workspace_id, state_json, revision, updated_by, updated_at) VALUES (?, NULL, 0, ?, datetime('now'))").bind(workspaceId, userId),
     env.DB.prepare("INSERT INTO mrp_audit_log (workspace_id, user_id, action, details_json, created_at) VALUES (?, ?, 'workspace.created', ?, datetime('now'))").bind(workspaceId, userId, JSON.stringify({ slug, role }))
