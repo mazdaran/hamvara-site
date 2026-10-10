@@ -1,0 +1,5 @@
+.mobile-staging/
+node_modules/
+.wrangler/
+
+.pilot-staging/
