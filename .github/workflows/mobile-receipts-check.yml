@@ -1,0 +1,25 @@
+name: Mobile receipt pilot checks
+on:
+  pull_request:
+    paths:
+      - 'worker/**'
+      - 'mrp/**'
+      - '.github/workflows/mobile-receipts-check.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm run check
+        working-directory: worker
+      - run: npm ci
+        working-directory: worker
+      - name: Validate isolated staging package without deployment
+        run: |
+          node worker/scripts/prepare-mobile-staging.mjs aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+          node worker/node_modules/wrangler/bin/wrangler.js deploy --dry-run --config .mobile-staging/wrangler.json
