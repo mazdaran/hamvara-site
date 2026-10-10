@@ -1,3 +1,4 @@
+import {getTrialAccess,enforceTrial,activateTrial} from './trials.js';
 import {handleWorkspaceManagement,validateWorkspaceProfile,insertWorkspaceProfile} from './workspace-management.js';
 import {assembleMrpRunArtifacts,chunkMrpRunArtifacts,externalizeMrpRunPayloads,rehydrateMrpRunPayloads} from '../../mrp/mrp-run-artifacts.js';
 
@@ -25,11 +26,20 @@ export async function handleMrpRequest(request, env, url) {
     return rotateWorkspaceAccessKey(request, env, rotateMatch[1]);
   }
 
+  const trialActivation = /^\/api\/mrp\/workspaces\/([a-z0-9-]+)\/trial\/activate$/.exec(url.pathname);
+  if (trialActivation && request.method === 'POST') {
+    requireAdministrator(request, env);
+    return json({trial:await activateTrial(request,env,trialActivation[1])});
+  }
   const actor = await authenticate(request, env);
+  const access = await getTrialAccess(env.DB,actor.workspace.id);
+  actor.trial = access;
+  enforceTrial(access,request,url.pathname);
+  if (url.pathname === '/api/mrp/trial' && request.method === 'GET') return json({trial:access});
   const managed = await handleWorkspaceManagement(request, env, url, actor);
   if (managed) return managed;
   if (url.pathname === '/api/mrp/session' && request.method === 'GET') {
-    return json({ ok: true, workspace: actor.workspace, user: actor.user });
+    return json({ ok: true, workspace: actor.workspace, user: actor.user, trial:access });
   }
   if (url.pathname === '/api/mrp/state' && request.method === 'GET') {
     return loadState(env, actor);
@@ -93,7 +103,9 @@ async function mobileScanSession(request,env){const session=await authenticateMo
 async function mobileScanEvents(request,env,url){const session=await authenticateMobileScanner(request,env),after=Math.max(0,Number(url.searchParams.get('after'))||0);const result=await env.DB.prepare('SELECT id,sequence,raw_code,status,result_json,created_at,confirmed_at FROM mrp_scan_events WHERE session_id=? AND sequence>? ORDER BY sequence ASC LIMIT 50').bind(session.id,after).all();return json({session:publicScanSession(session),events:(result.results||[]).map(publicScanEvent)});}
 
 async function createMobileScanEvent(request,env){
-  const session=await authenticateMobileScanner(request,env),body=await safeJson(request),rawCode=clean(body.code,256);
+  const session=await authenticateMobileScanner(request,env);
+  enforceTrial(await getTrialAccess(env.DB,session.workspace_id),request,new URL(request.url).pathname);
+  const body=await safeJson(request),rawCode=clean(body.code,256);
   if(!rawCode)throw httpError(400,'A barcode value is required.');
   const count=await env.DB.prepare('SELECT COUNT(*) AS count FROM mrp_scan_events WHERE session_id=?').bind(session.id).first();
   if(Number(count?.count||0)>=250)throw httpError(429,'This scan session has reached its event limit.');
@@ -112,6 +124,7 @@ async function authenticateMobileScanner(request,env){
     JOIN mrp_users u ON u.id=s.terminal_user_id AND u.workspace_id=s.workspace_id AND u.active=1
     WHERE s.token_hash=?`).bind(tokenHash).first();
   if(!row)throw httpError(401,'Mobile scan session is invalid.');
+  enforceTrial(await getTrialAccess(env.DB,row.workspace_id),request,new URL(request.url).pathname);
   if(row.status!=='ACTIVE'||Date.parse(row.expires_at)<=Date.now()){await env.DB.prepare("UPDATE mrp_scan_sessions SET status='EXPIRED' WHERE id=? AND status='ACTIVE'").bind(row.id).run();throw httpError(410,'Mobile scan session has expired.');}
   if(row.device_hash&&!constantTimeEqual(row.device_hash,deviceHash))throw httpError(403,'This pairing is already bound to another device.');
   if(!row.device_hash){
@@ -183,6 +196,7 @@ async function ensureBackupTable(env) {
 async function analyzeWaybill(request, env, actor) {
   if (!env.AI) throw httpError(503, 'Waybill recognition is not configured.');
   const raw = await request.text();
+  enforceTrial(await getTrialAccess(env.DB,actor.workspace.id),request,new URL(request.url).pathname);
   if (new TextEncoder().encode(raw).byteLength > 7 * 1024 * 1024) throw httpError(413, 'Waybill image is too large. Maximum request size is 7 MB.');
   let body;try { body = JSON.parse(raw); } catch { throw httpError(400, 'Invalid JSON payload.'); }
   const match = /^data:(image\/(?:png|jpeg|jpg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(body.image || ''));
@@ -240,6 +254,7 @@ async function provisionWorkspace(request, env) {
   const keyHash = await sha256(accessKey);
   await env.DB.batch([
     env.DB.prepare("INSERT INTO mrp_workspaces (id, slug, name, active, created_at, updated_at) VALUES (?, ?, ?, 1, datetime('now'), datetime('now'))").bind(workspaceId, slug, name),
+    ...(body.pilot ? [env.DB.prepare('INSERT INTO mrp_trials (workspace_id) VALUES (?)').bind(workspaceId)] : []),
     ...(profile ? [insertWorkspaceProfile(env.DB, workspaceId, profile, body.pilot ? 3 : null)] : []),
     env.DB.prepare("INSERT INTO mrp_users (id, workspace_id, username, access_key_hash, role, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))").bind(userId, workspaceId, username, keyHash, role),
     env.DB.prepare("INSERT INTO mrp_state (workspace_id, state_json, revision, updated_by, updated_at) VALUES (?, NULL, 0, ?, datetime('now'))").bind(workspaceId, userId),
@@ -364,7 +379,7 @@ async function loadState(env, actor) {
     catch { throw httpError(500, 'Stored MRP data is invalid.'); }
     state=await hydrateStoredState(env,actor.workspace.id,state);
   }
-  return json({ state, revision: Number(row?.revision || 0), updatedAt: row?.updated_at || null, workspace: actor.workspace, user: actor.user });
+  return json({ state, revision: Number(row?.revision || 0), updatedAt: row?.updated_at || null, workspace: actor.workspace, user: actor.user, trial:actor.trial });
 }
 
 async function saveState(request, env, actor) {

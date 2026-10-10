@@ -16,6 +16,14 @@
       while (true) {
         if (!credentials) credentials = await showLogin();
         try {
+          const session = await request('/api/mrp/session');
+          actor = { workspace: session.workspace, user: session.user };
+          renderAccount();
+          renderTrialStatus(session.trial);
+          if (session.trial && !session.trial.canWrite) {
+            await showTrialGate(session.trial);
+            return;
+          }
           const payload = await request('/api/mrp/state');
           revision = Number(payload.revision || 0);
           actor = { workspace: payload.workspace, user: payload.user };
@@ -25,16 +33,29 @@
           await this.save(initial);
           return initial;
         } catch (error) {
-          if (error.status === 401) clearCredentials();
-          credentials = await showLogin(error.message);
+          if (error.status === 401) {
+            clearCredentials();
+            credentials = await showLogin(error.message);
+          } else {
+            await showTrialGate(null, error.message);
+          }
         }
       }
     },
     async save(state) {
-      const payload = await request('/api/mrp/state', {
+      let payload;
+      try { payload = await request('/api/mrp/state', {
         method: 'PUT',
         body: JSON.stringify({ state, expectedRevision: revision })
-      });
+      }); } catch (error) {
+        if (error.status === 403) {
+          try {
+            const status = await request('/api/mrp/trial');
+            if (!status.trial.canWrite) { showTrialGate(status.trial).catch(()=>{}); }
+          } catch {}
+        }
+        throw error;
+      }
       for(const seal of payload.auditSeals||[]){const run=(state.mrpRuns||[]).find(item=>item.id===seal.runId);if(run)run.serverAuditSeal=seal}
       revision = Number(payload.revision);
       updateCloudBadge('Cloud saved', 'ok');
@@ -61,6 +82,47 @@
       throw error;
     }
     return payload;
+  }
+
+
+  function formatTrialDate(value, timezone = 'UTC') {
+    return value == null ? '—' : new Date(value).toLocaleString(undefined, {timeZone:timezone, timeZoneName:'short'});
+  }
+  function renderTrialStatus(trial) {
+    if (!trial || trial.status === 'LEGACY') return;
+    let banner = document.querySelector('#trialStatus');
+    if (!banner) { banner = document.createElement('p'); banner.id='trialStatus'; banner.setAttribute('role','status'); document.body.prepend(banner); }
+    banner.textContent = `Pilot: ${trial.status} · Trial ends: ${formatTrialDate(trial.endsAt,trial.timezone)} · Read/export until: ${formatTrialDate(trial.readUntil,trial.timezone)}. No automatic charge.`;
+  }
+  async function showTrialGate(trial, message = '') {
+    let dialog = document.querySelector('#trialAccessGate');
+    if (!dialog) {
+      dialog = document.createElement('dialog'); dialog.id='trialAccessGate'; dialog.className='cloud-login';
+      dialog.addEventListener('cancel',event=>event.preventDefault()); document.body.append(dialog);
+    }
+    dialog.replaceChildren();
+    const card=document.createElement('div'); card.className='cloud-login-card'; dialog.append(card);
+    const text=(tag,value)=>{const node=document.createElement(tag);node.textContent=value;card.append(node);return node;};
+    text('h2',trial?.status==='GRACE'?'Trial ended — view and export':'Company access');
+    text('p',message || (trial?.status==='GRACE'?'New changes cannot be saved. You can view and download your saved company data during the export period.':'Your pilot has not started or its access period has ended. Contact Hamvara to arrange access.'));
+    if(trial) text('p',`Status: ${trial.status} · Start: ${formatTrialDate(trial.startsAt,trial.timezone)} · End: ${formatTrialDate(trial.endsAt,trial.timezone)} · Export deadline: ${formatTrialDate(trial.readUntil,trial.timezone)}`);
+    const feedback=text('p',''); feedback.setAttribute('role','status');
+    const button=(label,fn)=>{const b=text('button',label);b.type='button';b.onclick=()=>{b.disabled=true;Promise.resolve().then(fn).catch(e=>{feedback.textContent=e.message;}).finally(()=>{b.disabled=false;});};return b;};
+    if(trial?.canRead) {
+      const view=text('pre','');view.style.cssText='max-height:45vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere';
+      button('View saved data',async()=>{const result=await request('/api/mrp/state');view.textContent=JSON.stringify(result.state,null,2);});
+      button('Download saved company data (JSON)',async()=>{
+        const result=await request('/api/mrp/state');
+        const blob=new Blob([JSON.stringify(result.state,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+        a.href=url;a.download='hamvara-company-data.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      });
+    }
+    const contact=text('a','Contact Hamvara');contact.href='mailto:info@hamvara.com';
+    button('Refresh access',()=>location.reload());
+    button('Sign out',()=>{clearCredentials();location.reload();});
+    if(!dialog.open)dialog.showModal();
+    // Keep the operational application paused; the gate provides explicit read/export actions.
+    return new Promise(()=>{});
   }
 
   function readCredentials() {

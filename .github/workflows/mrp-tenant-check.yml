@@ -24,3 +24,5 @@ jobs:
           node "$RUNNER_TEMP/tenant-browser/node_modules/playwright/cli.js" install --with-deps chromium
       - name: Check company management UI against SQLite handler
         run: NODE_PATH="$RUNNER_TEMP/tenant-browser/node_modules" node worker/scripts/check-workspace-ui.cjs
+      - name: Check trial read-only and expiry UI
+        run: NODE_PATH="$RUNNER_TEMP/tenant-browser/node_modules" node worker/scripts/check-trial-ui.cjs
