@@ -6,7 +6,7 @@ export const digest = async value => Buffer.from(await crypto.subtle.digest('SHA
 export async function fixture(t) {
   const db = new DatabaseSync(':memory:');
   t.after(() => db.close());
-  for (const file of ['0002_mrp_saas.sql', '0004_mrp_mobile_scan.sql', '0014_mrp_workspace_profiles.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0002_mrp_saas.sql', '0004_mrp_mobile_scan.sql', '0014_mrp_workspace_profiles.sql','0015_mrp_trial_lifecycle.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const DB = {
     beforeClaim: null,
     prepare(sql) {
