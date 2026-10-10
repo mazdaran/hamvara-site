@@ -46,6 +46,8 @@ jobs:
       # Reuse the repository's existing pinned Cloudflare deployment CLI as a build tool.
       # No SDK or third-party package is included in the support application.
       - run: npm ci --prefix worker
+      - name: Test event delivery in the Cloudflare runtime
+        run: node --test support-service/integration/events.mjs
       - name: Configure server secrets
         run: |
           printf '%s' "$TURNSTILE_SECRET_KEY" | worker/node_modules/.bin/wrangler secret put TURNSTILE_SECRET_KEY --config support-service/wrangler.toml
