@@ -1,5 +1,6 @@
 import {getTrialAccess,enforceTrial,activateTrial} from './trials.js';
 import {handleWorkspaceManagement,validateWorkspaceProfile,insertWorkspaceProfile} from './workspace-management.js';
+import {handleMobileReceiptPhone,handleReceiptConsole,guardLegacyReceiptState,guardLegacyReceiptRead} from './mobile-receipts.js';
 import {assembleMrpRunArtifacts,chunkMrpRunArtifacts,externalizeMrpRunPayloads,rehydrateMrpRunPayloads} from '../../mrp/mrp-run-artifacts.js';
 
 const MAX_STATE_BYTES = 5 * 1024 * 1024;
@@ -8,6 +9,8 @@ const MRP_ARTIFACT_THRESHOLD_BYTES = 256 * 1024;
 
 export async function handleMrpRequest(request, env, url) {
   if (!env.DB) throw httpError(503, 'MRP database is not configured.');
+
+  if (url.pathname === '/api/mrp/mobile-receipts' || url.pathname === '/api/mrp/mobile-receipts/pair' || url.pathname === '/api/mrp/mobile-receipts/lookup') return handleMobileReceiptPhone(request,env,url);
 
   if (url.pathname === '/api/mrp/mobile-scan/session' && request.method === 'GET') return mobileScanSession(request, env);
   if (url.pathname === '/api/mrp/mobile-scan/events' && request.method === 'GET') return mobileScanEvents(request, env, url);
@@ -38,6 +41,7 @@ export async function handleMrpRequest(request, env, url) {
   if (url.pathname === '/api/mrp/trial' && request.method === 'GET') return json({trial:access});
   const managed = await handleWorkspaceManagement(request, env, url, actor);
   if (managed) return managed;
+  if (url.pathname.startsWith('/api/mrp/receipt-console/')) return handleReceiptConsole(request,env,url,actor);
   if (url.pathname === '/api/mrp/session' && request.method === 'GET') {
     return json({ ok: true, workspace: actor.workspace, user: actor.user, trial:access });
   }
@@ -372,6 +376,7 @@ export async function persistMrpArtifacts(env,actor,manifests,chunks){
 }
 
 async function loadState(env, actor) {
+  guardLegacyReceiptRead(env,actor);
   const row = await env.DB.prepare('SELECT state_json, revision, updated_at FROM mrp_state WHERE workspace_id = ?').bind(actor.workspace.id).first();
   let state = null;
   if (row?.state_json) {
@@ -393,6 +398,7 @@ async function saveState(request, env, actor) {
   const expectedRevision = Number(body.expectedRevision);
   if (!Number.isInteger(expectedRevision) || expectedRevision < 0) throw httpError(400, 'A valid expectedRevision is required.');
   const stored=await env.DB.prepare('SELECT state_json FROM mrp_state WHERE workspace_id = ?').bind(actor.workspace.id).first();let previousState={};try{previousState=JSON.parse(stored?.state_json||'{}');previousState=await hydrateStoredState(env,actor.workspace.id,previousState)}catch(error){if(error?.status)throw error}
+  guardLegacyReceiptState(env,actor,previousState,body.state);
   const priorReleased=new Set((previousState.mrpRuns||[]).filter(item=>item.status==='RELEASED'||item.status==='SUPERSEDED').map(item=>`${item.id}|${item.resultFingerprint}`)),newReleases=(body.state.mrpRuns||[]).filter(item=>item.status==='RELEASED'&&!priorReleased.has(`${item.id}|${item.resultFingerprint}`));
   if(newReleases.length&&!['FACTORY_MANAGER','CEO'].includes(actor.user.role))throw httpError(403,'Factory Manager or CEO role is required to persist a newly released MRP run.');
   if(newReleases.length&&String(env.MRP_AUDIT_HMAC_SECRET||'').length<32)throw httpError(503,'MRP audit sealing requires a server secret of at least 32 characters.');
