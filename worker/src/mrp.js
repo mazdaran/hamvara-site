@@ -103,11 +103,19 @@ async function authenticateMobileScanner(request,env){
   const token=String(request.headers.get('X-Hamvara-Scan-Token')||''),device=String(request.headers.get('X-Hamvara-Scan-Device')||'');
   if(!/^[A-Za-z0-9_-]{43}$/.test(token)||!/^[-A-Za-z0-9]{16,80}$/.test(device))throw httpError(401,'Mobile scan credentials are required.');
   const tokenHash=await sha256(token),deviceHash=await sha256(device);
-  const row=await env.DB.prepare('SELECT id,workspace_id,status,expires_at,device_hash FROM mrp_scan_sessions WHERE token_hash=?').bind(tokenHash).first();
+  const row=await env.DB.prepare(`SELECT s.id,s.workspace_id,s.status,s.expires_at,s.device_hash
+    FROM mrp_scan_sessions s
+    JOIN mrp_workspaces w ON w.id=s.workspace_id AND w.active=1
+    JOIN mrp_users u ON u.id=s.terminal_user_id AND u.workspace_id=s.workspace_id AND u.active=1
+    WHERE s.token_hash=?`).bind(tokenHash).first();
   if(!row)throw httpError(401,'Mobile scan session is invalid.');
   if(row.status!=='ACTIVE'||Date.parse(row.expires_at)<=Date.now()){await env.DB.prepare("UPDATE mrp_scan_sessions SET status='EXPIRED' WHERE id=? AND status='ACTIVE'").bind(row.id).run();throw httpError(410,'Mobile scan session has expired.');}
   if(row.device_hash&&!constantTimeEqual(row.device_hash,deviceHash))throw httpError(403,'This pairing is already bound to another device.');
-  if(!row.device_hash)await env.DB.prepare('UPDATE mrp_scan_sessions SET device_hash=? WHERE id=? AND device_hash IS NULL').bind(deviceHash,row.id).run();
+  if(!row.device_hash){
+    await env.DB.prepare('UPDATE mrp_scan_sessions SET device_hash=? WHERE id=? AND device_hash IS NULL').bind(deviceHash,row.id).run();
+    const claimed=await env.DB.prepare('SELECT device_hash FROM mrp_scan_sessions WHERE id=?').bind(row.id).first();
+    if(!claimed?.device_hash||!constantTimeEqual(claimed.device_hash,deviceHash))throw httpError(403,'This pairing is already bound to another device.');
+  }
   return {...row,device_hash:deviceHash};
 }
 

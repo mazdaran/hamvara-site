@@ -1,0 +1,20 @@
+name: MRP Tenant Checks
+on:
+  pull_request:
+    paths:
+      - 'worker/**'
+      - 'mrp/**'
+      - '.github/workflows/mrp-tenant-check.yml'
+permissions:
+  contents: read
+jobs:
+  tenant-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate Worker and tenant isolation
+        working-directory: worker
+        run: npm run check
