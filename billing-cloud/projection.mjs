@@ -1,5 +1,12 @@
 import { canonical } from './canonical.mjs';
 const isDeepStrictEqual=(a,b)=>canonical(a)===canonical(b);
+// Creation events may include their originating transaction; activation events
+// need not. Ownership is checked separately against the verified payment.
+function comparableSubscription(data) {
+  const copy=structuredClone(data);
+  delete copy.transaction_id;
+  return copy;
+}
 // Compare verified payment records without changing their persisted evidence.
 function comparablePayment(data) {
   const copy=structuredClone(data);
@@ -74,7 +81,7 @@ export function projectRecords(records, now=Date.now()) {
   for(const e of events.filter(e=>e.event_type.startsWith('subscription.'))) {
     const prior=latest.get(e.data.id),at=Date.parse(e.occurred_at);
     if(!prior||at>Date.parse(prior.occurred_at))latest.set(e.data.id,e);
-    else if(at===Date.parse(prior.occurred_at)&&JSON.stringify(e.data)!==JSON.stringify(prior.data))latest.set(e.data.id,{...e,conflict:true});
+    else if(at===Date.parse(prior.occurred_at)&&!isDeepStrictEqual(comparableSubscription(e.data),comparableSubscription(prior.data)))latest.set(e.data.id,{...e,conflict:true});
   }
   const entitlements=[];
   for(const [id,binding] of bindings) {

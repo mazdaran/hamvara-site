@@ -31,3 +31,25 @@ test('unknown price, altered totals, overrides and discounts survive lean storag
 test('same signed event deduplicates, conflicting payload rejected',async()=>{const f=fixture(),intent=await setup(f),d=data(intent),options={id:id('evt',9999)};await deliver(f,'transaction.completed',d.payment,options);const r=await deliver(f,'transaction.completed',d.payment,options);assert.equal((await r.json()).duplicate,true);assert.equal((await deliver(f,'transaction.completed',{...d.payment,status:'draft'},options)).status,409);assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM billing_events').get().n,1);});
 test('API keys expire/revoke; cross-origin requests rejected; secrets absent from health and pages',async()=>{const f=fixture(),key='hbc_'+'a'.repeat(64);await f.DB.prepare('INSERT INTO billing_keys VALUES(?,?,?,0)').bind(await keyHash(key),'a',now+1000).run();const req=(origin)=>new Request('https://billing.test/api/billing/account',{headers:{authorization:'Bearer '+key,...(origin?{origin}:{})}});assert.equal((await handle(req(),f.env,now)).status,200);assert.equal((await handle(req('https://evil.test'),f.env,now)).status,403);assert.equal((await handle(req(),f.env,now+1000)).status,401);f.sql.exec('UPDATE billing_keys SET revoked=1');assert.equal((await handle(req(),f.env,now)).status,401);const page=await handle(new Request('https://billing.test/billing'),f.env,now);assert.equal(page.status,200);assert.ok(page.headers.get('Content-Security-Policy'));assert.doesNotMatch(await page.text(),/pdl_sdbx_apikey|test-signature-secret/);});
 test('existing inbox hashes stay compatible with empty overrides and null discounts',async()=>{const f=fixture(),intent=await setup(f),d=data(intent),options={id:id('evt',8888)};const before=structuredClone(d.payment);delete before.items[0].price.unit_price_overrides;assert.equal((await deliver(f,'transaction.completed',before,options)).status,200);d.payment.discount=null;const after=await deliver(f,'transaction.completed',d.payment,options);assert.equal(after.status,200);assert.equal((await after.json()).duplicate,true);});
+test('same-time creation and activation ignore only originating transaction metadata',async()=>{
+ for(const reverse of [false,true]){
+  const f=fixture(),intent=await setup(f),d=data(intent);
+  await deliver(f,'transaction.completed',d.payment);
+  const events=[['subscription.created',{...d.subscription,transaction_id:d.payment.id}],['subscription.activated',d.subscription]];
+  if(reverse)events.reverse();
+  for(const event of events)await deliver(f,...event);
+  assert.equal((await access(f))[0].access,true);
+  assert.equal((await access(f,{id:'b'})).length,0);
+ }
+});
+test('same-time subscription state conflicts still deny access in either arrival order',async()=>{
+ for(const mutate of [s=>s.status='canceled',s=>s.customer_id=id('ctm',2),s=>s.items[0].price.id=id('pri',9),s=>s.current_billing_period.ends_at='2028-10-01T00:00:00Z',s=>s.scheduled_change={action:'cancel',effective_at:'2026-10-10T00:00:00Z'}]){
+  for(const reverse of [false,true]){
+   const f=fixture(),intent=await setup(f),d=data(intent),changed=structuredClone(d.subscription);
+   mutate(changed);await deliver(f,'transaction.completed',d.payment);
+   const events=[d.subscription,changed];if(reverse)events.reverse();
+   for(const event of events)await deliver(f,'subscription.updated',event);
+   const entitlement=(await access(f))[0];assert.equal(entitlement.access,false);assert.equal(entitlement.reason,'subscription_timestamp_conflict');
+  }
+ }
+});
