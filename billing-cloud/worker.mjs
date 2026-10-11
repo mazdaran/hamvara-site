@@ -1,3 +1,5 @@
+import {commerce} from './commerce.mjs';
+import {page} from './pages.mjs';
 const encoder=new TextEncoder();
 const events=new Set(['adjustment.created','adjustment.updated','transaction.completed','subscription.created','subscription.updated','subscription.activated','subscription.past_due','subscription.paused','subscription.resumed','subscription.canceled']);
 const fail=(status,message)=>{throw Object.assign(Error(message),{status});};
@@ -25,9 +27,11 @@ async function readBody(request){
 function select(object,keys){return Object.fromEntries(keys.filter(key=>object?.[key]!==undefined).map(key=>[key,object[key]]));}
 export function leanEvent(event){
  const d=event.data;
- const data=select(d,['id','status','customer_id','subscription_id','transaction_id','currency_code','collection_mode','origin','discount_id','billing_period','current_billing_period','scheduled_change','action','type','updated_at']);
+ const data=select(d,['id','status','customer_id','subscription_id','transaction_id','currency_code','collection_mode','origin','discount','discount_id','billing_period','current_billing_period','scheduled_change','action','type','updated_at']);
+ if(data.discount==null)delete data.discount;
  data.custom_data=select(d.custom_data,['sandbox_purchase_intent']);
- if(Array.isArray(d.items))data.items=d.items.map(item=>({quantity:item.quantity,proration:item.proration,price:select(item.price,['id','product_id','billing_cycle','trial_period','unit_price','tax_mode','quantity'])}));
+ if(Array.isArray(d.items))data.items=d.items.map(item=>({quantity:item.quantity,proration:item.proration,price:select(item.price,['id','product_id','billing_cycle','trial_period','unit_price','tax_mode','quantity','unit_price_overrides'])}));
+ for(const item of data.items||[])if(Array.isArray(item.price.unit_price_overrides)&&item.price.unit_price_overrides.length===0)delete item.price.unit_price_overrides;
  if(d.details?.totals)data.details={totals:d.details.totals};
  if(d.totals)data.totals=select(d.totals,['total','currency_code']);
  return {event_id:event.event_id,event_type:event.event_type,occurred_at:event.occurred_at,data};
@@ -37,7 +41,9 @@ export async function handle(request,env,now=Date.now()){
  try{
   if(env.BILLING_ENV!=='sandbox')return reply(503,{error:'sandbox_configuration_required'});
   const url=new URL(request.url);
-  if(url.pathname==='/health'&&request.method==='GET')return reply(200,{ok:true,environment:'sandbox',webhookConfigured:!!env.PADDLE_SANDBOX_WEBHOOK_SECRET,databaseConfigured:!!env.DB,fulfillment:'not_connected'});
+  if(url.pathname==='/health'&&request.method==='GET')return reply(200,{ok:true,environment:'sandbox',webhookConfigured:!!env.PADDLE_SANDBOX_WEBHOOK_SECRET,databaseConfigured:!!env.DB,fulfillment:'sandbox_entitlements',applicationIntegration:'not_connected',checkoutConfigured:/^pdl_sdbx_apikey_/.test(env.PADDLE_SANDBOX_API_KEY||'')});
+  if(request.method==='GET'){const response=page(url.pathname);if(response)return response;}
+  if(['/api/billing/account','/api/billing/checkout'].includes(url.pathname))return reply(200,await commerce(request,env,now));
   if(url.pathname!=='/webhooks/paddle')return reply(404,{error:'not_found'});
   if(request.method!=='POST')return reply(405,{error:'post_required'});
   if(!env.DB)fail(503,'database_not_configured');
