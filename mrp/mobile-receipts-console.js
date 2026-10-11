@@ -1,6 +1,7 @@
 const $=id=>document.getElementById(id),base=String(window.HAMVARA_MRP_CONFIG?.apiBase||'').replace(/\/$/,'');
 let credentials=null,actor=null,pairing=null,timer=null,inFlight=false;
 function message(value,error=false){$('message').textContent=value;$('message').className=error?'error':'';}
+function syncMessage(value,error=false){$('syncStatus').textContent=value;$('syncStatus').className=error?'error':'muted';}
 async function api(path,body){const response=await fetch(base+'/api/mrp/receipt-console'+path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-Hamvara-Workspace':credentials?.workspace||'','X-Hamvara-User':credentials?.username||'','X-Hamvara-Key':credentials?.accessKey||''},...(body===undefined?{}:{body:JSON.stringify(body)})});const result=await response.json();if(!response.ok)throw Error(result.error||'Request failed.');return result;}
 async function action(button,fn){button.disabled=true;try{await fn();}catch(error){message(error.message,true);}finally{button.disabled=false;}}
 function options(id,items,value,label){$(id).replaceChildren(...items.map(item=>{const option=document.createElement('option');option.value=item[value];option.textContent=label(item);return option;}));}
@@ -9,7 +10,7 @@ $('login').onsubmit=event=>{event.preventDefault();action($('login').querySelect
  try{const bootstrap=await api('/bootstrap');actor=bootstrap.actor;$('actor').textContent=`${actor.workspace.slug} · ${actor.user.username} · ${actor.user.role}`;options('warehouse',bootstrap.warehouses,'code',x=>`${x.code} · ${x.name}`);$('pair').disabled=!bootstrap.warehouses.length;$('login').hidden=true;$('workspace').hidden=false;$('logout').hidden=false;$('login').reset();
  if(actor.user.role==='CEO'){const {users}=await api('/users');options('user',users,'id',x=>`${x.username} · ${x.role}`);options('grantWarehouse',bootstrap.warehouses,'code',x=>`${x.code} · ${x.name}`);$('permissions').hidden=false;}
  await refresh();message('Connected. Create a pairing QR or review incoming receipts.');timer=setInterval(poll,4000);
- }catch(error){credentials=null;throw error;}
+ }catch(error){credentials=null;actor=null;$('login').hidden=false;$('workspace').hidden=true;$('logout').hidden=true;$('permissions').hidden=true;throw error;}
 });};
 $('logout').onclick=()=>{clearInterval(timer);credentials=null;location.reload();};
 $('pair').onclick=()=>action($('pair'),async()=>{
@@ -22,9 +23,28 @@ $('pair').onclick=()=>action($('pair'),async()=>{
 $('approveDevice').onclick=()=>action($('approveDevice'),async()=>{await api(`/pairings/${pairing.id}`,{action:'approve'});message('Device approved. Tap Connect / refresh pairing on the phone.');await poll();});
 $('revokeDevice').onclick=()=>action($('revokeDevice'),async()=>{await api(`/pairings/${pairing.id}`,{action:'revoke'});pairing=null;$('qr').replaceChildren();$('pairStatus').textContent='Device disconnected.';$('approveDevice').hidden=true;$('revokeDevice').hidden=true;});
 for(const [id,revoke] of [['grant',false],['revokeGrant',true]])$(id).onclick=()=>action($(id),async()=>{await api('/grants',{userId:$('user').value,warehouse:$('grantWarehouse').value,revoke});message(revoke?'Warehouse access revoked.':'Warehouse access granted.');});
-$('refresh').onclick=()=>action($('refresh'),refresh);
+$('refresh').onclick=()=>action($('refresh'),async()=>{try{await refresh();}catch(error){syncMessage('Could not refresh receipts. Displayed rows may be out of date. '+error.message,true);}});
 const actions={SUBMITTED:[['receive','Receive into quarantine'],['reject','Reject draft']],PENDING_QC:[['qc_accept','Accept QC'],['qc_hold','Quality hold']],PENDING_MANAGER:[['approve','Manager approve']],APPROVED:[['post','Post to inventory']]};
 const permission={receive:['PRODUCTION_MANAGER','FACTORY_MANAGER','CEO'],reject:['PRODUCTION_MANAGER','FACTORY_MANAGER','CEO'],qc_accept:['PRODUCTION_MANAGER','FACTORY_MANAGER','CEO'],qc_hold:['PRODUCTION_MANAGER','FACTORY_MANAGER','CEO'],approve:['FACTORY_MANAGER','CEO'],post:['CEO']};
-async function refresh(){const {receipts}=await api('/receipts');$('receipts').replaceChildren();for(const row of receipts){const tr=document.createElement('tr'),p=row.payload;for(const value of [new Date(row.createdAt).toLocaleString(),`${p.sku} · ${p.quantity} ${p.unit}`,`${p.reference} · ${p.supplier}`,p.destinationWarehouse,row.status]){const cell=document.createElement('td');cell.textContent=value;tr.append(cell);}const cell=document.createElement('td'),details=document.createElement('details'),summary=document.createElement('summary'),content=document.createElement('pre');summary.textContent='Details';content.textContent=`Date: ${p.date}\nLot: ${p.lotNo||'—'}\nSerial: ${p.serialNo||'—'}\nExpiry: ${p.expiryDate||'—'}\nNote: ${p.note||'—'}`;details.append(summary,content);cell.append(details);
+async function refresh(){const {receipts}=await api('/receipts');syncMessage('Receipts updated at '+new Date().toLocaleTimeString()+'.');$('receipts').replaceChildren();for(const row of receipts){const tr=document.createElement('tr'),p=row.payload;for(const value of [new Date(row.createdAt).toLocaleString(),`${p.sku} · ${p.quantity} ${p.unit}`,`${p.reference} · ${p.supplier}`,p.destinationWarehouse,row.status]){const cell=document.createElement('td');cell.textContent=value;tr.append(cell);}const cell=document.createElement('td'),details=document.createElement('details'),summary=document.createElement('summary'),content=document.createElement('pre');summary.textContent='Details';content.textContent=`Date: ${p.date}\nLot: ${p.lotNo||'—'}\nSerial: ${p.serialNo||'—'}\nExpiry: ${p.expiryDate||'—'}\nNote: ${p.note||'—'}`;details.append(summary,content);cell.append(details);
  for(const [command,label] of actions[row.status]||[]){if(row.submittedBy===actor.user.id||!permission[command].includes(actor.user.role))continue;const button=document.createElement('button');button.textContent=label;button.onclick=()=>action(button,async()=>{let note='';if(['reject','qc_hold'].includes(command)){note=prompt('Reason (required)')||'';if(!note.trim())return;}else if(!confirm(`${label}: ${p.quantity} ${p.unit} of ${p.sku}?`))return;await api(`/receipts/${row.id}`,{action:command,version:row.version,note});message('Saved on the server. Refresh the main ERP page to see updated inventory.');await refresh();});cell.append(button);}tr.append(cell);$('receipts').append(tr);}if(!receipts.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.textContent='No receipts submitted yet.';tr.append(td);$('receipts').append(tr);}}
-async function poll(){if(inFlight||!credentials)return;inFlight=true;try{if(pairing){const status=await api(`/pairings/${pairing.id}`);$('approveDevice').hidden=!status.claimed||status.approved||status.revoked||Date.now()>=status.expiresAt;if(status.claimed||Date.now()>pairing.claimUntil)$('qr').replaceChildren();$('pairStatus').textContent=status.revoked?'Disconnected':Date.now()>=status.expiresAt?'Session expired. Create a new pairing.':status.claimed?`${status.deviceName} · fingerprint ${status.keyFingerprint} · ${status.approved?'Approved':'Compare with phone, then approve'}`:Date.now()>pairing.claimUntil?'QR expired. Create a new pairing.':'Waiting for phone…';}await refresh();}catch(error){message(error.message,true);}finally{inFlight=false;}}
+async function poll(){
+ if(inFlight||!credentials||document.hidden)return;
+ inFlight=true;
+ try{
+  const currentPairing=pairing;
+  if(currentPairing){
+   const status=await api(`/pairings/${currentPairing.id}`);
+   // A response started before Disconnect must not restore the old device UI.
+   if(pairing===currentPairing){
+    const expired=Date.now()>=status.expiresAt;
+    $('approveDevice').hidden=!status.claimed||status.approved||status.revoked||expired;
+    if(status.claimed||Date.now()>currentPairing.claimUntil)$('qr').replaceChildren();
+    $('pairStatus').textContent=status.revoked?'Device disconnected. Create a new pairing to reconnect.':expired?'Session expired. Create a new pairing.':status.claimed?`${status.deviceName} · fingerprint ${status.keyFingerprint} · ${status.approved?'Approved':'Compare with phone, then approve'}`:Date.now()>currentPairing.claimUntil?'QR expired. Create a new pairing.':'Waiting for phone…';
+    if(status.revoked||expired){pairing=null;$('qr').replaceChildren();$('revokeDevice').hidden=true;}
+   }
+  }
+  await refresh();
+ }catch(error){syncMessage('Connection check failed. Displayed information may be out of date. '+error.message,true);}
+ finally{inFlight=false;}
+}
