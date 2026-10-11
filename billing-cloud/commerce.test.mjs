@@ -81,3 +81,12 @@ test('checkout diagnostics preserve failure stage, hide secrets and keep duplica
   assert.doesNotMatch(logs.join(''),/PRIVATE|pdl_sdbx/);
  }finally{console.error=original;}
 });
+
+test('checkout uses Worker-compatible manual redirects and rejects redirect responses',async()=>{
+ const f=fixture();let calls=0;
+ await assert.rejects(checkout(f.DB,actor,{plan:'skuMonthly',requestKey},apiKey,now,async(url,options)=>{
+  calls++;assert.equal(options.redirect,'manual');
+  return new Response(null,{status:302,headers:{location:'https://untrusted.invalid/'}});
+ }),/paddle_rejected HTTP 302/);
+ assert.equal(calls,1);assert.equal(f.sql.prepare('SELECT state FROM billing_intents').get().state,'review');
+});

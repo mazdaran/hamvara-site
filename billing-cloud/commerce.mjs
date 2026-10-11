@@ -32,7 +32,7 @@ export async function checkout(db,actor,body,apiKey,now,upstream=fetch){
  }
  let stage='request',httpStatus=null,paddleCode=null,requestId=null;
  try{
-  const response=await upstream('https://sandbox-api.paddle.com/transactions',{method:'POST',headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},body:JSON.stringify({items:[{price_id:plan.priceId,quantity:1}],currency_code:'USD',collection_mode:'automatic',custom_data:{sandbox_purchase_intent:id}}),signal:AbortSignal.timeout(15000),redirect:'error'});
+  const response=await upstream('https://sandbox-api.paddle.com/transactions',{method:'POST',headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},body:JSON.stringify({items:[{price_id:plan.priceId,quantity:1}],currency_code:'USD',collection_mode:'automatic',custom_data:{sandbox_purchase_intent:id}}),signal:AbortSignal.timeout(15000),redirect:'manual'});
   httpStatus=response.status;
   if(!response.ok){
    stage='paddle_rejected';
