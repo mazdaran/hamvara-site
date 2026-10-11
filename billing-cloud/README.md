@@ -61,6 +61,17 @@ Verified signed `evt_` events and server-created transaction bindings are requir
 
 The projection reuses the laptop lifecycle rules (paid period, active subscription, cancellation, refund/dispute, grace, catalog and company limits) over an atomic D1 snapshot. It is computed on authenticated Check access requests, not by a timer. It fails closed beyond 5,000 normal events or 500 identity/intent rows rather than using incomplete history. The inbox processing_status remains PENDING: it records receipt, not the on-demand entitlement projection. Do not interpret it as an activation failure.
 
-**Scope boundary:** This verifies cloud billing ownership and entitlements. MRP workspace enforcement, SKU Bridge quotas and production billing are not connected yet. `/health` reports `fulfillment: sandbox_entitlements`, `applicationIntegration: not_connected`, and a separate checkoutConfigured boolean. No MRP tenant or production DB is modified.
+**Scope boundary:** This verifies cloud billing ownership and entitlements. The optional pilot-only MRP service binding is described below. SKU Bridge quotas and production billing are not connected. `/health` reports `fulfillment: sandbox_entitlements`, `applicationIntegration: not_connected`, and a separate checkoutConfigured boolean. No MRP tenant or production DB is modified.
 
 Run `node --test billing-cloud/*.test.mjs`. Then verify a real sandbox checkout through Paddle; the pre-existing simulator fixtures are insufficient to verify paid entitlement ownership.
+
+
+## Pilot MRP service binding
+
+Deploy billing first: run `node billing-cloud/enable-service.mjs`, then deploy with the existing `.local/wrangler.json`. The named `BillingAccess` entrypoint exposes `companyAccess` only through Cloudflare service RPC, not through a public HTTP route. No key is sent to a browser or phone.
+
+In the separate pilot staging checkout, update `codex/pilot-staging-integration`, run `node worker/scripts/connect-billing-sandbox.mjs`, and deploy with `.pilot-staging/wrangler.json`. No migration, reseeding or new secret is required. If the pilot preparation script is run again, run the connection helper again before deployment.
+
+Only `pilot-tr-workspace` maps to billing company A and `pilot-us-workspace` to company B. These are synthetic test companies, not customer onboarding. Mapped workspaces require verified MRP entitlement and respect the active user limit. Web, legacy scan and paired receipt routes use the same check. Inactive entitlement returns 403 for operational access; service failures return 503. Existing role checks remain in force. Other workspaces retain their trial rules.
+
+Verify A cannot access MRP operations while B can; verify the paired phone follows the same result. Account/session status remains available for a subscription-required result. Production is unchanged. The `/health` integration field is a legacy billing-only indicator, not a live probe of the pilot binding.

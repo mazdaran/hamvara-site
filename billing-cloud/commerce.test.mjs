@@ -90,3 +90,14 @@ test('checkout uses Worker-compatible manual redirects and rejects redirect resp
  }),/paddle_rejected HTTP 302/);
  assert.equal(calls,1);assert.equal(f.sql.prepare('SELECT state FROM billing_intents').get().state,'review');
 });
+test('internal company decision returns only matching MRP entitlement',async()=>{
+ const {companyAccess}=await import('./company-access.mjs');const f=fixture();
+ f.sql.exec("BEGIN; PRAGMA defer_foreign_keys=ON; UPDATE billing_companies SET id='billing-company-b' WHERE id='ca'; UPDATE billing_memberships SET company_id='billing-company-b' WHERE company_id='ca'; COMMIT;");
+ const intent=await setup(f),d=data(intent);await deliver(f,'transaction.completed',d.payment);await deliver(f,'subscription.created',d.subscription);
+ const b=await companyAccess(f.env,'billing-company-b',now);assert.equal(b.access,true);assert.equal(b.maxUsers,5);
+ assert.equal((await companyAccess(f.env,'billing-company-a',now)).access,false);
+ await assert.rejects(companyAccess(f.env,'other-company',now));
+ const r=await handle(new Request('https://billing.test/companyAccess?companyId=billing-company-b'),f.env,now);assert.equal(r.status,404);
+ await deliver(f,'subscription.canceled',{...d.subscription,status:'canceled'},{at:'2026-10-05T00:00:00Z'});
+ assert.equal((await companyAccess(f.env,'billing-company-b',now)).access,false);
+});

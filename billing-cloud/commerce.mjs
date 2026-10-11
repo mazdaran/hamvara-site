@@ -57,13 +57,17 @@ export async function checkout(db,actor,body,apiKey,now,upstream=fetch){
   fail(502,'checkout_uncertain_requires_review: '+stage+(httpStatus?' HTTP '+httpStatus:'')+(paddleCode?' '+paddleCode:'')+'; reference '+id);
  }
 }
-export async function accountStatus(db,actor,now){
+export async function billingSnapshot(db){
  // Atomic bounded snapshot for the small sandbox pilot, never a timer/polling loop.
  // Fail closed at the cap instead of projecting an incomplete history.
  const queries=["SELECT payload FROM billing_events WHERE environment='sandbox' AND substr(event_id,1,4)='evt_' ORDER BY occurred_at,event_id LIMIT 5001",'SELECT * FROM billing_intents LIMIT 501','SELECT id,active FROM billing_users LIMIT 501','SELECT id,active FROM billing_companies LIMIT 501','SELECT user_id,company_id FROM billing_memberships LIMIT 501'];
  const batch=await db.batch(queries.map(q=>db.prepare(q)));
  if(batch.some((r,i)=>r.results.length>(i===0?5000:500)))fail(503,'sandbox_projection_capacity_requires_review');
  const records={events:batch[0].results.map(r=>JSON.parse(r.payload)),intents:batch[1].results,users:batch[2].results,companies:batch[3].results,memberships:batch[4].results};
+ return records;
+}
+export async function accountStatus(db,actor,now){
+ const records=await billingSnapshot(db);
  const companies=records.memberships.filter(m=>m.user_id===actor.id).map(m=>m.company_id);
  const projected=projectRecords(records,now);
  return {user:actor,entitlements:projected.entitlements.filter(e=>e.scope==='user'?e.ownerId===actor.id:companies.includes(e.ownerId)),checkouts:records.intents.filter(i=>i.user_id===actor.id).map(i=>({plan:i.plan,state:i.state,transactionId:i.transaction_id})),applicationIntegration:'not_connected'};
