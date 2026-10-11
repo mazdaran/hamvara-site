@@ -165,6 +165,8 @@ test('browser non-exportable identity uses the existing approval and idempotent 
  assert.equal(sameScope(session,{...session,userId:'u2'}),false);
  assert.equal(sameScope(session,{...session}),true);
  assert.equal(pairingToken('https://api.test/mrp/mobile-receipt.html#token='+p.token,'https://api.test'),p.token);
+ assert.equal(pairingToken('https://api.test/mrp/mobile-receipt#token='+p.token,'https://api.test'),p.token);
+ assert.throws(()=>pairingToken('https://api.test/mrp/other#token='+p.token,'https://api.test'));
  assert.throws(()=>pairingToken('https://other.test/mrp/mobile-receipt.html#token='+p.token,'https://api.test'));
  await f.web('operator',`receipt-console/pairings/${p.id}`,{action:'revoke'});
  await assert.rejects(call('/lookup',{code:'SKU-1'}),status(401));

@@ -22,7 +22,7 @@ export async function signedRequest(identity,token,path,body,fetcher=fetch){
 export function sameScope(a,b){return !!a&&!!b&&['workspaceId','userId','warehouse'].every(k=>a[k]===b[k]);}
 export function pairingToken(value,origin){
  const url=new URL(value,origin);
- if(url.origin!==origin||url.pathname!=='/mrp/mobile-receipt.html')throw Error('Use a receipt pairing link from this same Hamvara site.');
+ if(url.origin!==origin||!['/mrp/mobile-receipt.html','/mrp/mobile-receipt'].includes(url.pathname))throw Error('Use a receipt pairing link from this same Hamvara site.');
  const token=new URLSearchParams(url.hash.slice(1)).get('token')||'';
  if(!/^[A-Za-z0-9_-]{43}$/.test(token))throw Error('Invalid pairing link. Create a new QR on the laptop.');
  return token;

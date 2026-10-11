@@ -1,7 +1,8 @@
-import {createIdentity,signedRequest,sameScope,pairingToken,newReceipt} from './mobile-receipt-client.mjs';
+import {createIdentity,signedRequest,sameScope,pairingToken,newReceipt} from './mobile-receipt-client.mjs?v=2';
 const $=id=>document.getElementById(id);
+let startupError='';
 let token='',identity=null,session=null,item=null,pending=null,busy=false,scanner=null,scannerStarting=false;
-try{if(location.hash)token=pairingToken(location.href,location.origin);}catch(error){show(error.message,true);}
+try{if(location.hash)token=pairingToken(location.href,location.origin);}catch(error){startupError=error.message;}
 history.replaceState(null,'',location.pathname+location.search);
 const now=new Date();$('date').value=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
 function show(text,error=false){$('message').textContent=text;$('message').className=error?'error':'';}
@@ -70,4 +71,4 @@ $('retry').onclick=()=>action(deliver);
 window.addEventListener('beforeunload',event=>{if(pending||$('reference').value||$('quantity').value){event.preventDefault();event.returnValue='';}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&!scannerStarting)stopCamera();paint();});
 setInterval(()=>{paint();if(!active()&&scanner&&!scannerStarting)stopCamera();},1000);
-paint();if(token)action(connect);else show('Create a receipt pairing QR on the laptop, then open it with the iPhone camera in Safari.');
+paint();if(token)action(connect);else if(startupError)show(startupError,true);else show('Create a receipt pairing QR on the laptop, then open it with the iPhone camera in Safari.');
