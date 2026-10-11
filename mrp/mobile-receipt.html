@@ -1,1 +1,20 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Hamvara receipt pairing</title><link rel="stylesheet" href="mobile-receipts.css"></head><body><main><h1>Open Hamvara Mobile</h1><p>Scan this pairing QR inside the updated Hamvara Android app. This link cannot authorize a browser to submit receipts.</p><p>A new QR can be claimed for 60 seconds. Compare the device fingerprint on both screens before approving.</p></main></body></html>
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="referrer" content="no-referrer"><title>Hamvara Mobile Goods Receipt</title><link rel="stylesheet" href="mobile-receipts.css"><link rel="stylesheet" href="mobile-receipt-phone.css?v=1"></head>
+<body><main>
+<h1>Mobile goods receipt</h1><p>Scan goods on your phone and send them for review.</p>
+<section class="card"><h2>Device connection</h2><p id="connection" role="status">Not connected</p><p id="fingerprint"></p><button id="connect" class="primary" type="button">Connect / refresh pairing</button>
+<details><summary>Use a new pairing link</summary><p>On the laptop create a new QR and copy its link here. Keep this page open if a receipt is awaiting confirmation.</p><label>Pairing link<input id="pairLink" type="password" autocomplete="off" spellcheck="false"></label><button id="useLink" type="button">Use link</button></details>
+<p class="muted">Compare the fingerprint on both screens, then approve this device on the laptop. This connection is temporary.</p></section>
+<p id="message" role="status" aria-live="polite"></p>
+<form id="receiptForm"><fieldset id="fields" disabled>
+<section class="card"><h2>1. Identify goods</h2><div id="reader"></div><button id="startCamera" type="button">Start camera</button><button id="stopCamera" type="button" hidden>Stop camera</button><label>Barcode or SKU<input id="code" maxlength="256" autocomplete="off" enterkeyhint="search"></label><button id="lookup" type="button">Identify item</button><p id="item" aria-live="polite">Scan a barcode or enter its value.</p></section>
+<section class="card"><h2>2. Receipt details</h2>
+<label>Quantity<input id="quantity" type="number" min="0.00000001" max="1000000000" step="any" inputmode="decimal" required></label>
+<label>Document reference<input id="reference" maxlength="100" required></label><label>Supplier<input id="supplier" maxlength="120" required></label><label>Receipt date<input id="date" type="date" required></label>
+<label>Lot number<input id="lotNo" maxlength="100"></label><label>Serial number<input id="serialNo" maxlength="100"></label><label>Expiry date<input id="expiryDate" type="date"></label><label>Note<input id="note" maxlength="1000"></label>
+<button id="submitReceipt" type="submit" class="primary" disabled>Send for review</button></section>
+</fieldset></form>
+<section id="pendingPanel" class="card" hidden><h2>Receipt awaiting confirmation</h2><p id="pendingText"></p><p>Keep this page open. Retry sends the same receipt, preventing duplicates.</p><button id="retry" type="button" class="primary">Retry same receipt</button></section>
+<section class="card"><h2>Last confirmed receipt</h2><p id="lastReceipt">No receipt sent in this session.</p></section>
+<p class="muted">This browser pilot needs internet. Drafts stay only in this open page; closing or reloading loses them. Sending a receipt does not post stock: the normal review and approval steps still apply.</p>
+</main><script type="module" src="mobile-receipt-phone.mjs?v=1"></script></body></html>

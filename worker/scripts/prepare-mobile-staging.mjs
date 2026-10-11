@@ -9,7 +9,7 @@ const id=process.argv[2];
 const production=await readFile(resolve(root,'wrangler.toml'),'utf8');
 if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id||'')||production.toLowerCase().includes(id.toLowerCase()))throw Error('Pass the UUID of a separate mobile staging D1 database. Production bindings are forbidden.');
 await mkdir(resolve(directory,'assets/mrp'),{recursive:true});
-const assets=['mobile-receipts.html','mobile-receipts.css','mobile-receipts-console.js','mobile-receipt.html','qrcode.min.js'];
+const assets=['mobile-receipts.html','mobile-receipts.css','mobile-receipts-console.js','mobile-receipt.html','mobile-receipt-client.mjs','mobile-receipt-phone.mjs','mobile-receipt-phone.css','html5-qrcode.min.js','qrcode.min.js'];
 for(const file of assets)await copyFile(resolve(root,'mrp',file),resolve(directory,'assets/mrp',file));
 await writeFile(resolve(directory,'assets/mrp/config.js'),'window.HAMVARA_MRP_CONFIG = {apiBase: location.origin};\n');
 const config={name:'hamvara-mobile-staging',main:'../worker/src/mobile-staging.js',compatibility_date:'2026-08-01',workers_dev:true,preview_urls:false,vars:{MOBILE_STAGING:'true',MRP_MOBILE_RECEIPT_WORKSPACES:'mobile-pilot'},d1_databases:[{binding:'DB',database_name:'hamvara-mobile-staging',database_id:id,migrations_dir:'../worker/migrations'}],assets:{binding:'ASSETS',directory:'./assets',run_worker_first:true}};

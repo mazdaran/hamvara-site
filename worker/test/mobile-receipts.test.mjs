@@ -139,3 +139,33 @@ test('trial grace blocks signed phone receipt submissions and console mutations'
  f.sql.prepare('UPDATE mrp_trials SET starts_at=?,ends_at=?,read_until=?,activated_at=? WHERE workspace_id=?').run(expired,expired+30*86400000,expired+44*86400000,expired,'w1');
  await assert.rejects(f.web('ceo','receipt-console/receipts'),status(403));
 });
+
+test('browser non-exportable identity uses the existing approval and idempotent receipt workflow',async()=>{
+ const {createIdentity,signedRequest,newReceipt,sameScope,pairingToken}=await import('../../mrp/mobile-receipt-client.mjs');
+ const f=await fixture(),identity=await createIdentity();
+ assert.equal(identity.privateKey.extractable,false);
+ await assert.rejects(crypto.subtle.exportKey('pkcs8',identity.privateKey));
+ const p=await (await f.web('operator','receipt-console/pairings',{warehouse:'WH-RM'})).json();
+ const transport=async(path,options)=>{const req=new Request('https://api.test'+path,options);try{return await handleMrpRequest(req,f.env,new URL(req.url));}catch(error){return Response.json({error:error.message},{status:error.status||500});}};
+ const call=(path,body)=>signedRequest(identity,p.token,'/api/mrp/mobile-receipts'+path,body,transport);
+ const first=await call('/pair',{publicKey:identity.publicKey,deviceName:'iPhone browser'});
+ assert.equal(first.session.status,'AWAITING_APPROVAL');assert.equal(first.session.keyFingerprint,identity.fingerprint);
+ await assert.rejects(call('/lookup',{code:'SKU-1'}),status(403));
+ await f.web('operator',`receipt-console/pairings/${p.id}`,{action:'approve'});
+ const {session}=await call('/pair',{publicKey:identity.publicKey,deviceName:'iPhone browser'});
+ assert.equal(session.status,'ACTIVE');
+ const {item}=await call('/lookup',{code:'SKU-1'});
+ const payload=newReceipt(item,session,{quantity:'2',reference:'IPHONE-TEST',supplier:'Test supplier',date:'2026-10-11',lotNo:'',serialNo:'',expiryDate:'',note:''});
+ // Simulate a lost response: first request succeeds on the server but the phone retries.
+ const initial=await call('',payload),retry=await call('',payload);
+ assert.equal(initial.receipt.status,'SUBMITTED');assert.equal(retry.receipt.id,initial.receipt.id);assert.equal(retry.duplicate,true);
+ assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM mrp_mobile_receipts').get().n,1);
+ assert.equal(sameScope(session,{...session,warehouse:'WH-QA'}),false);
+ assert.equal(sameScope(session,{...session,workspaceId:'w2'}),false);
+ assert.equal(sameScope(session,{...session,userId:'u2'}),false);
+ assert.equal(sameScope(session,{...session}),true);
+ assert.equal(pairingToken('https://api.test/mrp/mobile-receipt.html#token='+p.token,'https://api.test'),p.token);
+ assert.throws(()=>pairingToken('https://other.test/mrp/mobile-receipt.html#token='+p.token,'https://api.test'));
+ await f.web('operator',`receipt-console/pairings/${p.id}`,{action:'revoke'});
+ await assert.rejects(call('/lookup',{code:'SKU-1'}),status(401));
+});
