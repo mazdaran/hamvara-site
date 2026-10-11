@@ -1,5 +1,6 @@
 /* Responsive containment for wide ERP tables and nested grid panels. */
-html,body{max-width:100%;overflow-x:hidden}
+/* Clip horizontal overflow without making body the sticky sidebar's scroll container. */
+html,body{max-width:100%;overflow-x:clip}
 .layout{grid-template-columns:245px minmax(0,1fr)}
 main,.page,.panel{min-width:0;max-width:100%}
 main{width:100%;overflow-x:hidden}
@@ -13,3 +14,22 @@ main{width:100%;overflow-x:hidden}
 .live-master-table{width:100%;max-width:100%;overflow-x:auto}
 @media(max-width:1400px){.shop-floor-grid,.shop-floor-grid.lower{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:1100px){.layout{grid-template-columns:205px minmax(0,1fr)}}
+
+/* Keep the complete menu reachable, with room to scroll Settings above mid-screen. */
+#nav{
+  align-self:start;
+  min-height:0;
+  height:calc(100vh - 76px);
+  height:calc(100dvh - 76px);
+  overflow-x:hidden;
+  overflow-y:auto;
+  scrollbar-gutter:stable;
+  padding-bottom:50vh;
+  padding-bottom:50dvh;
+  background:var(--graphite);
+}
+/* Opaque, shared states keep every menu item consistent at every zoom level. */
+#nav button[data-page]{background:var(--graphite);color:#cbd4dc}
+#nav button[data-page]:is(.active,:hover,:focus-visible){background:#1d2731;color:var(--white);border-left-color:#4a9bd1}
+#nav button[data-page]:focus-visible{outline:2px solid #8bb9d8;outline-offset:-2px}
+[dir="rtl"] #nav button[data-page]:is(.active,:hover,:focus-visible){border-left:0;border-right-color:#4a9bd1}
