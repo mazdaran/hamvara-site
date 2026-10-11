@@ -18,3 +18,14 @@ test('storage failure is not acknowledged; retry can store later',async()=>{cons
 test('unknown events ignored; invalid data and oversized bodies rejected',async()=>{const f=fixture();assert.equal((await (await handle(request(event({event_type:'customer.created'})),f.env,now)).json()).ignored,true);assert.equal((await handle(request(event({event_id:'invalid'})),f.env,now)).status,400);assert.equal((await handle(request('{bad'),f.env,now)).status,400);assert.equal((await handle(request('x'.repeat(1048577)),f.env,now)).status,413);});
 test('environment and route isolation; health never returns keys',async()=>{const f=fixture();assert.equal((await handle(request(event()),{...f.env,BILLING_ENV:'live'},now)).status,503);assert.equal((await handle(request(event()),{...f.env,PADDLE_SANDBOX_WEBHOOK_SECRET:''},now)).status,503);const response=await worker.fetch(new Request('https://billing.test/health'),f.env,{});const body=await response.text();assert.doesNotMatch(body,/test-destination-secret/);assert.match(body,/not_connected/);assert.equal((await worker.fetch(new Request('https://billing.test/events'),f.env,{})).status,404);});
 test('actual Worker entry ignores ExecutionContext when determining time',async()=>{const f=fixture();assert.equal((await worker.fetch(request(event()),f.env,{waitUntil(){}})).status,200);assert.equal(typeof f.sql.prepare('SELECT received_at FROM billing_events').get().received_at,'number');});
+
+test('signed simulator events persist and deduplicate without bypassing signature checks',async()=>{
+ const f=fixture(),e=event({event_id:'ntfsimevt_01m4hkm4mkkwbagvkwcvydyyn1'});
+ assert.equal((await handle(request(e,{secret:'wrong'}),f.env,now)).status,401);
+ assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM billing_events').get().n,0);
+ assert.equal((await handle(request(e),f.env,now)).status,200);
+ assert.equal((await (await handle(request({...e,notification_id:'ntfsimntf_retry'}),f.env,now)).json()).duplicate,true);
+ assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM billing_events').get().n,1);
+ assert.equal((await handle(request(e),{...f.env,BILLING_ENV:'live'},now)).status,503);
+ for(const id of ['ntfsimevt_short','ntfsim_'+ 'a'.repeat(26),'ntfsimevt_'+ 'a'.repeat(27)])assert.equal((await handle(request(event({event_id:id})),f.env,now)).status,400);
+});
