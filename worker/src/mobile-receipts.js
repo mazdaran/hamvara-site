@@ -48,7 +48,7 @@ async function consumeNonce(env,row,nonce){
 }
 export async function handleMobileReceiptPhone(request,env,url){
  const {raw,body}=await readBody(request),row=await pairing(env,request.headers.get('X-Hamvara-Scan-Token')||'');
- enforceTrial(await getTrialAccess(env.DB,row.workspace_id),request,url.pathname);
+ enforceTrial(await getTrialAccess(env.DB,row.workspace_id,env),request,url.pathname);
  const claim=url.pathname==='/api/mrp/mobile-receipts/pair';
  if(claim){
   if(request.method!=='POST')fail(405,'POST required.');

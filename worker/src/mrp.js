@@ -35,7 +35,7 @@ export async function handleMrpRequest(request, env, url) {
     return json({trial:await activateTrial(request,env,trialActivation[1])});
   }
   const actor = await authenticate(request, env);
-  const access = await getTrialAccess(env.DB,actor.workspace.id);
+  const access = await getTrialAccess(env.DB,actor.workspace.id,env);
   actor.trial = access;
   enforceTrial(access,request,url.pathname);
   if (url.pathname === '/api/mrp/trial' && request.method === 'GET') return json({trial:access});
@@ -128,7 +128,7 @@ async function authenticateMobileScanner(request,env){
     JOIN mrp_users u ON u.id=s.terminal_user_id AND u.workspace_id=s.workspace_id AND u.active=1
     WHERE s.token_hash=?`).bind(tokenHash).first();
   if(!row)throw httpError(401,'Mobile scan session is invalid.');
-  enforceTrial(await getTrialAccess(env.DB,row.workspace_id),request,new URL(request.url).pathname);
+  enforceTrial(await getTrialAccess(env.DB,row.workspace_id,env),request,new URL(request.url).pathname);
   if(row.status!=='ACTIVE'||Date.parse(row.expires_at)<=Date.now()){await env.DB.prepare("UPDATE mrp_scan_sessions SET status='EXPIRED' WHERE id=? AND status='ACTIVE'").bind(row.id).run();throw httpError(410,'Mobile scan session has expired.');}
   if(row.device_hash&&!constantTimeEqual(row.device_hash,deviceHash))throw httpError(403,'This pairing is already bound to another device.');
   if(!row.device_hash){
@@ -200,7 +200,7 @@ async function ensureBackupTable(env) {
 async function analyzeWaybill(request, env, actor) {
   if (!env.AI) throw httpError(503, 'Waybill recognition is not configured.');
   const raw = await request.text();
-  enforceTrial(await getTrialAccess(env.DB,actor.workspace.id),request,new URL(request.url).pathname);
+  enforceTrial(await getTrialAccess(env.DB,actor.workspace.id,env),request,new URL(request.url).pathname);
   if (new TextEncoder().encode(raw).byteLength > 7 * 1024 * 1024) throw httpError(413, 'Waybill image is too large. Maximum request size is 7 MB.');
   let body;try { body = JSON.parse(raw); } catch { throw httpError(400, 'Invalid JSON payload.'); }
   const match = /^data:(image\/(?:png|jpeg|jpg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(body.image || ''));

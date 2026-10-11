@@ -1,3 +1,4 @@
+import {sandboxPaidAccess} from './paid-access.js';
 const DAY = 86400000;
 const fail = (status, message) => { throw Object.assign(new Error(message), {status}); };
 export function trialAccess(row, now = Date.now()) {
@@ -8,7 +9,9 @@ export function trialAccess(row, now = Date.now()) {
   const status = now < row.starts_at ? 'SCHEDULED' : now < row.ends_at ? 'ACTIVE' : now < row.read_until ? 'GRACE' : 'EXPIRED';
   return {...base,status,canRead:['ACTIVE','GRACE'].includes(status),canWrite:status==='ACTIVE'};
 }
-export async function getTrialAccess(DB, workspaceId) {
+export async function getTrialAccess(DB, workspaceId, env) {
+  const paid = await sandboxPaidAccess(env,workspaceId);
+  if (paid) return paid;
   const row = await DB.prepare('SELECT t.plan_version,t.starts_at,t.ends_at,t.read_until,p.timezone FROM mrp_trials t LEFT JOIN mrp_workspace_profiles p ON p.workspace_id=t.workspace_id WHERE t.workspace_id=?').bind(workspaceId).first();
   return trialAccess(row);
 }
@@ -20,6 +23,7 @@ export function enforceTrial(access, request, path) {
   // Preparing named users and regional settings must not start the trial clock.
   if (['PREPARED','SCHEDULED'].includes(access.status) && ['/api/mrp/company-profile','/api/mrp/members'].includes(path)) return;
   if (request.method === 'GET' && access.canRead) return;
+  if (access.status === 'SUBSCRIPTION_REQUIRED') fail(403,'An active MRP subscription is required for this sandbox workspace.');
   fail(403, access.status === 'GRACE' ? 'Trial ended. Your company is read-only during the 14-day export period.' : 'Trial access is not active. Contact Hamvara to agree activation or continued access.');
 }
 export async function activateTrial(request, env, slug) {
