@@ -53,3 +53,31 @@ test('same-time subscription state conflicts still deny access in either arrival
   }
  }
 });
+test('checkout diagnostics preserve failure stage, hide secrets and keep duplicate lock',async()=>{
+ const logs=[],original=console.error;console.error=value=>logs.push(value);
+ try{
+  for(const mode of ['rejected','network','invalid','binding']){
+   const f=fixture();let calls=0;
+   const send=async(url,options)=>{
+    calls++;assert.equal(options.headers.Authorization,'Bearer '+apiKey);
+    if(mode==='rejected')return Response.json({error:{code:'forbidden',detail:'PRIVATE '+apiKey},meta:{request_id:'12345678-1234-1234-1234-123456789abc'}},{status:403});
+    if(mode==='network')throw Error('PRIVATE '+apiKey);
+    if(mode==='invalid')return Response.json({data:{id:'bad'}});
+    f.sql.exec("CREATE TRIGGER fail_binding BEFORE UPDATE OF transaction_id ON billing_intents BEGIN SELECT RAISE(FAIL,'PRIVATE'); END;");
+    return upstream();
+   };
+   const body={plan:'skuMonthly',requestKey};
+   await assert.rejects(checkout(f.DB,actor,body,'  '+apiKey+'\n',now,send),error=>{
+    assert.match(error.message,/checkout_uncertain_requires_review/);
+    assert.doesNotMatch(error.message,/PRIVATE|pdl_sdbx/);return true;
+   });
+   const log=JSON.parse(logs.at(-1));
+   assert.equal(log.stage,{rejected:'paddle_rejected',network:'request',invalid:'response_validation',binding:'binding_save'}[mode]);
+   if(mode==='rejected'){assert.equal(log.httpStatus,403);assert.equal(log.paddleCode,'forbidden');assert.ok(log.requestId);}
+   assert.equal(f.sql.prepare('SELECT state FROM billing_intents').get().state,'review');
+   await assert.rejects(checkout(f.DB,actor,body,apiKey,now,send),/existing_checkout_requires_review/);
+   assert.equal(calls,1);
+  }
+  assert.doesNotMatch(logs.join(''),/PRIVATE|pdl_sdbx/);
+ }finally{console.error=original;}
+});

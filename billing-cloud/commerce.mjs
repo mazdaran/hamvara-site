@@ -19,6 +19,7 @@ export async function checkout(db,actor,body,apiKey,now,upstream=fetch){
  if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).some(k=>!['plan','requestKey'].includes(k)))fail(400,'only_plan_and_request_key_allowed');
  const plan=Object.hasOwn(PLANS,body.plan)?PLANS[body.plan]:null;
  if(!plan||typeof body.requestKey!=='string'||! /^[a-zA-Z0-9-]{16,80}$/.test(body.requestKey))fail(400,'invalid_plan_or_request_key');
+ apiKey=typeof apiKey==='string'?apiKey.trim():'';
  const owner=await ownerFor(db,actor,plan);
  if(!/^pdl_sdbx_apikey_/.test(apiKey||''))fail(503,'sandbox_api_key_required');
  // The unique owner/product constraint is the concurrency lock across Worker instances.
@@ -29,17 +30,31 @@ export async function checkout(db,actor,body,apiKey,now,upstream=fetch){
   if(existing?.user_id===actor.id&&existing.plan===body.plan&&existing.state==='ready')return {transactionId:existing.transaction_id,reused:true};
   fail(409,'existing_checkout_requires_review');
  }
+ let stage='request',httpStatus=null,paddleCode=null,requestId=null;
  try{
   const response=await upstream('https://sandbox-api.paddle.com/transactions',{method:'POST',headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},body:JSON.stringify({items:[{price_id:plan.priceId,quantity:1}],currency_code:'USD',collection_mode:'automatic',custom_data:{sandbox_purchase_intent:id}}),signal:AbortSignal.timeout(15000),redirect:'error'});
-  if(!response.ok)throw Error('upstream_failed');
+  httpStatus=response.status;
+  if(!response.ok){
+   stage='paddle_rejected';
+   // Never retain response detail, request bodies, headers, or customer data.
+   const rejected=await response.json().catch(()=>null);
+   if(/^[a-z][a-z0-9_]{0,79}$/.test(rejected?.error?.code||''))paddleCode=rejected.error.code;
+   if(/^[a-f0-9-]{36}$/.test(rejected?.meta?.request_id||''))requestId=rejected.meta.request_id;
+   throw Error('upstream_failed');
+  }
+  stage='response_validation';
   const {data}=await response.json();
   if(!/^txn_[a-z0-9]{26}$/.test(data?.id||'')||!['draft','ready'].includes(data.status))throw Error('invalid_transaction');
+  stage='binding_save';
   const saved=await db.prepare("UPDATE billing_intents SET transaction_id=?,state='ready' WHERE id=? AND state='creating'").bind(data.id,id).run();
   if(saved.meta.changes!==1)throw Error('binding_not_saved');
   return {transactionId:data.id,reused:false};
- }catch{
+ }catch(error){
+  if(stage==='request'&&['TimeoutError','AbortError'].includes(error?.name))stage='request_timeout';
+  const diagnostic={event:'sandbox_checkout_failed',intentId:id,stage,httpStatus,paddleCode,requestId};
+  console.error(JSON.stringify(diagnostic));
   await db.prepare("UPDATE billing_intents SET state='review' WHERE id=? AND state='creating'").bind(id).run();
-  fail(502,'checkout_uncertain_requires_review');
+  fail(502,'checkout_uncertain_requires_review: '+stage+(httpStatus?' HTTP '+httpStatus:'')+(paddleCode?' '+paddleCode:'')+'; reference '+id);
  }
 }
 export async function accountStatus(db,actor,now){
