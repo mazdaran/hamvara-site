@@ -43,7 +43,7 @@ export async function handle(request,env,now=Date.now()){
   if(!env.DB)fail(503,'database_not_configured');
   const raw=await readBody(request);await verify(raw,request.headers.get('paddle-signature'),env.PADDLE_SANDBOX_WEBHOOK_SECRET,now);
   let event;try{event=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(raw));}catch{fail(400,'invalid_json');}
-  if(!/^evt_[a-z0-9]{26}$/.test(event?.event_id||'')||!Number.isFinite(Date.parse(event.occurred_at))||Date.parse(event.occurred_at)>now+5000||typeof event.data?.id!=='string'||!event.data.id)fail(400,'invalid_event');
+  if(!/^(?:evt|ntfsimevt)_[a-z0-9]{26}$/.test(event?.event_id||'')||!Number.isFinite(Date.parse(event.occurred_at))||Date.parse(event.occurred_at)>now+5000||typeof event.data?.id!=='string'||!event.data.id)fail(400,'invalid_event');
   if(!events.has(event.event_type))return reply(200,{ignored:true});
   const payload=canonical(leanEvent(event)),digest=hex(await crypto.subtle.digest('SHA-256',encoder.encode(payload)));
   const inserted=await env.DB.prepare('INSERT OR IGNORE INTO billing_events (environment,event_id,event_type,occurred_at,body_hash,payload,received_at) VALUES (?,?,?,?,?,?,?)').bind('sandbox',event.event_id,event.event_type,event.occurred_at,digest,payload,now).run();
