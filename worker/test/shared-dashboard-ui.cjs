@@ -4,7 +4,7 @@ const {chromium}=require('playwright');
 (async()=>{
  const browser=await chromium.launch({headless:true});const root=path.resolve(__dirname,'../..');
  try{for(const role of ['OPERATOR','PRODUCTION_MANAGER','FACTORY_MANAGER','CEO']){
-  const page=await browser.newPage(),errors=[],writes=[];
+  const page=await browser.newPage(),errors=[],writes=[];let summaryCalls=0,summaryFails=false,summaryCount=3;
   page.on('pageerror',e=>errors.push(e.message));
   await page.addInitScript(()=>sessionStorage.setItem('hamvara.mrp.cloud.session.v1',JSON.stringify({workspace:'pilot-tr',username:'test',accessKey:'test'})));
   const state=JSON.parse(fs.readFileSync(path.join(root,'mrp/initial-data.json'),'utf8'));
@@ -16,6 +16,7 @@ const {chromium}=require('playwright');
    if(url.pathname==='/api/mrp/session')return respond({...actor,trial:{status:'ACTIVE',canWrite:true},capabilities:{serverReceipts:true,rolePolicy:true}});
    if(url.pathname==='/api/mrp/state')return respond({...actor,state,revision:0});
    if(url.pathname==='/api/mrp/operations'){writes.push(route.request().postDataJSON());return respond({ok:true,state,revision:1});}
+   if(url.pathname==='/api/mrp/receipt-console/summary'){summaryCalls++;return summaryFails?route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Unavailable'})}):respond({pendingCount:summaryCount,byStatus:{SUBMITTED:summaryCount}});}
    if(url.pathname.startsWith('/api/'))return respond({count:0});
    if(url.pathname==='/mrp/config.js')return route.fulfill({contentType:'text/javascript',body:'window.HAMVARA_MRP_CONFIG={apiBase:location.origin};'});
    let relative=url.pathname==='/mrp/'?'mrp/index.html':url.pathname.slice(1),file=path.join(root,relative);
@@ -24,14 +25,44 @@ const {chromium}=require('playwright');
   });
   await page.goto('https://shared.test/mrp/');
   await page.locator('#kpis').getByText('Accessible warehouses').waitFor({timeout:30000});
+  await page.waitForFunction(()=>document.getElementById('rolePendingReceiptCount')?.textContent==='3');
   assert.equal(await page.locator('#dashboard').evaluate(x=>x.classList.contains('active')),true);
   assert.equal(await page.locator('#nav [data-page]').count(),23);
   assert.equal(await page.locator('#nav [data-page="finance"]').isDisabled(),role!=='CEO');
   assert.equal(await page.locator('#nav [data-page="quality"]').isDisabled(),role==='OPERATOR');
   assert.equal(await page.locator('#nav [data-page="procurement"]').isDisabled(),role==='OPERATOR');
   assert.equal(await page.locator('#nav [data-page="settings"]').isDisabled(),role!=='CEO');
+  // CSS viewports equivalent to 100%, 110%, 125% zoom on 1920px and 1366px desktops.
+  for(const desktop of [1920,1366])for(const zoom of [1,1.1,1.25]){
+   await page.setViewportSize({width:Math.round(desktop/zoom),height:Math.round(900/zoom)});
+   await page.waitForTimeout(80);
+   const layout=await page.evaluate(()=>{
+    const header=document.querySelector('.topbar'),tools=document.querySelector('.role-header-tools'),h=header.getBoundingClientRect();
+    const rects=[...tools.children].map(x=>x.getBoundingClientRect());
+    const overlapping=rects.some((a,i)=>rects.slice(i+1).some(b=>Math.min(a.right,b.right)-Math.max(a.left,b.left)>1&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>1));
+    return {overflow:header.scrollWidth>header.clientWidth+1,overlapping,inside:rects.every(r=>r.left>=h.left&&r.right<=h.right+1&&r.bottom<=h.bottom+1),
+     singleLine:[...tools.querySelectorAll('button,.button')].every(x=>getComputedStyle(x).whiteSpace==='nowrap'),
+     offset:parseFloat(getComputedStyle(document.getElementById('nav')).top),height:h.height};
+   });
+   assert.equal(layout.overflow,false,role+' header overflow '+desktop+'/'+zoom);
+   assert.equal(layout.overlapping,false,role+' header tools overlap');assert.equal(layout.inside,true);assert.equal(layout.singleLine,true);
+   assert(Math.abs(layout.offset-layout.height)<=1,'sidebar offset follows header height');
+  }
+  await page.setViewportSize({width:1366,height:900});
+  assert.equal(await page.locator('.topbar #cloudAccount').count(),1);
+  assert.equal(await page.locator('.topbar label:has(#importFile)').getAttribute('aria-disabled'),'true');
+  assert.equal(await page.locator('#receipts > p > a[href="mobile-receipts.html"]').count(),0);
+  assert.equal(await page.locator('#receipts .role-notice a').count(),3);
+  // No timer polling: idle does not send summary requests. Failure never displays a fabricated zero.
+  await page.waitForTimeout(100);const callsBeforeIdle=summaryCalls;await page.waitForTimeout(1200);assert.equal(summaryCalls,callsBeforeIdle);
+  summaryFails=true;await page.locator('#roleReceiptSummaryRefresh').click();
+  await page.waitForFunction(()=>document.getElementById('rolePendingReceiptCount').textContent==='Unavailable');
+  summaryFails=false;summaryCount=0;await page.locator('#roleReceiptSummaryRefresh').click();
+  await page.waitForFunction(()=>document.getElementById('rolePendingReceiptCount').textContent==='0');
   await page.locator('#nav [data-page="stock"]').click();
   assert.equal(await page.locator('#stock').evaluate(x=>x.classList.contains('active')),true);
+  if(role!=='CEO')assert.equal(await page.locator('#warehouseKpis .kpi:nth-child(4) b').textContent(),'Restricted');
+  else assert.notEqual(await page.locator('#warehouseKpis .kpi:nth-child(4) b').textContent(),'Restricted');
   assert.equal(await page.locator('#createInventoryTransaction').isDisabled(),false);
   assert.equal(await page.locator('#inventoryTransactionRequester').inputValue(),'test');
   assert.equal(await page.locator('#inventoryTransactionRequester').isDisabled(),true);

@@ -1,3 +1,4 @@
+import {readReceiptSummary} from './receipt-summary.js';
 import {rolePolicyEnabled} from './role-access.js';
 import {parseQuantity,matchingItems} from '../../mrp/numeric-input.mjs';
 import {getTrialAccess,enforceTrial} from './trials.js';
@@ -107,6 +108,11 @@ const publicReceipt=row=>({id:row.id,status:row.status,version:row.version,submi
 export async function handleReceiptConsole(request,env,url,actor){
  if(!mobileReceiptsEnabled(env,actor))fail(404,'Mobile receipt pilot is not enabled for this company.');
  const base='/api/mrp/receipt-console',path=url.pathname.slice(base.length);
+ if(path==='/summary'){
+  if(request.method!=='GET')fail(405,'GET required.');
+  if(!rolePolicyEnabled(env,actor))fail(404,'Role summary is not enabled.');
+  return json(await readReceiptSummary(env,actor));
+ }
  if(path==='/bootstrap'&&request.method==='GET'){
   const {state}=await stateRow(env,actor.workspace.id);
   const grants=await env.DB.prepare('SELECT warehouse FROM mrp_mobile_warehouse_grants WHERE workspace_id=? AND user_id=?').bind(actor.workspace.id,actor.user.id).all();
