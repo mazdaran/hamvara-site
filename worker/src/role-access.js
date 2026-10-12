@@ -81,7 +81,7 @@ export function applyRolePatch(actor,state,changes){
     if(actor.user.role==='OPERATOR'){
      const fields=new Set(['id','shipmentNo','orderNo','pickQty','packingList','invoiceNo','podNo','status','shippingRelease','oqcStatus','createdBy','createdByUsername']);
      for(const k of Object.keys(row))if(!fields.has(k)&&!equal(row[k],old?.[k]))accessError(403,'Warehouse operators may edit shipment preparation only.');
-     if(old&&!equal(old.orderNo,row.orderNo))accessError(403,'Create a new draft for a different order.');
+     if(old?.orderNo&&!equal(old.orderNo,row.orderNo))accessError(403,'Create a new draft for a different order.');
     }
     if(!ceo)for(const field of Object.keys(row))if(privateMoneyField(field)&&!['paymentTerms','paymentStatus','budgetStatus'].includes(field)){
      if(!equal(row[field],old?.[field])&&!(row[field]===0||row[field]===''||row[field]===false))accessError(403,'Financial fields are restricted to the CEO.');
@@ -99,7 +99,7 @@ export function applyRolePatch(actor,state,changes){
  return next;
 }
 function mergeHidden(old,value){
- if(Array.isArray(value))return value.map((v,i)=>mergeHidden(Array.isArray(old)?old.find(x=>x?.id&&x.id===v?.id)||old[i]:undefined,v));
+ if(Array.isArray(value))return value.map((v,i)=>{const key=['id','code','sku','name'].find(k=>v?.[k]);return mergeHidden(Array.isArray(old)?(key?old.find(x=>x?.[key]===v[key]):old[i]):undefined,v);});
  if(!value||typeof value!=='object')return copy(value);
  const merged={};for(const [key,v] of Object.entries(old||{}))if(privateMoneyField(key))merged[key]=copy(v);
  for(const [key,v] of Object.entries(value)){if(['__proto__','constructor','prototype'].includes(key))accessError(400,'Invalid field.');merged[key]=mergeHidden(old?.[key],v);}return merged;

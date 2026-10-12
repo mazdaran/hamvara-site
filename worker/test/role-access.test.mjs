@@ -11,7 +11,7 @@ const publicKey=b64(await crypto.subtle.exportKey('spki',key.publicKey));
 const state=()=>({schemaVersion:21,skus:[{code:'SKU-1',name:'Material',unit:'pcs',cost:3}],warehouses:[{code:'WH-RM',name:'Raw materials'},{code:'WH-QA',name:'Quarantine'}],stock:{'SKU-1':{'WH-RM':0,'WH-QA':0}},receipts:[],qualityInspections:[],settings:{currency:'TRY'},mrpRuns:[]});
 async function fixture(){
  const sql=new DatabaseSync(':memory:');sql.exec('PRAGMA foreign_keys=ON');
- for(const file of ['0002_mrp_saas.sql','0004_mrp_mobile_scan.sql','0013_mobile_receipts.sql','0014_mrp_workspace_profiles.sql','0015_mrp_trial_lifecycle.sql'])sql.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
+ for(const file of ['0002_mrp_saas.sql','0004_mrp_mobile_scan.sql','0006_mrp_audit_seals.sql','0013_mobile_receipts.sql','0014_mrp_workspace_profiles.sql','0015_mrp_trial_lifecycle.sql'])sql.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
  sql.prepare("INSERT INTO mrp_workspaces (id,slug,name) VALUES ('w1','factory-one','Factory'),('w2','factory-two','Other')").run();
  const users={operator:['u1','OPERATOR','w1'],manager:['u2','PRODUCTION_MANAGER','w1'],factory:['u3','FACTORY_MANAGER','w1'],ceo:['u4','CEO','w1'],other:['u5','CEO','w2'],accounting:['u6','ACCOUNTING','w1']};
  for(const [name,[id,role,workspace]] of Object.entries(users)){sql.prepare('INSERT INTO mrp_users (id,workspace_id,username,access_key_hash,role) VALUES (?,?,?,?,?)').run(id,workspace,name,await hash(name+'-secret'),role);sql.prepare("INSERT INTO mrp_mobile_warehouse_grants VALUES (?,?,'WH-RM')").run(workspace,id);}
@@ -79,4 +79,20 @@ test('finance preserves balanced journals, closed periods and forbids full-state
  await assert.rejects(op(f,'ceo','finance.journal-post',{date:'2026-10-12',lines:[{accountCode:'1000',debit:2},{accountCode:'3000',credit:1}]}),status(422));
  const id=current(f).accountingPeriods[0].id;await op(f,'ceo','finance.period-close',{id});await assert.rejects(op(f,'ceo','finance.journal-post',{date:'2026-10-12',lines:[{accountCode:'1000',debit:2},{accountCode:'3000',credit:2}]}),status(422));
  const request=new Request('https://api.test/api/mrp/state',{method:'PUT',headers:{'X-Hamvara-Workspace':'factory-one','X-Hamvara-User':'ceo','X-Hamvara-Key':'ceo-secret'},body:JSON.stringify({state:current(f),expectedRevision:2})});await assert.rejects(handleMrpRequest(request,f.env,new URL(request.url)),status(403));
+});
+test('sales and shipment preparation require financial and quality release and independent posting',async()=>{
+ const f=await fixture(),s=current(f);s.warehouses.push({code:'WH-FG',name:'Product'});s.stock['SKU-1']['WH-FG']=20;s.salesOrders=[];s.shipments=[];revise(f,s);
+ f.sql.exec("INSERT INTO mrp_mobile_warehouse_grants VALUES ('w1','u1','WH-FG'),('w1','u2','WH-FG')");
+ await op(f,'manager','edit',{changes:{salesOrders:[{id:'sale',orderNo:'SO-1',sku:'SKU-1',qty:2,unitPrice:5,status:'DRAFT',paymentStatus:'PENDING',qcStatus:'PENDING',reservedQty:0}]}});
+ await op(f,'operator','edit',{changes:{shipments:[{id:'shipment',shipmentNo:'SHP-1',orderNo:'SO-1',pickQty:2,packingList:'PACK-1',invoiceNo:'INV-1',oqcStatus:'PENDING',shippingRelease:'BLOCKED',status:'DRAFT'}]}});
+ await assert.rejects(op(f,'operator','shipment.advance',{id:'shipment'}),status(403));await assert.rejects(op(f,'manager','shipment.advance',{id:'shipment'}),status(422));
+ await op(f,'ceo','finance.settlement',{id:'sale',paymentStatus:'PAID',creditApproved:false});
+ for(const [type,reference] of [['FQC','SO-1'],['OQC','SHP-1']]){await op(f,'manager','quality.create',{type,reference,sku:'SKU-1',qty:2});await op(f,'manager','quality.decide',{id:current(f).qualityInspections[0].id,result:'ACCEPTED'});}
+ await op(f,'ceo','edit',{changes:{financeApprovals:[{id:'fin',type:'SALES_RELEASE',reference:'SO-1',documentMatch:true,qcApproved:true,creditApproved:true,status:'PENDING'}]}});await op(f,'ceo','finance.approval',{id:'fin'});await op(f,'manager','sales.reserve',{id:'sale'});await op(f,'manager','shipment.advance',{id:'shipment'});
+ assert.equal(current(f).stock['SKU-1']['WH-FG'],18);assert.equal(current(f).shipments[0].status,'SHIPPED');assert.equal(current(f).journalEntries[0].status,'DRAFT');await assert.rejects(op(f,'manager','shipment.advance',{id:'shipment'}),status(409));
+});
+test('scoped MRP release keeps the existing server HMAC gate and stores its audit seal atomically',async()=>{
+ const f=await fixture(),changes={mrpRuns:[{id:'run',runNo:'RUN-1',status:'RELEASED',resultFingerprint:'fingerprint',releasedAt:'2026-10-12T00:00:00Z'}]};
+ await assert.rejects(op(f,'manager','edit',{changes}),status(503));assert.equal(current(f).mrpRuns.length,0);
+ f.env.MRP_AUDIT_HMAC_SECRET='test-secret-with-at-least-32-characters';await op(f,'manager','edit',{changes});assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM mrp_audit_seals').get().n,1);assert(current(f).mrpRuns[0].serverAuditSeal.signature);
 });

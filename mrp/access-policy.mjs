@@ -16,7 +16,7 @@ businessFields.push('sopPlans','mpsSnapshots','mrpRuns','mrpExceptions','plannin
 export const financialFields = ['accountingSettings','chartOfAccounts','accountingPeriods','journalEntries','inventoryValuations','inventoryCostLayers','inventoryCostMovements','financeApprovals','projectFinance','businessCashflowPlans','productionCostVariances','wipSettlements'];
 export const lockedStateFields = ['stock','receipts','qualityInspections','inventoryLots','inventoryMovements','inventoryTransactions','cycleCounts','productionJobs','operationSessions','andonAlerts',...financialFields];
 export function editableStateFields(role) {
-  if(role==='CEO')return [...businessFields,'company','settings','financeApprovals'];
+  if(role==='CEO')return [...businessFields,'company','settings','financeApprovals','projectFinance','businessCashflowPlans','whatIfSimulations'];
   if(isManager(role))return businessFields;
   return role==='OPERATOR'?['shipments']:[];
 }

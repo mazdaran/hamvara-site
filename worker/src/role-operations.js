@@ -88,8 +88,8 @@ export async function handleRoleOperations(request,env,url,actor){
     if(inspection.productionJobId){await requireWarehouse(env,actor,state,'WH-FG');result=applyProductionQualityDecision(state,inspection.id,{ncrNo:`NCR-${inspection.id}`,meta});}
     else if(inspection.receiptId){const receipt=find(state,'receipts',inspection.receiptId);await requireWarehouse(env,actor,state,receipt.targetWarehouse);independent(actor,receipt);applyReceiptQcDecision(state,inspection.id,`NCR-${inspection.id}`);if(inspection.result==='ACCEPTED')applyManagerReceiptDecision(state,receipt.id,true,'',meta);}
     else {inspection.released=true;inspection.decidedBy=user;inspection.decidedAt=meta.at;if(inspection.result!=='ACCEPTED')inspection.ncrNo=`NCR-${inspection.id}`;
-     if(inspection.type==='FQC'){const order=(state.salesOrders||[]).find(x=>x.orderNo===inspection.reference);if(order)order.qcStatus=inspection.result;}
-     if(inspection.type==='OQC'){const shipment=(state.shipments||[]).find(x=>x.shipmentNo===inspection.reference);if(shipment)shipment.oqcStatus=inspection.result;}
+     if(inspection.type==='FQC'){const order=(state.salesOrders||[]).find(x=>x.orderNo===inspection.reference);if(!order||order.sku!==inspection.sku||inspection.qty<=0||inspection.qty>order.qty)fail(422,'A matching sales order, SKU and quantity are required.');order.qcStatus=inspection.result;}
+     if(inspection.type==='OQC'){const shipment=(state.shipments||[]).find(x=>x.shipmentNo===inspection.reference),order=(state.salesOrders||[]).find(x=>x.orderNo===shipment?.orderNo);if(!shipment||!order||order.sku!==inspection.sku||inspection.qty<=0||inspection.qty>shipment.pickQty)fail(422,'A matching shipment, SKU and quantity are required.');shipment.oqcStatus=inspection.result;}
     }
    }
   }else if(action.startsWith('production.')){

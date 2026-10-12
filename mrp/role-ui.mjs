@@ -12,6 +12,7 @@ export function renderAccessDashboard(state,role){
 }
 export function installRoleUI({role,user,getState,action}){
  const pages=pageAccess(role),manager=isManager(role),ceo=role==='CEO';
+ const shippingLink=document.querySelector('#nav [data-page="shipping"]');shippingLink?.removeAttribute('data-i18n');if(shippingLink)shippingLink.textContent='Shipping & dispatch';
  const style=el('style',null,document.head);style.textContent='#nav button:disabled{opacity:.42;cursor:not-allowed}#nav{overflow-y:auto;padding-bottom:45vh}#nav button:disabled:hover{transform:none}.role-notice{padding:12px;border-left:4px solid #155e75;background:#eaf3f7}.role-form{display:flex;gap:12px;flex-wrap:wrap;padding:16px 0}.role-form label{display:flex;flex-direction:column;gap:5px}.role-form input,.role-form select{max-width:260px}.role-register{margin-top:20px;overflow:auto}.role-register table{width:100%}';
  function addPage(id,label){const b=el('button',label,$('nav'));b.dataset.page=id;const section=el('section',null,document.querySelector('main'));section.id=id;section.className='page';el('h2',label,section);return section;}
  const counts=addPage('counts','Cycle counting'),finance=addPage('finance','Accounting & financial reports');
@@ -68,7 +69,7 @@ export function installRoleUI({role,user,getState,action}){
   if(!manager){
    if(node.matches(readControls))return false;
    if(node.closest('#stock')&&node.closest('article')?.querySelector('#inventoryTransactionType'))return node.matches('[data-inventory-action]')&&node.textContent!=='Submit';
-   if(node.closest('#shipping')&&node.closest('#shipmentTable'))return !node.matches('[data-field="pickQty"],[data-field="packingList"],[data-field="invoiceNo"],[data-field="podNo"]');
+   if(node.closest('#shipping')&&node.closest('#shipmentTable'))return !node.matches('[data-field="orderNo"],[data-field="pickQty"],[data-field="packingList"],[data-field="invoiceNo"],[data-field="podNo"]');
    if(node.matches('#addShipment'))return false;
    if(page&&page!=='dashboard')return true;
   }
