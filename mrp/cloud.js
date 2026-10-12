@@ -150,12 +150,17 @@
         if (!section || section.querySelector('[data-server-receipt-notice]')) continue;
         const notice = document.createElement('p'); notice.dataset.serverReceiptNotice = ''; notice.className = 'hint';
         notice.append(document.createTextNode(explanation + ' '));
-        const link = document.createElement('a'); link.href = 'mobile-receipts.html'; link.textContent = 'Receive on this computer / mobile'; notice.append(link); section.prepend(notice);
+        const link = document.createElement('a'); link.href = 'mobile-receipts.html#computer'; link.textContent = '1. Receive on this computer'; notice.append(link); section.prepend(notice);
       }
       const hint = document.querySelector('[data-i18n="stockEditHint"]');
       if (hint && hint.textContent !== 'Stock is read-only here. Use the secure receipt console for incoming goods.') hint.textContent = 'Stock is read-only here. Use the secure receipt console for incoming goods.';
     };
-    for (const link of document.querySelectorAll('#receipts a[href*="mobile-receipts"]')) link.textContent = 'Receive on this computer / mobile';
+    for (const link of document.querySelectorAll('#receipts a[href*="mobile-receipts"]:not([data-server-receipt-notice] a)')) {
+      link.textContent = '2. Receive with mobile'; link.href = 'mobile-receipts.html#mobile';
+      if (!link.parentElement.querySelector('[data-usb-receipt-link]')) {
+        const usb = document.createElement('a'); usb.dataset.usbReceiptLink = ''; usb.href = 'mobile-receipts.html#usb'; usb.textContent = '3. Receive with USB scanner'; usb.style.marginInlineStart = '24px'; link.after(usb);
+      }
+    }
     apply();
     const observer = new MutationObserver(apply);
     for (const id of ['receipts','stock']) { const section = document.getElementById(id); if (section) observer.observe(section,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled']}); }
