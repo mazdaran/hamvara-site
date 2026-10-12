@@ -1,0 +1,25 @@
+name: Pilot subscription and receipt UI
+on:
+  pull_request:
+    paths:
+      - 'mrp/cloud.js'
+      - 'worker/src/mrp.js'
+      - 'worker/test/fixes-ui.cjs'
+      - '.github/workflows/pilot-ui-fixes.yml'
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated browser test dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/pilot-ui" --no-package-lock playwright@1.51.1
+          "$RUNNER_TEMP/pilot-ui/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Test subscription and receipt controls
+        run: NODE_PATH="$RUNNER_TEMP/pilot-ui/node_modules" node worker/test/fixes-ui.cjs

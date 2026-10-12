@@ -19,6 +19,7 @@
           const session = await request('/api/mrp/session');
           actor = { workspace: session.workspace, user: session.user };
           renderAccount();
+          configureReceiptPolicy(session.capabilities);
           renderTrialStatus(session.trial);
           if (session.trial && !session.trial.canWrite) {
             await showTrialGate(session.trial);
@@ -92,6 +93,10 @@
     if (!trial || trial.status === 'LEGACY') return;
     let banner = document.querySelector('#trialStatus');
     if (!banner) { banner = document.createElement('p'); banner.id='trialStatus'; banner.setAttribute('role','status'); document.body.prepend(banner); }
+    if (trial.source === 'paddle_sandbox') {
+      banner.textContent = `MRP subscription (Paddle Sandbox): ${trial.status} · Access until: ${formatTrialDate(trial.endsAt,trial.timezone)} · Test environment.`;
+      return;
+    }
     banner.textContent = `Pilot: ${trial.status} · Trial ends: ${formatTrialDate(trial.endsAt,trial.timezone)} · Read/export until: ${formatTrialDate(trial.readUntil,trial.timezone)}. No automatic charge.`;
   }
   async function showTrialGate(trial, message = '') {
@@ -104,8 +109,9 @@
     const card=document.createElement('div'); card.className='cloud-login-card'; dialog.append(card);
     const text=(tag,value)=>{const node=document.createElement(tag);node.textContent=value;card.append(node);return node;};
     text('h2',trial?.status==='GRACE'?'Trial ended — view and export':'Company access');
-    text('p',message || (trial?.status==='GRACE'?'New changes cannot be saved. You can view and download your saved company data during the export period.':'Your pilot has not started or its access period has ended. Contact Hamvara to arrange access.'));
-    if(trial) text('p',`Status: ${trial.status} · Start: ${formatTrialDate(trial.startsAt,trial.timezone)} · End: ${formatTrialDate(trial.endsAt,trial.timezone)} · Export deadline: ${formatTrialDate(trial.readUntil,trial.timezone)}`);
+    text('p',message || (trial?.source==='paddle_sandbox'?'An active MRP sandbox subscription is required for this workspace. Contact Hamvara if you have already completed a test checkout.':trial?.status==='GRACE'?'New changes cannot be saved. You can view and download your saved company data during the export period.':'Your pilot has not started or its access period has ended. Contact Hamvara to arrange access.'));
+    if(trial?.source==='paddle_sandbox') text('p',`Status: ${trial.status} · Access until: ${formatTrialDate(trial.endsAt,trial.timezone)}`);
+    else if(trial) text('p',`Status: ${trial.status} · Start: ${formatTrialDate(trial.startsAt,trial.timezone)} · End: ${formatTrialDate(trial.endsAt,trial.timezone)} · Export deadline: ${formatTrialDate(trial.readUntil,trial.timezone)}`);
     const feedback=text('p',''); feedback.setAttribute('role','status');
     const button=(label,fn)=>{const b=text('button',label);b.type='button';b.onclick=()=>{b.disabled=true;Promise.resolve().then(fn).catch(e=>{feedback.textContent=e.message;}).finally(()=>{b.disabled=false;});};return b;};
     if(trial?.canRead) {
@@ -123,6 +129,35 @@
     if(!dialog.open)dialog.showModal();
     // Keep the operational application paused; the gate provides explicit read/export actions.
     return new Promise(()=>{});
+  }
+
+  function configureReceiptPolicy(capabilities) {
+    if (capabilities?.serverReceipts !== true) return;
+    const explanation = 'This workspace uses secure receipt approval. Open the receipt console to receive and approve goods. Direct stock editing and legacy imports are unavailable.';
+    const selectors = '#receipts input, #receipts select, #receipts textarea, #receipts button:not([data-template]), #stockTable input, #stockTable select, [data-import="openingStock"]';
+    const transactionPanel = document.querySelector('#inventoryTransactionType')?.closest('article');
+    const restricted = node => node?.matches?.(selectors) || (transactionPanel?.contains(node) && node?.matches?.('input,select,textarea,button'));
+    // Capture before legacy handlers can mutate local state, including freshly rendered rows.
+    for (const type of ['click','change','input','submit']) document.addEventListener(type, event => {
+      const node = event.target.closest?.('input,select,textarea,button');
+      if (restricted(node)) { event.preventDefault(); event.stopImmediatePropagation(); }
+    }, true);
+    const apply = () => {
+      const controls = [...document.querySelectorAll(selectors), ...(transactionPanel?.querySelectorAll('input,select,textarea,button') || [])];
+      for (const node of controls) { if (!node.disabled) node.disabled = true; if (node.title !== explanation) node.title = explanation; }
+      for (const id of ['receipts','stock']) {
+        const section = document.getElementById(id);
+        if (!section || section.querySelector('[data-server-receipt-notice]')) continue;
+        const notice = document.createElement('p'); notice.dataset.serverReceiptNotice = ''; notice.className = 'hint';
+        notice.append(document.createTextNode(explanation + ' '));
+        const link = document.createElement('a'); link.href = 'mobile-receipts.html'; link.textContent = 'Open secure receipt console'; notice.append(link); section.prepend(notice);
+      }
+      const hint = document.querySelector('[data-i18n="stockEditHint"]');
+      if (hint && hint.textContent !== 'Stock is read-only here. Use the secure receipt console for incoming goods.') hint.textContent = 'Stock is read-only here. Use the secure receipt console for incoming goods.';
+    };
+    apply();
+    const observer = new MutationObserver(apply);
+    for (const id of ['receipts','stock']) { const section = document.getElementById(id); if (section) observer.observe(section,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled']}); }
   }
 
   function readCredentials() {
