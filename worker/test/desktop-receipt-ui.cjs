@@ -19,6 +19,7 @@ const path=require('node:path');
    }
    return route.fulfill({json:{receipts:[]}});
   }
+  if(url.pathname==='/mrp/config.js')return route.fulfill({contentType:'application/javascript',body:'window.HAMVARA_MRP_CONFIG={apiBase:location.origin};'});
   const file=path.join(process.cwd(),url.pathname);
   return route.fulfill({body:fs.readFileSync(file),contentType:file.endsWith('.js')?'application/javascript':file.endsWith('.css')?'text/css':'text/html'});
  });
