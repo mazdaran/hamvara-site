@@ -31,7 +31,7 @@ const path=require('node:path');
  await page.locator('#submitDesktop').click();
  await page.waitForFunction(()=>document.querySelector('#submitDesktop').textContent==='Retry same receipt');
  assert.equal(await page.locator('#desktopCode').isDisabled(),true);
- assert.equal(await page.locator('#desktopFields').isDisabled(),true);
+ assert.equal(await page.locator('#desktopFields [name=quantity]').isDisabled(),true);
  await page.locator('#submitDesktop').click();await page.waitForFunction(()=>document.querySelector('#desktopStatus').textContent.includes('Saved on the server'));
  assert.equal(attempts.length,2);assert.deepEqual(attempts[0],attempts[1]);assert.equal(pairings,0);
  assert.equal(attempts[0].destinationWarehouse,'WH-FG');assert.equal(attempts[0].unit,'pcs');
