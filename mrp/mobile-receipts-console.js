@@ -1,3 +1,4 @@
+import {parseQuantity} from './numeric-input.mjs';
 const $=id=>document.getElementById(id),base=String(window.HAMVARA_MRP_CONFIG?.apiBase||'').replace(/\/$/,'');
 let credentials=null,actor=null,pairing=null,timer=null,inFlight=false;
 function message(value,error=false){$('message').textContent=value;$('message').className=error?'error':'';}
@@ -85,6 +86,8 @@ $('desktopReceipt').onsubmit=event=>{
  if(!desktopPending){
   if(!$('desktopReceipt').reportValidity())return;
   const fields=Object.fromEntries(new FormData($('desktopReceipt')));
+  fields.quantity=parseQuantity(fields.quantity);
+  if(!Number.isFinite(fields.quantity)){desktopStatus('Enter a positive quantity, at most 1,000,000,000. Example: 12.5 or ۱۲٫۵.');return;}
   desktopPending={...fields,clientEventId:crypto.randomUUID(),sku:desktopItem.sku,unit:desktopItem.unit,destinationWarehouse:desktopItem.warehouse};
  }
  desktopBusy=true;lockDesktop(true);$('submitDesktop').disabled=true;

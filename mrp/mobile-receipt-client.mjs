@@ -1,3 +1,4 @@
+import {parseQuantity} from './numeric-input.mjs';
 const encoder=new TextEncoder();
 export const base64url=value=>btoa(String.fromCharCode(...new Uint8Array(value))).replaceAll('+','-').replaceAll('/','_').replaceAll('=','');
 const digest=async value=>base64url(await crypto.subtle.digest('SHA-256',encoder.encode(value)));
@@ -28,7 +29,7 @@ export function pairingToken(value,origin){
  return token;
 }
 export function newReceipt(item,scope,fields){
- const quantity=Number(fields.quantity);
+ const quantity=parseQuantity(fields.quantity);
  if(!Number.isFinite(quantity)||quantity<=0||quantity>1e9)throw Error('Enter a positive quantity, at most 1,000,000,000.');
  if(!fields.reference.trim()||!fields.supplier.trim())throw Error('Reference and supplier are required.');
  if(item.lotTracked&&!fields.lotNo.trim())throw Error('Lot number is required.');

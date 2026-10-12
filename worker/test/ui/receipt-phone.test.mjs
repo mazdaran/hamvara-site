@@ -37,3 +37,11 @@ test('changing scanned code invalidates item and failed lookup cannot submit',as
  const {el}=setup({hash:'#token=invalid',href:'https://api.test/mrp/mobile-receipt#token=invalid'});
  assert.match(el('message').textContent,/Invalid pairing link/);assert.equal(el('message').className,'error');
  });
+
+test('phone submits Persian and Arabic decimal quantities as numbers',async()=>{
+ for(const value of ['۱۲٫۵','١٢٫٥']){
+  const {context,el,run}=setup();el('quantity').value=value;let sent;
+  context.signedRequest=async(_i,_t,_p,payload)=>{sent=payload;return {receipt:{id:'r1',status:'SUBMITTED',payload}};};
+  await run("$('receiptForm').onsubmit({preventDefault(){}})");assert.equal(sent.quantity,12.5);
+ }
+});

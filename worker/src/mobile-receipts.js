@@ -1,3 +1,4 @@
+import {parseQuantity,matchingItems} from '../../mrp/numeric-input.mjs';
 import {getTrialAccess,enforceTrial} from './trials.js';
 import {queueReceiptForApproval,applyReceiptQcDecision,applyManagerReceiptDecision} from '../../mrp/receipt-workflow.js';
 
@@ -65,7 +66,7 @@ export async function handleMobileReceiptPhone(request,env,url){
  const nonce=await verifyProof(request,raw,row.public_key);await consumeNonce(env,row,nonce);
  if(url.pathname==='/api/mrp/mobile-receipts/lookup'&&request.method==='POST'){
   const code=text(body.code,256,true),{state}=await stateRow(env,row.workspace_id);
-  const matches=(state.skus||[]).filter(item=>item.active!==false&&(item.code===code||item.barcode===code));
+  const matches=matchingItems(state.skus||[],code);
   if(!matches.length)fail(422,'Unknown barcode or SKU. Ask a manager to define the item.');
   if(matches.length!==1)fail(409,'This code matches multiple items. Ask a manager to correct the catalog.');
   const item=matches[0];
@@ -80,7 +81,7 @@ function validatePayload(body,state,warehouse){
  if(!item)fail(422,'Unknown or inactive SKU. Ask a manager to create the item, then retry.');
  if(!(state.warehouses||[]).some(x=>x.code===warehouse&&x.active!==false)||warehouse==='WH-QA')fail(422,'Invalid destination warehouse.');
  if(body.destinationWarehouse!==warehouse)fail(403,'This device is paired to a different warehouse.');
- const quantity=Number(body.quantity);if(!Number.isFinite(quantity)||quantity<=0||quantity>1000000000)fail(422,'Quantity must be positive and at most 1,000,000,000.');
+ const quantity=parseQuantity(body.quantity);if(!Number.isFinite(quantity)||quantity<=0||quantity>1000000000)fail(422,'Quantity must be positive and at most 1,000,000,000.');
  const unit=text(body.unit,40,true);if(unit!==item.unit)fail(422,'Unit must match the SKU master.');
  const payload={sku,quantity,unit,destinationWarehouse:warehouse,reference:text(body.reference,100,true),supplier:text(body.supplier,120,true),note:text(body.note||'',1000),lotNo:text(body.lotNo||'',100),serialNo:text(body.serialNo||'',100),expiryDate:text(body.expiryDate||'',10),date:text(body.date,10,true)};
  if(!/^\d{4}-\d{2}-\d{2}$/.test(payload.date)||Number.isNaN(Date.parse(payload.date+'T00:00:00Z'))||new Date(payload.date+'T00:00:00Z').toISOString().slice(0,10)!==payload.date)fail(422,'Invalid receipt date.');
@@ -115,7 +116,7 @@ export async function handleReceiptConsole(request,env,url,actor){
   const {body}=await readBody(request);const warehouse=text(body.warehouse,100,true);await granted(env,actor,warehouse);
   const {state}=await stateRow(env,actor.workspace.id);
   if(!(state.warehouses||[]).some(x=>x.code===warehouse&&x.active!==false&&x.code!=='WH-QA'))fail(422,'Invalid destination warehouse.');
-  const code=text(body.code,256,true),matches=(state.skus||[]).filter(x=>x.active!==false&&(x.code===code||x.barcode===code));
+  const code=text(body.code,256,true),matches=matchingItems(state.skus||[],code);
   if(!matches.length)fail(422,'Unknown barcode or SKU. Ask a manager to define the item.');
   if(matches.length!==1)fail(409,'This code matches multiple items. Ask a manager to correct the catalog.');
   const item=matches[0];return json({item:{sku:item.code,name:item.name,unit:item.unit,lotTracked:!!item.lotTracked,serialTracked:!!item.serialTracked}});
