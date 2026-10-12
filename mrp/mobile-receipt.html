@@ -9,7 +9,7 @@
 <form id="receiptForm"><fieldset id="fields" disabled>
 <section class="card"><h2>1. Identify goods</h2><div id="reader"></div><button id="startCamera" type="button">Start camera</button><button id="stopCamera" type="button" hidden>Stop camera</button><label>Barcode or SKU<input id="code" maxlength="256" autocomplete="off" enterkeyhint="search"></label><button id="lookup" type="button">Identify item</button><p id="item" aria-live="polite">Scan a barcode or enter its value.</p></section>
 <section class="card"><h2>2. Receipt details</h2>
-<label>Quantity<input id="quantity" type="number" min="0.00000001" max="1000000000" step="any" inputmode="decimal" required></label>
+<label>Quantity<input id="quantity" type="text" inputmode="decimal" required></label>
 <label>Document reference<input id="reference" maxlength="100" required></label><label>Supplier<input id="supplier" maxlength="120" required></label><label>Receipt date<input id="date" type="date" required></label>
 <label>Lot number<input id="lotNo" maxlength="100"></label><label>Serial number<input id="serialNo" maxlength="100"></label><label>Expiry date<input id="expiryDate" type="date"></label><label>Note<input id="note" maxlength="1000"></label>
 <button id="submitReceipt" type="submit" class="primary" disabled>Send for review</button></section>

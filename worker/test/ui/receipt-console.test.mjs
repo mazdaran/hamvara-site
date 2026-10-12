@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
-const source=readFileSync(new URL('../../../mrp/mobile-receipts-console.js',import.meta.url),'utf8');
+const source=readFileSync(new URL('../../../mrp/mobile-receipts-console.js',import.meta.url),'utf8').replace(/^import .*;\n/,'');
 function setup(){
  const elements=new Map();
  const el=id=>{if(!elements.has(id))elements.set(id,{textContent:'',className:'',hidden:false,replaceChildren(){},append(){},addEventListener(){}});return elements.get(id);};

@@ -206,3 +206,15 @@ test('desktop barcode lookup rejects ambiguity and isolates tenants',async()=>{
  st.skus.push({code:'SKU-2',barcode:'123',unit:'pcs'});save();await assert.rejects(lookup('123'),status(409));
  st.skus[0].active=false;st.skus[1].active=false;save();await assert.rejects(lookup('123'),status(422));
 });
+
+test('localized quantities normalize before idempotency and barcode lookup preserves zeroes',async()=>{
+ const f=await fixture(),body=f.payload({quantity:'۱۲٫۵'});
+ const send=async data=>(await f.web('operator','receipt-console/receipts',data)).json();
+ const first=await send(body);assert.equal(first.receipt.payload.quantity,12.5);
+ assert.equal((await send({...body,quantity:'١٢٫٥'})).receipt.id,first.receipt.id);
+ for(const quantity of ['۰','-۱','۱٫۲٫۳','۱,۲',true,'0x10'])await assert.rejects(send({...body,clientEventId:crypto.randomUUID(),quantity}),status(422));
+ const st=state();st.skus[0].barcode='00123';f.sql.prepare("UPDATE mrp_state SET state_json=? WHERE workspace_id='w1'").run(JSON.stringify(st));
+ const lookup=async code=>(await f.web('operator','receipt-console/lookup',{code,warehouse:'WH-RM'})).json();
+ assert.equal((await lookup('۰۰۱۲۳')).item.sku,'SKU-1');
+ await assert.rejects(lookup('۱۲۳'),status(422));
+});
