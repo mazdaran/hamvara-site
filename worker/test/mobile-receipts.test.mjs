@@ -213,6 +213,7 @@ test('localized quantities normalize before idempotency and barcode lookup prese
  const first=await send(body);assert.equal(first.receipt.payload.quantity,12.5);
  assert.equal((await send({...body,quantity:'١٢٫٥'})).receipt.id,first.receipt.id);
  for(const quantity of ['۰','-۱','۱٫۲٫۳','۱,۲',true,'0x10'])await assert.rejects(send({...body,clientEventId:crypto.randomUUID(),quantity}),status(422));
+ assert.equal((await send({...body,clientEventId:crypto.randomUUID(),quantity:0.00000001})).receipt.payload.quantity,0.00000001);
  const st=state();st.skus[0].barcode='00123';f.sql.prepare("UPDATE mrp_state SET state_json=? WHERE workspace_id='w1'").run(JSON.stringify(st));
  const lookup=async code=>(await f.web('operator','receipt-console/lookup',{code,warehouse:'WH-RM'})).json();
  assert.equal((await lookup('۰۰۱۲۳')).item.sku,'SKU-1');
