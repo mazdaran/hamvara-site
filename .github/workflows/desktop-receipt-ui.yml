@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'mrp/mobile-receipts*'
+      - 'mrp/cloud.js'
+      - 'mrp/role-dashboard.mjs'
+      - 'worker/test/role-dashboard-ui.cjs'
       - 'worker/src/mobile-receipts.js'
       - 'worker/test/desktop-receipt-ui.cjs'
       - '.github/workflows/desktop-receipt-ui.yml'
@@ -21,3 +24,4 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/receipt-ui" --no-package-lock playwright@1.51.1
           "$RUNNER_TEMP/receipt-ui/node_modules/.bin/playwright" install --with-deps chromium
       - run: NODE_PATH="$RUNNER_TEMP/receipt-ui/node_modules" node worker/test/desktop-receipt-ui.cjs
+      - run: NODE_PATH="$RUNNER_TEMP/receipt-ui/node_modules" node worker/test/role-dashboard-ui.cjs
