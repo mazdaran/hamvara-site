@@ -171,3 +171,38 @@ test('browser non-exportable identity uses the existing approval and idempotent 
  await f.web('operator',`receipt-console/pairings/${p.id}`,{action:'revoke'});
  await assert.rejects(call('/lookup',{code:'SKU-1'}),status(401));
 });
+
+test('desktop needs no pairing and completes independent approval exactly once',async()=>{
+ const f=await fixture(),body=f.payload();
+ const lookup=await(await f.web('operator','receipt-console/lookup',{code:'SKU-1',warehouse:'WH-RM'})).json();assert.equal(lookup.item.unit,'pcs');assert.equal(lookup.item.cost,undefined);
+ const submit=async data=>(await f.web('operator','receipt-console/receipts',data)).json();
+ const first=await submit(body),retry=await submit(body);assert.equal(first.receipt.id,retry.receipt.id);assert.equal(retry.duplicate,true);
+ assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM mrp_mobile_pairings').get().n,0);
+ assert.equal(f.sql.prepare("SELECT COUNT(*) n FROM mrp_audit_log WHERE action='desktop_receipt.submitted'").get().n,1);
+ await assert.rejects(submit({...body,quantity:9}),status(409));
+ await assert.rejects(f.transition(first.receipt.id,'receive',0,'operator'),status(403));
+ assert.equal((await(await f.web('other','receipt-console/receipts')).json()).receipts.length,0);
+ for(const [action,version,user] of [['receive',0,'manager'],['qc_accept',1,'manager'],['approve',2,'factory'],['post',3,'ceo']])await f.transition(first.receipt.id,action,version,user);
+ const current=JSON.parse(f.sql.prepare("SELECT state_json FROM mrp_state WHERE workspace_id='w1'").get().state_json);
+ assert.equal(current.stock['SKU-1']['WH-RM'],5);assert.equal(current.stock['SKU-1']['WH-QA'],0);assert.equal(current.receipts.length,1);
+});
+test('desktop enforces grants, role, validation, subscription and atomic audit',async()=>{
+ const f=await fixture(),send=(user,extra={})=>f.web(user,'receipt-console/receipts',f.payload(extra));
+ await assert.rejects(send('accounting'),status(403));
+ await assert.rejects(send('operator',{destinationWarehouse:'WH-FG'}),status(403));
+ for(const extra of [{sku:'UNKNOWN'},{unit:'kg'},{quantity:0},{date:'2026-02-30'}])await assert.rejects(send('operator',extra),status(422));
+ f.env.DB.failAudit=true;await assert.rejects(send('operator'),/audit unavailable/);f.env.DB.failAudit=false;
+ assert.equal(f.sql.prepare('SELECT count(*) n FROM mrp_mobile_receipts').get().n,0);
+ f.sql.exec("DELETE FROM mrp_mobile_warehouse_grants WHERE user_id='u1'");await assert.rejects(send('operator'),status(403));
+ const start=Date.now()-31*86400000;f.sql.prepare('INSERT INTO mrp_trials (workspace_id,starts_at,ends_at,read_until,activated_at) VALUES (?,?,?,?,?)').run('w1',start,start+30*86400000,start+44*86400000,start);
+ await assert.rejects(send('ceo'),status(403));
+});
+test('desktop barcode lookup rejects ambiguity and isolates tenants',async()=>{
+ const f=await fixture(),st=state();st.skus[0].barcode='123';
+ const save=()=>f.sql.prepare("UPDATE mrp_state SET state_json=? WHERE workspace_id='w1'").run(JSON.stringify(st));save();
+ const lookup=code=>f.web('operator','receipt-console/lookup',{code,warehouse:'WH-RM'});
+ assert.equal((await(await lookup('123')).json()).item.sku,'SKU-1');
+ await assert.rejects(f.web('other','receipt-console/lookup',{code:'123',warehouse:'WH-RM'}),status(422));
+ st.skus.push({code:'SKU-2',barcode:'123',unit:'pcs'});save();await assert.rejects(lookup('123'),status(409));
+ st.skus[0].active=false;st.skus[1].active=false;save();await assert.rejects(lookup('123'),status(422));
+});
