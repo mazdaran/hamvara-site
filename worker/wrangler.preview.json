@@ -1,0 +1,7 @@
+{
+  "name": "hamvara-isolated-preview",
+  "main": "src/isolated-preview.js",
+  "compatibility_date": "2026-08-01",
+  "workers_dev": true,
+  "preview_urls": false
+}

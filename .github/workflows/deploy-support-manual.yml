@@ -17,7 +17,7 @@ permissions:
   contents: read
 jobs:
   deploy:
-    if: ${{ inputs.confirmation == 'DEPLOY-SUPPORT' }}
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirmation == 'DEPLOY-SUPPORT' }}
     environment: production
     runs-on: ubuntu-latest
     env:
