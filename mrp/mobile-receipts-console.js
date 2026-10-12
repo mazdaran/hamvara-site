@@ -2,14 +2,14 @@ const $=id=>document.getElementById(id),base=String(window.HAMVARA_MRP_CONFIG?.a
 let credentials=null,actor=null,pairing=null,timer=null,inFlight=false;
 function message(value,error=false){$('message').textContent=value;$('message').className=error?'error':'';}
 function syncMessage(value,error=false){$('syncStatus').textContent=value;$('syncStatus').className=error?'error':'muted';}
-async function api(path,body){const response=await fetch(base+'/api/mrp/receipt-console'+path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-Hamvara-Workspace':credentials?.workspace||'','X-Hamvara-User':credentials?.username||'','X-Hamvara-Key':credentials?.accessKey||''},...(body===undefined?{}:{body:JSON.stringify(body)})});const result=await response.json();if(!response.ok)throw Error(result.error||'Request failed.');return result;}
+async function api(path,body){const response=await fetch(base+'/api/mrp/receipt-console'+path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-Hamvara-Workspace':credentials?.workspace||'','X-Hamvara-User':credentials?.username||'','X-Hamvara-Key':credentials?.accessKey||''},...(body===undefined?{}:{body:JSON.stringify(body)})});const result=await response.json();if(!response.ok)throw Object.assign(Error(result.error||'Request failed.'),{status:response.status});return result;}
 async function action(button,fn){button.disabled=true;try{await fn();}catch(error){message(error.message,true);}finally{button.disabled=false;}}
 function options(id,items,value,label){$(id).replaceChildren(...items.map(item=>{const option=document.createElement('option');option.value=item[value];option.textContent=label(item);return option;}));}
 $('login').onsubmit=event=>{event.preventDefault();action($('login').querySelector('button'),async()=>{
  const data=new FormData(event.target);credentials={workspace:String(data.get('workspace')).trim().toLowerCase(),username:String(data.get('username')).trim().toLowerCase(),accessKey:String(data.get('accessKey'))};
- try{const bootstrap=await api('/bootstrap');actor=bootstrap.actor;$('actor').textContent=`${actor.workspace.slug} · ${actor.user.username} · ${actor.user.role}`;options('warehouse',bootstrap.warehouses,'code',x=>`${x.code} · ${x.name}`);$('pair').disabled=!bootstrap.warehouses.length;$('login').hidden=true;$('workspace').hidden=false;$('logout').hidden=false;$('login').reset();
+ try{const bootstrap=await api('/bootstrap');actor=bootstrap.actor;$('actor').textContent=`${actor.workspace.slug} · ${actor.user.username} · ${actor.user.role}`;options('warehouse',bootstrap.warehouses,'code',x=>`${x.code} · ${x.name}`);$('pair').disabled=!bootstrap.warehouses.length;setupDesktop(bootstrap);$('login').hidden=true;$('workspace').hidden=false;$('logout').hidden=false;$('login').reset();
  if(actor.user.role==='CEO'){const {users}=await api('/users');options('user',users,'id',x=>`${x.username} · ${x.role}`);options('grantWarehouse',bootstrap.warehouses,'code',x=>`${x.code} · ${x.name}`);$('permissions').hidden=false;}
- await refresh();message('Connected. Create a pairing QR or review incoming receipts.');timer=setInterval(poll,4000);
+ await refresh();message('Connected. Enter goods on this computer, optionally connect a phone, or review receipts.');timer=setInterval(poll,4000);
  }catch(error){credentials=null;actor=null;$('login').hidden=false;$('workspace').hidden=true;$('logout').hidden=true;$('permissions').hidden=true;throw error;}
 });};
 $('logout').onclick=()=>{clearInterval(timer);credentials=null;location.reload();};
@@ -17,7 +17,7 @@ $('pair').onclick=()=>action($('pair'),async()=>{
  if(pairing)await api(`/pairings/${pairing.id}`,{action:'revoke'});
  pairing=await api('/pairings',{warehouse:$('warehouse').value});$('qr').replaceChildren();
  new QRCode($('qr'),{text:`${location.origin}/mrp/mobile-receipt.html#token=${encodeURIComponent(pairing.token)}`,width:180,height:180});
- $('approveDevice').hidden=true;$('revokeDevice').hidden=false;$('pairStatus').textContent='Scan in the updated Android app within 60 seconds.';
+ $('approveDevice').hidden=true;$('revokeDevice').hidden=false;$('pairStatus').textContent='Scan with the iPhone camera or Android app within 60 seconds.';
  delete pairing.token;
 });
 $('approveDevice').onclick=()=>action($('approveDevice'),async()=>{await api(`/pairings/${pairing.id}`,{action:'approve'});message('Device approved. Tap Connect / refresh pairing on the phone.');await poll();});
@@ -48,3 +48,62 @@ async function poll(){
  }catch(error){syncMessage('Connection check failed. Displayed information may be out of date. '+error.message,true);}
  finally{inFlight=false;}
 }
+
+// One immutable event is retained after an uncertain response, so Retry cannot duplicate stock.
+let desktopItem=null,desktopPending=null,desktopBusy=false,desktopUncertain=false,lookupSequence=0;
+function desktopStatus(value){$('desktopStatus').textContent=value;}
+function localDate(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function setupDesktop(bootstrap){
+ options('desktopWarehouse',bootstrap.warehouses,'code',x=>`${x.code} · ${x.name}`);
+ const allowed=['OPERATOR','PRODUCTION_MANAGER','FACTORY_MANAGER','CEO'].includes(bootstrap.actor.user.role)&&bootstrap.warehouses.length>0;
+ $('desktopLookup').hidden=!allowed;$('desktopReceipt').hidden=!allowed;
+ $('desktopDate').value=localDate();
+ if(!allowed)$('desktopItem').textContent='Your role or warehouse permissions do not allow receipt submission.';
+}
+function invalidateDesktop(){
+ lookupSequence++;desktopItem=null;$('desktopFields').disabled=true;$('submitDesktop').disabled=true;
+ $('desktopItem').textContent='Identify an item to continue.';
+}
+$('desktopCode').oninput=invalidateDesktop;
+$('desktopWarehouse').onchange=invalidateDesktop;
+$('desktopLookup').onsubmit=event=>{
+ event.preventDefault();if(desktopPending||desktopBusy)return;
+ const sequence=++lookupSequence,warehouse=$('desktopWarehouse').value,code=$('desktopCode').value.trim();
+ desktopItem=null;$('desktopFields').disabled=true;$('submitDesktop').disabled=true;
+ action($('identifyDesktop'),async()=>{
+  const result=await api('/lookup',{warehouse,code});if(sequence!==lookupSequence)return;
+  desktopItem={...result.item,warehouse};$('desktopItem').textContent=`${desktopItem.sku} · ${desktopItem.name} · ${desktopItem.unit}`;
+  $('desktopLot').required=desktopItem.lotTracked;$('desktopSerial').required=desktopItem.serialTracked;
+  $('desktopFields').disabled=false;$('submitDesktop').disabled=false;desktopStatus('');
+ });
+};
+function lockDesktop(locked){
+ for(const id of ['desktopWarehouse','desktopCode','identifyDesktop','desktopFields'])$(id).disabled=locked;
+}
+$('desktopReceipt').onsubmit=event=>{
+ event.preventDefault();if(desktopBusy||!desktopItem)return;
+ if(!desktopPending){
+  if(!$('desktopReceipt').reportValidity())return;
+  const fields=Object.fromEntries(new FormData($('desktopReceipt')));
+  desktopPending={...fields,clientEventId:crypto.randomUUID(),sku:desktopItem.sku,unit:desktopItem.unit,destinationWarehouse:desktopItem.warehouse};
+ }
+ desktopBusy=true;lockDesktop(true);$('submitDesktop').disabled=true;
+ (async()=>{
+  try{
+   const result=await api('/receipts',desktopPending);
+   desktopStatus(`Receipt ${result.receipt.id} · ${result.receipt.status}. Saved on the server; an independent reviewer must continue.`);
+   desktopPending=null;desktopUncertain=false;$('desktopReceipt').reset();$('desktopDate').value=localDate();
+   lockDesktop(false);invalidateDesktop();$('desktopCode').value='';$('submitDesktop').textContent='Submit for review';
+   try{await refresh();}catch{syncMessage('Receipt saved. Inbox refresh failed; use Refresh to see it.',true);}
+  }catch(error){
+   // Definite validation/auth failures did not accept a new receipt. Uncertain failures retain the exact event.
+   if(!desktopUncertain&&[400,401,403,404,413,422].includes(error.status)){
+    desktopPending=null;lockDesktop(false);$('submitDesktop').disabled=false;
+    desktopStatus(error.message+' Correct the details or permissions and submit again.');
+   }else{
+    desktopUncertain=true;desktopStatus('Submission not confirmed. Keep this page open and retry the same receipt. '+error.message);
+    $('submitDesktop').textContent='Retry same receipt';$('submitDesktop').disabled=false;
+   }
+  }finally{desktopBusy=false;}
+ })();
+};

@@ -92,9 +92,10 @@ function validatePayload(body,state,warehouse){
 async function submit(env,actor,pair,body){
  const row=await stateRow(env,actor.workspace.id),payload=validatePayload(body,row.state,pair.warehouse),serialized=JSON.stringify(payload),fingerprint=await hash(serialized),id=crypto.randomUUID(),now=new Date().toISOString();
  const deviceHash=await hash(pair.public_key);
+ const source=pair.source==='desktop'?'desktop':'mobile';
  const [insert]=await env.DB.batch([
   env.DB.prepare(`INSERT OR IGNORE INTO mrp_mobile_receipts (id,workspace_id,submitted_by,device_key_hash,client_event_id,payload_json,payload_hash,status,version,created_at,updated_at) VALUES (?,?,?,?,?,?,?,'SUBMITTED',0,?,?)`).bind(id,actor.workspace.id,actor.user.id,deviceHash,body.clientEventId,serialized,fingerprint,now,now),
-  env.DB.prepare('INSERT INTO mrp_audit_log (workspace_id,user_id,action,details_json,created_at) SELECT ?,?,?,?,? WHERE EXISTS (SELECT 1 FROM mrp_mobile_receipts WHERE id=?)').bind(actor.workspace.id,actor.user.id,'mobile_receipt.submitted',JSON.stringify({receiptId:id,deviceKeyHash:deviceHash,warehouse:pair.warehouse}),now,id)
+  env.DB.prepare('INSERT INTO mrp_audit_log (workspace_id,user_id,action,details_json,created_at) SELECT ?,?,?,?,? WHERE EXISTS (SELECT 1 FROM mrp_mobile_receipts WHERE id=?)').bind(actor.workspace.id,actor.user.id,source==='desktop'?'desktop_receipt.submitted':'mobile_receipt.submitted',JSON.stringify({receiptId:id,source,deviceKeyHash:deviceHash,warehouse:pair.warehouse}),now,id)
  ]);
  const saved=await env.DB.prepare('SELECT * FROM mrp_mobile_receipts WHERE workspace_id=? AND submitted_by=? AND client_event_id=?').bind(actor.workspace.id,actor.user.id,body.clientEventId).first();
  if(saved.payload_hash!==fingerprint)fail(409,'This event ID already belongs to different receipt data.');
@@ -109,6 +110,20 @@ export async function handleReceiptConsole(request,env,url,actor){
   const grants=await env.DB.prepare('SELECT warehouse FROM mrp_mobile_warehouse_grants WHERE workspace_id=? AND user_id=?').bind(actor.workspace.id,actor.user.id).all();
   const allowed=new Set(grants.results.map(x=>x.warehouse));
   return json({actor,warehouses:(state.warehouses||[]).filter(x=>x.code!=='WH-QA'&&x.active!==false&&(actor.user.role==='CEO'||allowed.has(x.code))).map(x=>({code:x.code,name:x.name})),skus:(state.skus||[]).filter(x=>x.active!==false).map(x=>({code:x.code,name:x.name,unit:x.unit,lotTracked:!!x.lotTracked,serialTracked:!!x.serialTracked}))});
+ }
+ if(path==='/lookup'&&request.method==='POST'){
+  const {body}=await readBody(request);const warehouse=text(body.warehouse,100,true);await granted(env,actor,warehouse);
+  const {state}=await stateRow(env,actor.workspace.id);
+  if(!(state.warehouses||[]).some(x=>x.code===warehouse&&x.active!==false&&x.code!=='WH-QA'))fail(422,'Invalid destination warehouse.');
+  const code=text(body.code,256,true),matches=(state.skus||[]).filter(x=>x.active!==false&&(x.code===code||x.barcode===code));
+  if(!matches.length)fail(422,'Unknown barcode or SKU. Ask a manager to define the item.');
+  if(matches.length!==1)fail(409,'This code matches multiple items. Ask a manager to correct the catalog.');
+  const item=matches[0];return json({item:{sku:item.code,name:item.name,unit:item.unit,lotTracked:!!item.lotTracked,serialTracked:!!item.serialTracked}});
+ }
+ if(path==='/receipts'&&request.method==='POST'){
+  const {body}=await readBody(request);const warehouse=text(body.destinationWarehouse,100,true);
+  await granted(env,actor,warehouse);
+  return submit(env,actor,{warehouse,public_key:`desktop:${actor.workspace.id}:${actor.user.id}`,source:'desktop'},body);
  }
  if(path==='/users'&&request.method==='GET'){
   if(actor.user.role!=='CEO')fail(403,'CEO required.');

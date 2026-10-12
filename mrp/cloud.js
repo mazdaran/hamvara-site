@@ -150,11 +150,12 @@
         if (!section || section.querySelector('[data-server-receipt-notice]')) continue;
         const notice = document.createElement('p'); notice.dataset.serverReceiptNotice = ''; notice.className = 'hint';
         notice.append(document.createTextNode(explanation + ' '));
-        const link = document.createElement('a'); link.href = 'mobile-receipts.html'; link.textContent = 'Open secure receipt console'; notice.append(link); section.prepend(notice);
+        const link = document.createElement('a'); link.href = 'mobile-receipts.html'; link.textContent = 'Open goods receipt & approval'; notice.append(link); section.prepend(notice);
       }
       const hint = document.querySelector('[data-i18n="stockEditHint"]');
       if (hint && hint.textContent !== 'Stock is read-only here. Use the secure receipt console for incoming goods.') hint.textContent = 'Stock is read-only here. Use the secure receipt console for incoming goods.';
     };
+    for (const link of document.querySelectorAll('#receipts a[href*="mobile-receipts"]')) link.textContent = 'Open goods receipt & approval';
     apply();
     const observer = new MutationObserver(apply);
     for (const id of ['receipts','stock']) { const section = document.getElementById(id); if (section) observer.observe(section,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled']}); }

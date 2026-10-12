@@ -1,0 +1,23 @@
+name: Desktop receipt UI
+on:
+  pull_request:
+    paths:
+      - 'mrp/mobile-receipts*'
+      - 'worker/src/mobile-receipts.js'
+      - 'worker/test/desktop-receipt-ui.cjs'
+      - '.github/workflows/desktop-receipt-ui.yml'
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm install --prefix "$RUNNER_TEMP/receipt-ui" --no-package-lock playwright@1.51.1
+          "$RUNNER_TEMP/receipt-ui/node_modules/.bin/playwright" install --with-deps chromium
+      - run: NODE_PATH="$RUNNER_TEMP/receipt-ui/node_modules" node worker/test/desktop-receipt-ui.cjs
