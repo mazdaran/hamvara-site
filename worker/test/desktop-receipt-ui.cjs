@@ -6,7 +6,7 @@ const path=require('node:path');
  const browser=await chromium.launch();
  try{
  const page=await browser.newPage();let attempts=[],pairings=0,failFirst=true;
- await page.addInitScript(()=>{const hid=new EventTarget();const device={productName:'Test USB scanner',opened:false,open:async function(){this.opened=true;},close:async function(){this.opened=false;}};hid.requestDevice=async()=>[device];Object.defineProperty(navigator,'hid',{value:hid,configurable:true});window.testHidDevice=device;});
+ await page.addInitScript(()=>{if(location.search==='?nohid'){Object.defineProperty(navigator,'hid',{value:undefined,configurable:true});return;}const hid=new EventTarget();const device={productName:'Test USB scanner',opened:false,open:async function(){this.opened=true;},close:async function(){this.opened=false;}};hid.requestDevice=async()=>[device];Object.defineProperty(navigator,'hid',{value:hid,configurable:true});window.testHidDevice=device;});
  await page.route('https://desktop.test/**',async route=>{
   const req=route.request(),url=new URL(req.url()),endpoint=url.pathname.split('/receipt-console')[1];
   if(endpoint){
@@ -48,8 +48,7 @@ const path=require('node:path');
  assert.equal(attempts.length,2);assert.deepEqual(attempts[0],attempts[1]);assert.equal(pairings,0);
  assert.equal(attempts[0].destinationWarehouse,'WH-FG');assert.equal(attempts[0].unit,'pcs');
  assert.equal(await page.locator('#submitDesktop').isDisabled(),true);assert.equal(await page.locator('#desktopCode').inputValue(),'');
- await page.addInitScript(()=>Object.defineProperty(navigator,'hid',{value:undefined}));
- await page.goto('https://desktop.test/mrp/mobile-receipts.html#usb');
+ await page.goto('https://desktop.test/mrp/mobile-receipts.html?nohid#usb');
  assert.match(await page.locator('#usbConnection').textContent(),/Connection detection unavailable/);
  console.log('PASS separate entry modes, HID connect/disconnect, honest keyboard fallback, immutable retry');
  }finally{await browser.close();}
