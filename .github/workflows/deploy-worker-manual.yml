@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   deploy:
-    if: ${{ inputs.confirmation == 'DEPLOY-PRODUCTION' }}
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirmation == 'DEPLOY-PRODUCTION' }}
     environment: production
     runs-on: ubuntu-latest
     defaults:

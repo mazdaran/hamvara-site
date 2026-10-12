@@ -1,5 +1,6 @@
 name = "hamvara-growth-api"
 main = "worker/src/index.js"
+preview_urls = false
 compatibility_date = "2026-08-01"
 
 [vars]

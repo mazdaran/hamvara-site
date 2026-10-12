@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   migrate:
-    if: ${{ inputs.confirmation == 'MIGRATE-PRODUCTION' }}
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirmation == 'MIGRATE-PRODUCTION' }}
     environment: production
     runs-on: ubuntu-latest
     defaults:
