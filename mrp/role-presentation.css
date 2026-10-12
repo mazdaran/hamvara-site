@@ -1,0 +1,70 @@
+/* Role-policy workspaces only. Other dashboards retain their existing layout. */
+.role-policy-presentation .topbar {
+  display:grid;
+  grid-template-columns:minmax(185px,230px) minmax(0,1fr) minmax(180px,280px);
+  align-items:center;
+  gap:12px 20px;
+  height:auto;
+  min-height:76px;
+  padding:14px 24px 12px;
+}
+.role-policy-presentation .topbar > div:first-child:not(.top-actions) {min-width:0;grid-column:1;grid-row:1}
+.role-policy-presentation .topbar h1 {font-size:21px;white-space:nowrap;line-height:1.25}
+.role-policy-presentation .topbar .brand-sub {display:block;font-size:11px;line-height:1.8;white-space:nowrap}
+.role-policy-presentation .topbar .top-actions {display:contents}
+.role-policy-presentation #cloudAccount {
+  grid-column:2;grid-row:1;display:flex;flex-wrap:wrap;align-items:center;
+  gap:8px 12px;min-width:0;max-width:100%;font-size:12px;
+}
+.role-policy-presentation #cloudAccount > span:not(.badge) {
+  flex:1 1 220px;min-width:0;max-width:100%;color:#dce5ec;
+  line-height:1.5;overflow-wrap:anywhere;
+}
+.role-policy-presentation #cloudAccount .badge {flex:0 0 auto;color:#fff;white-space:nowrap}
+.role-policy-presentation #cloudAccount button {flex:0 0 auto;white-space:nowrap}
+.role-policy-presentation .topbar > .role-notice {
+  grid-column:3;grid-row:1;min-width:0;margin:0;padding:10px 12px;
+  color:#143c50;background:#eaf3f7;border-left:4px solid #23809d;
+  font-size:13px;line-height:1.5;overflow-wrap:anywhere;
+}
+.role-policy-presentation .role-header-tools {
+  grid-column:1 / -1;grid-row:2;display:flex;flex-wrap:wrap;align-items:center;
+  justify-content:flex-end;gap:8px;min-width:0;padding-top:10px;
+  border-top:1px solid #425466;
+}
+.role-policy-presentation .role-header-tools > :is(button,.button,.badge) {
+  flex:0 0 auto;white-space:nowrap;margin:0;font-size:12px;line-height:1.4;
+}
+.role-policy-presentation .role-header-tools > :is(button,.button) {
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:36px;padding:8px 12px;
+}
+.role-policy-presentation .topbar .role-header-tools > .badge {color:#fff}
+.role-policy-presentation #nav {
+  top:var(--role-header-height,150px);
+  height:calc(100vh - var(--role-header-height,150px));
+  height:calc(100dvh - var(--role-header-height,150px));
+  padding-bottom:50vh;padding-bottom:50dvh;
+}
+.role-policy-presentation .layout {min-height:calc(100vh - var(--role-header-height,150px))}
+.role-policy-presentation .role-notice {color:#143c50;line-height:1.5}
+.role-policy-presentation label.button.role-file-disabled {
+  opacity:.45;cursor:not-allowed;box-shadow:none;
+}
+.role-policy-presentation .topbar label.role-file-disabled:hover {background:transparent}
+.role-policy-presentation label.button.light.role-file-disabled:hover {background:#fff}
+.role-policy-presentation .role-receipt-summary {display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.role-policy-presentation .role-receipt-summary p {flex-basis:100%;padding:0}
+.role-policy-presentation .role-receipt-summary a {color:#164563;text-decoration:underline}
+.role-policy-presentation #rolePendingReceiptCount {white-space:normal;font-size:18px}
+@media (max-width:1100px) {
+  .role-policy-presentation .topbar {grid-template-columns:185px minmax(0,1fr);padding:12px 16px;gap:10px 16px}
+  .role-policy-presentation .topbar > .role-notice {grid-column:1 / -1;grid-row:2}
+  .role-policy-presentation .role-header-tools {grid-row:3}
+}
+@media (max-width:600px) {
+  .role-policy-presentation .topbar {grid-template-columns:minmax(0,1fr);padding:10px 12px}
+  .role-policy-presentation #cloudAccount {grid-column:1;grid-row:2}
+  .role-policy-presentation .topbar > .role-notice {grid-column:1;grid-row:3}
+  .role-policy-presentation .role-header-tools {grid-row:4;justify-content:flex-start}
+}
