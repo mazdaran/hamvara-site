@@ -1,6 +1,6 @@
 import {getTrialAccess,enforceTrial,activateTrial} from './trials.js';
 import {handleWorkspaceManagement,validateWorkspaceProfile,insertWorkspaceProfile} from './workspace-management.js';
-import {handleMobileReceiptPhone,handleReceiptConsole,guardLegacyReceiptState,guardLegacyReceiptRead} from './mobile-receipts.js';
+import {handleMobileReceiptPhone,handleReceiptConsole,mobileReceiptsEnabled,guardLegacyReceiptState,guardLegacyReceiptRead} from './mobile-receipts.js';
 import {assembleMrpRunArtifacts,chunkMrpRunArtifacts,externalizeMrpRunPayloads,rehydrateMrpRunPayloads} from '../../mrp/mrp-run-artifacts.js';
 
 const MAX_STATE_BYTES = 5 * 1024 * 1024;
@@ -43,7 +43,7 @@ export async function handleMrpRequest(request, env, url) {
   if (managed) return managed;
   if (url.pathname.startsWith('/api/mrp/receipt-console/')) return handleReceiptConsole(request,env,url,actor);
   if (url.pathname === '/api/mrp/session' && request.method === 'GET') {
-    return json({ ok: true, workspace: actor.workspace, user: actor.user, trial:access });
+    return json({ ok: true, workspace: actor.workspace, user: actor.user, trial:access, capabilities:{serverReceipts:mobileReceiptsEnabled(env,actor)} });
   }
   if (url.pathname === '/api/mrp/state' && request.method === 'GET') {
     return loadState(env, actor);
