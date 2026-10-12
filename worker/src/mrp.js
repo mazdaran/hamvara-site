@@ -1,3 +1,5 @@
+import {rolePolicyEnabled,projectRoleState} from './role-access.js';
+import {handleRoleOperations} from './role-operations.js';
 import {getTrialAccess,enforceTrial,activateTrial} from './trials.js';
 import {handleWorkspaceManagement,validateWorkspaceProfile,insertWorkspaceProfile} from './workspace-management.js';
 import {handleMobileReceiptPhone,handleReceiptConsole,mobileReceiptsEnabled,guardLegacyReceiptState,guardLegacyReceiptRead} from './mobile-receipts.js';
@@ -41,9 +43,10 @@ export async function handleMrpRequest(request, env, url) {
   if (url.pathname === '/api/mrp/trial' && request.method === 'GET') return json({trial:access});
   const managed = await handleWorkspaceManagement(request, env, url, actor);
   if (managed) return managed;
+  if (url.pathname === '/api/mrp/operations') return handleRoleOperations(request,env,url,actor);
   if (url.pathname.startsWith('/api/mrp/receipt-console/')) return handleReceiptConsole(request,env,url,actor);
   if (url.pathname === '/api/mrp/session' && request.method === 'GET') {
-    return json({ ok: true, workspace: actor.workspace, user: actor.user, trial:access, capabilities:{serverReceipts:mobileReceiptsEnabled(env,actor)} });
+    return json({ ok: true, workspace: actor.workspace, user: actor.user, trial:access, capabilities:{serverReceipts:mobileReceiptsEnabled(env,actor),rolePolicy:rolePolicyEnabled(env,actor)} });
   }
   if (url.pathname === '/api/mrp/state' && request.method === 'GET') {
     return loadState(env, actor);
@@ -163,7 +166,7 @@ async function backupStatus(env, actor) {
   return json({ count: Number(row?.count || 0), lastBackupAt: row?.last_backup_at || null, failedCount:Number(row?.failed_count||0),pendingCount:Number(row?.pending_count||0),scheduleUtc: ['06:00','18:00'], retentionDays: 90 });
 }
 
-async function createManualBackup(env,actor){await ensureBackupTable(env);const row=await env.DB.prepare('SELECT state_json, revision FROM mrp_state WHERE workspace_id = ?').bind(actor.workspace.id).first();if(!row?.state_json)throw httpError(409,'No workspace state is available to back up.');const id=crypto.randomUUID(),createdAt=new Date().toISOString();await env.DB.prepare("INSERT INTO mrp_state_backups (id,workspace_id,state_json,revision,source,status,created_at) VALUES (?,?,?,?, 'MANUAL','PENDING',?)").bind(id,actor.workspace.id,row.state_json,Number(row.revision||0),createdAt).run();try{const result=await snapshotMrpArtifactsForBackup(env,id,actor.workspace.id,row.state_json);await markMrpBackupComplete(env,id,result.artifacts);return json({ok:true,id,createdAt,revision:Number(row.revision||0),artifactCount:result.artifacts,status:'COMPLETE'})}catch(error){await markMrpBackupFailed(env,id,error);throw error}}
+async function createManualBackup(env,actor){if(rolePolicyEnabled(env,actor)&&actor.user.role!=='CEO')throw httpError(403,'CEO role required.');await ensureBackupTable(env);const row=await env.DB.prepare('SELECT state_json, revision FROM mrp_state WHERE workspace_id = ?').bind(actor.workspace.id).first();if(!row?.state_json)throw httpError(409,'No workspace state is available to back up.');const id=crypto.randomUUID(),createdAt=new Date().toISOString();await env.DB.prepare("INSERT INTO mrp_state_backups (id,workspace_id,state_json,revision,source,status,created_at) VALUES (?,?,?,?, 'MANUAL','PENDING',?)").bind(id,actor.workspace.id,row.state_json,Number(row.revision||0),createdAt).run();try{const result=await snapshotMrpArtifactsForBackup(env,id,actor.workspace.id,row.state_json);await markMrpBackupComplete(env,id,result.artifacts);return json({ok:true,id,createdAt,revision:Number(row.revision||0),artifactCount:result.artifacts,status:'COMPLETE'})}catch(error){await markMrpBackupFailed(env,id,error);throw error}}
 
 async function markMrpBackupComplete(env,backupId,artifactCount){await env.DB.prepare("UPDATE mrp_state_backups SET status='COMPLETE',artifact_count=?,completed_at=datetime('now'),failure_reason=NULL WHERE id=? AND status='PENDING'").bind(artifactCount,backupId).run()}
 async function markMrpBackupFailed(env,backupId,error){const reason=String(error?.message||'MRP artifact snapshot failed.').slice(0,500);await env.DB.prepare("UPDATE mrp_state_backups SET status='FAILED',failure_reason=?,completed_at=NULL WHERE id=? AND status='PENDING'").bind(reason,backupId).run()}
@@ -376,7 +379,7 @@ export async function persistMrpArtifacts(env,actor,manifests,chunks){
 }
 
 async function loadState(env, actor) {
-  guardLegacyReceiptRead(env,actor);
+  if(!rolePolicyEnabled(env,actor))guardLegacyReceiptRead(env,actor);
   const row = await env.DB.prepare('SELECT state_json, revision, updated_at FROM mrp_state WHERE workspace_id = ?').bind(actor.workspace.id).first();
   let state = null;
   if (row?.state_json) {
@@ -384,10 +387,12 @@ async function loadState(env, actor) {
     catch { throw httpError(500, 'Stored MRP data is invalid.'); }
     state=await hydrateStoredState(env,actor.workspace.id,state);
   }
+  if(rolePolicyEnabled(env,actor))state=await projectRoleState(env,actor,state);
   return json({ state, revision: Number(row?.revision || 0), updatedAt: row?.updated_at || null, workspace: actor.workspace, user: actor.user, trial:actor.trial });
 }
 
 async function saveState(request, env, actor) {
+  if(rolePolicyEnabled(env,actor))throw httpError(403,'Use the authorized operation endpoint. Full-state replacement is disabled.');
   const raw = await request.text();
   if (new TextEncoder().encode(raw).byteLength > MAX_STATE_REQUEST_BYTES) throw httpError(413, 'MRP data exceeds the 32 MB request limit.');
   let body;
