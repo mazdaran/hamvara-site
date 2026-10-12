@@ -1,19 +1,23 @@
 import {parseQuantity} from './numeric-input.mjs';
 const $=id=>document.getElementById(id),base=String(window.HAMVARA_MRP_CONFIG?.apiBase||'').replace(/\/$/,'');
+const SESSION_KEY='hamvara.mrp.cloud.session.v1';
 let credentials=null,actor=null,pairing=null,timer=null,inFlight=false;
 function message(value,error=false){$('message').textContent=value;$('message').className=error?'error':'';}
 function syncMessage(value,error=false){$('syncStatus').textContent=value;$('syncStatus').className=error?'error':'muted';}
 async function api(path,body){const response=await fetch(base+'/api/mrp/receipt-console'+path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-Hamvara-Workspace':credentials?.workspace||'','X-Hamvara-User':credentials?.username||'','X-Hamvara-Key':credentials?.accessKey||''},...(body===undefined?{}:{body:JSON.stringify(body)})});const result=await response.json();if(!response.ok)throw Object.assign(Error(result.error||'Request failed.'),{status:response.status});return result;}
 async function action(button,fn){button.disabled=true;try{await fn();}catch(error){message(error.message,true);}finally{button.disabled=false;}}
 function options(id,items,value,label){$(id).replaceChildren(...items.map(item=>{const option=document.createElement('option');option.value=item[value];option.textContent=label(item);return option;}));}
-$('login').onsubmit=event=>{event.preventDefault();action($('login').querySelector('button'),async()=>{
- const data=new FormData(event.target);credentials={workspace:String(data.get('workspace')).trim().toLowerCase(),username:String(data.get('username')).trim().toLowerCase(),accessKey:String(data.get('accessKey'))};
- try{const bootstrap=await api('/bootstrap');actor=bootstrap.actor;$('actor').textContent=`${actor.workspace.slug} · ${actor.user.username} · ${actor.user.role}`;options('warehouse',bootstrap.warehouses,'code',x=>`${x.code} · ${x.name}`);$('pair').disabled=!bootstrap.warehouses.length;setupDesktop(bootstrap);$('login').hidden=true;$('workspace').hidden=false;$('logout').hidden=false;$('login').reset();
+async function connectSession(){
+ try{credentials=JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null');}catch{}
+ if(!credentials?.workspace||!credentials?.username||!credentials?.accessKey){location.replace('./');return;}
+ $('login').hidden=true;
+ try{const bootstrap=await api('/bootstrap');actor=bootstrap.actor;$('actor').textContent=`${actor.workspace.slug} · ${actor.user.username} · ${actor.user.role}`;options('warehouse',bootstrap.warehouses,'code',x=>`${x.code} · ${x.name}`);$('pair').disabled=!bootstrap.warehouses.length;setupDesktop(bootstrap);$('workspace').hidden=false;$('logout').hidden=false;
  if(actor.user.role==='CEO'){const {users}=await api('/users');options('user',users,'id',x=>`${x.username} · ${x.role}`);options('grantWarehouse',bootstrap.warehouses,'code',x=>`${x.code} · ${x.name}`);$('permissions').hidden=false;}
  await refresh();message('Connected. Enter goods on this computer, optionally connect a phone, or review receipts.');timer=setInterval(poll,4000);
- }catch(error){credentials=null;actor=null;$('login').hidden=false;$('workspace').hidden=true;$('logout').hidden=true;$('permissions').hidden=true;throw error;}
-});};
-$('logout').onclick=()=>{clearInterval(timer);credentials=null;location.reload();};
+ }catch(error){credentials=null;actor=null;$('workspace').hidden=true;$('permissions').hidden=true;message(error.message,true);if(error.status===401){sessionStorage.removeItem(SESSION_KEY);location.replace('./');}}
+}
+$('login').onsubmit=event=>{event.preventDefault();location.assign('./');};
+$('logout').onclick=()=>{clearInterval(timer);credentials=null;sessionStorage.removeItem(SESSION_KEY);location.assign('./');};
 $('pair').onclick=()=>action($('pair'),async()=>{
  if(pairing)await api(`/pairings/${pairing.id}`,{action:'revoke'});
  pairing=await api('/pairings',{warehouse:$('warehouse').value});$('qr').replaceChildren();
@@ -156,3 +160,5 @@ if(navigator.hid){
  $('connectUsb').disabled=true;
  usbStatus('Connection detection unavailable in this browser. Keyboard-mode barcode input remains available.');
 }
+
+connectSession();

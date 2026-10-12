@@ -5,7 +5,8 @@ const path=require('node:path');
 (async()=>{
  const browser=await chromium.launch();
  try{
- const page=await browser.newPage();let attempts=[],pairings=0,failFirst=true;
+ const page=await browser.newPage();
+ await page.addInitScript(()=>sessionStorage.setItem('hamvara.mrp.cloud.session.v1',JSON.stringify({workspace:'test',username:'operator',accessKey:'test'})));let attempts=[],pairings=0,failFirst=true;
  await page.addInitScript(()=>{if(location.search==='?nohid'){Object.defineProperty(navigator,'hid',{value:undefined,configurable:true});return;}const hid=new EventTarget();const device={productName:'Test USB scanner',opened:false,open:async function(){this.opened=true;},close:async function(){this.opened=false;}};hid.requestDevice=async()=>[device];Object.defineProperty(navigator,'hid',{value:hid,configurable:true});window.testHidDevice=device;});
  await page.route('https://desktop.test/**',async route=>{
   const req=route.request(),url=new URL(req.url()),endpoint=url.pathname.split('/receipt-console')[1];
@@ -25,7 +26,7 @@ const path=require('node:path');
   return route.fulfill({body:fs.readFileSync(file),contentType:/\.m?js$/.test(file)?'application/javascript':file.endsWith('.css')?'text/css':'text/html'});
  });
  await page.goto('https://desktop.test/mrp/mobile-receipts.html');
- await page.locator('[name=workspace]').fill('test');await page.locator('[name=username]').fill('operator');await page.locator('[name=accessKey]').fill('test');await page.locator('#login button').click();
+ await page.locator('#workspace').waitFor({state:'visible'});
  assert.equal(await page.locator('#desktopEntry').isVisible(),true);assert.equal(await page.locator('#mobileEntry').isVisible(),false);
  await page.locator('.receipt-modes a[href="#mobile"]').click();
  assert.equal(await page.locator('#desktopEntry').isVisible(),false);assert.equal(await page.locator('#mobileEntry').isVisible(),true);

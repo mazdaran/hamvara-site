@@ -25,6 +25,12 @@
             await showTrialGate(session.trial);
             return;
           }
+          if (session.capabilities?.serverReceipts === true && session.user.role !== 'CEO') {
+            const {showRoleDashboard} = await import('./role-dashboard.mjs');
+            await showRoleDashboard({request, session, signOut:()=>{clearCredentials();location.reload();}});
+            // Do not initialize the legacy full-state editor for restricted roles.
+            return await new Promise(()=>{});
+          }
           const payload = await request('/api/mrp/state');
           revision = Number(payload.revision || 0);
           actor = { workspace: payload.workspace, user: payload.user };
