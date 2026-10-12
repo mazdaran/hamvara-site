@@ -107,3 +107,49 @@ $('desktopReceipt').onsubmit=event=>{
   }finally{desktopBusy=false;}
  })();
 };
+
+function receiptMode(){
+ const requested=location.hash.slice(1);
+ return ['computer','mobile','usb'].includes(requested)?requested:'computer';
+}
+function applyReceiptMode(){
+ const mode=receiptMode();
+ $('desktopEntry').hidden=mode==='mobile';$('mobileEntry').hidden=mode!=='mobile';$('usbPanel').hidden=mode!=='usb';
+ $('entryTitle').textContent=mode==='usb'?'Receive with USB scanner':'Receive on this computer';
+ $('entryHint').textContent=mode==='usb'?'Connect your scanner, focus the barcode field and scan an item.':'No phone required. Type the SKU or barcode below.';
+ for(const link of document.querySelectorAll('.receipt-modes a')) {
+  if(link.hash==='#'+mode)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');
+ }
+}
+window.addEventListener('hashchange',applyReceiptMode);
+applyReceiptMode();
+let usbDevice=null;
+function usbStatus(text){$('usbConnection').textContent=text;}
+$('focusUsb').onclick=()=>{if(!$('desktopCode').disabled)$('desktopCode').focus();};
+$('desktopCode').addEventListener('keydown',event=>{
+ if(receiptMode()==='usb'&&event.key==='Enter'&&event.currentTarget.value.trim()){
+  $('usbInputStatus').textContent='Barcode input received at '+new Date().toLocaleTimeString()+'. Cable connection is not verified by this input.';
+ }
+});
+if(navigator.hid){
+ $('connectUsb').onclick=()=>action($('connectUsb'),async()=>{
+  try {
+   const devices=await navigator.hid.requestDevice({filters:[{usagePage:0x8c}]});
+   if(!devices.length)return;
+   const selected=devices[0];
+   if(usbDevice&&usbDevice!==selected&&usbDevice.opened)await usbDevice.close();
+   usbDevice=selected;
+   if(!selected.opened)await selected.open();
+   if(usbDevice===selected)usbStatus('Connected HID scanner: '+(selected.productName||'Barcode scanner')+'. Test a scan in the barcode field.');
+  }catch(error){usbDevice=null;usbStatus('USB connection not verified. Use keyboard mode in the barcode field. '+error.message);}
+ });
+ navigator.hid.addEventListener('disconnect',event=>{
+  if(event.device===usbDevice){usbDevice=null;usbStatus('USB scanner disconnected.');}
+ });
+ navigator.hid.addEventListener('connect',event=>{
+  if(event.device.collections?.some(c=>c.usagePage===0x8c))usbStatus('Compatible scanner detected. Click Check compatible USB scanner to verify access.');
+ });
+}else{
+ $('connectUsb').disabled=true;
+ usbStatus('Connection detection unavailable in this browser. Keyboard-mode barcode input remains available.');
+}

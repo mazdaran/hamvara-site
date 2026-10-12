@@ -5,8 +5,8 @@ import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../../../mrp/mobile-receipts-console.js',import.meta.url),'utf8');
 function setup(){
  const elements=new Map();
- const el=id=>{if(!elements.has(id))elements.set(id,{textContent:'',className:'',hidden:false,replaceChildren(){},append(){}});return elements.get(id);};
- const ctx=vm.createContext({document:{hidden:false,getElementById:el,createElement:()=>({append(){}})},window:{},Date,setInterval,clearInterval,fetch:async()=>({ok:true,json:async()=>({receipts:[]})})});
+ const el=id=>{if(!elements.has(id))elements.set(id,{textContent:'',className:'',hidden:false,replaceChildren(){},append(){},addEventListener(){}});return elements.get(id);};
+ const ctx=vm.createContext({location:{hash:''},navigator:{},document:{querySelectorAll:()=>[],hidden:false,getElementById:el,createElement:()=>({append(){}})},window:{addEventListener(){}},Date,setInterval,clearInterval,fetch:async()=>({ok:true,json:async()=>({receipts:[]})})});
  vm.runInContext(source,ctx);vm.runInContext('credentials={};',ctx);return {ctx,el,run:s=>vm.runInContext(s,ctx)};
 }
 test('successful refresh clears sync errors but preserves action errors',async()=>{
