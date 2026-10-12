@@ -6,11 +6,16 @@
   let credentials = readCredentials();
   let revision = 0;
   let actor = null;
+  let rolePolicy=false, baseline=null, editableFields=[],prepareEdit=(_role,value)=>value;
 
   if (!apiBase) return;
 
   window.HAMVARA_MRP_CLOUD = {
     enabled: true,
+    get rolePolicy(){return rolePolicy;},
+    get actor(){return actor;},
+    setBaseline(state){if(rolePolicy)baseline=structuredClone(state);},
+    async operate(action,input={}){const payload=await request("/api/mrp/operations",{method:"POST",body:JSON.stringify({action,input,expectedRevision:revision})});revision=payload.revision;return payload.state;},
     request,
     async load() {
       while (true) {
@@ -19,13 +24,15 @@
           const session = await request('/api/mrp/session');
           actor = { workspace: session.workspace, user: session.user };
           renderAccount();
-          configureReceiptPolicy(session.capabilities);
+          rolePolicy=session.capabilities?.rolePolicy===true;
+          if(rolePolicy){const policy=await import('./access-policy.mjs');editableFields=policy.editableStateFields(session.user.role);prepareEdit=policy.prepareRoleEdit;}
+          else configureReceiptPolicy(session.capabilities);
           renderTrialStatus(session.trial);
           if (session.trial && !session.trial.canWrite) {
             await showTrialGate(session.trial);
             return;
           }
-          if (session.capabilities?.serverReceipts === true && session.user.role !== 'CEO') {
+          if (!rolePolicy && session.capabilities?.serverReceipts === true && session.user.role !== 'CEO') {
             const {showRoleDashboard} = await import('./role-dashboard.mjs');
             await showRoleDashboard({request, session, signOut:()=>{clearCredentials();location.reload();}});
             // Do not initialize the legacy full-state editor for restricted roles.
@@ -50,6 +57,12 @@
       }
     },
     async save(state) {
+      if(rolePolicy){
+        if(!baseline)throw Error('Company state is not ready.');
+        const snapshot=structuredClone(state),changes={};for(const key of editableFields)if(JSON.stringify(state[key]??null)!==JSON.stringify(baseline[key]??null))changes[key]=prepareEdit(actor.user.role,state[key]);
+        if(!Object.keys(changes).length)return {ok:true,revision};
+        await this.operate('edit',{changes});baseline=snapshot;updateCloudBadge('Cloud saved','ok');return {ok:true,revision};
+      }
       let payload;
       try { payload = await request('/api/mrp/state', {
         method: 'PUT',

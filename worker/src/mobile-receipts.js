@@ -1,3 +1,4 @@
+import {rolePolicyEnabled} from './role-access.js';
 import {parseQuantity,matchingItems} from '../../mrp/numeric-input.mjs';
 import {getTrialAccess,enforceTrial} from './trials.js';
 import {queueReceiptForApproval,applyReceiptQcDecision,applyManagerReceiptDecision} from '../../mrp/receipt-workflow.js';
@@ -110,7 +111,7 @@ export async function handleReceiptConsole(request,env,url,actor){
   const {state}=await stateRow(env,actor.workspace.id);
   const grants=await env.DB.prepare('SELECT warehouse FROM mrp_mobile_warehouse_grants WHERE workspace_id=? AND user_id=?').bind(actor.workspace.id,actor.user.id).all();
   const allowed=new Set(grants.results.map(x=>x.warehouse));
-  return json({actor,warehouses:(state.warehouses||[]).filter(x=>x.code!=='WH-QA'&&x.active!==false&&(actor.user.role==='CEO'||allowed.has(x.code))).map(x=>({code:x.code,name:x.name})),skus:(state.skus||[]).filter(x=>x.active!==false).map(x=>({code:x.code,name:x.name,unit:x.unit,lotTracked:!!x.lotTracked,serialTracked:!!x.serialTracked}))});
+  return json({actor,rolePolicy:rolePolicyEnabled(env,actor),warehouses:(state.warehouses||[]).filter(x=>x.code!=='WH-QA'&&x.active!==false&&(actor.user.role==='CEO'||allowed.has(x.code))).map(x=>({code:x.code,name:x.name})),skus:(state.skus||[]).filter(x=>x.active!==false).map(x=>({code:x.code,name:x.name,unit:x.unit,lotTracked:!!x.lotTracked,serialTracked:!!x.serialTracked}))});
  }
  if(path==='/lookup'&&request.method==='POST'){
   const {body}=await readBody(request);const warehouse=text(body.warehouse,100,true);await granted(env,actor,warehouse);
@@ -159,7 +160,7 @@ export async function handleReceiptConsole(request,env,url,actor){
  if(path==='/receipts'&&request.method==='GET'){
   const result=await env.DB.prepare('SELECT * FROM mrp_mobile_receipts WHERE workspace_id=? ORDER BY created_at DESC LIMIT 100').bind(actor.workspace.id).all();
   const grants=await env.DB.prepare('SELECT warehouse FROM mrp_mobile_warehouse_grants WHERE workspace_id=? AND user_id=?').bind(actor.workspace.id,actor.user.id).all();const allowed=new Set(grants.results.map(x=>x.warehouse));
-  return json({receipts:result.results.filter(x=>(actor.user.role==='CEO'||allowed.has(JSON.parse(x.payload_json).destinationWarehouse))&&(actor.user.role!=='OPERATOR'||x.submitted_by===actor.user.id)).map(publicReceipt)});
+  return json({receipts:result.results.filter(x=>(actor.user.role==='CEO'||allowed.has(JSON.parse(x.payload_json).destinationWarehouse))&&(rolePolicyEnabled(env,actor)||actor.user.role!=='OPERATOR'||x.submitted_by===actor.user.id)).map(publicReceipt)});
  }
  const match=/^\/receipts\/([0-9a-f-]{36})$/.exec(path);
  if(match&&request.method==='POST')return transitionReceipt(request,env,actor,match[1]);
@@ -170,6 +171,7 @@ async function transitionReceipt(request,env,actor,id){
  if(!draft)fail(404,'Receipt not found.');const payload=JSON.parse(draft.payload_json);await granted(env,actor,payload.destinationWarehouse);
  if(!Number.isInteger(body.version)||body.version!==draft.version)fail(409,'Receipt changed. Refresh before deciding.');
  const rules={receive:{from:'SUBMITTED',to:'PENDING_QC',roles:['PRODUCTION_MANAGER','FACTORY_MANAGER','CEO']},qc_accept:{from:'PENDING_QC',to:'PENDING_MANAGER',roles:['PRODUCTION_MANAGER','FACTORY_MANAGER','CEO']},approve:{from:'PENDING_MANAGER',to:'APPROVED',roles:['FACTORY_MANAGER','CEO']},post:{from:'APPROVED',to:'POSTED',roles:['CEO']},reject:{from:'SUBMITTED',to:'REJECTED',roles:['PRODUCTION_MANAGER','FACTORY_MANAGER','CEO']},qc_hold:{from:'PENDING_QC',to:'HOLD_NCR',roles:['PRODUCTION_MANAGER','FACTORY_MANAGER','CEO']}};
+ if(rolePolicyEnabled(env,actor)){rules.approve={from:'PENDING_MANAGER',to:'POSTED',roles:['PRODUCTION_MANAGER','FACTORY_MANAGER','CEO']};rules.post.roles=['PRODUCTION_MANAGER','FACTORY_MANAGER','CEO'];}
  const rule=rules[body.action];if(!rule||!rule.roles.includes(actor.user.role))fail(403,'This role cannot perform this action.');
  if(draft.submitted_by===actor.user.id)fail(403,'An independent reviewer is required.');
  if(draft.status!==rule.from)fail(409,'Invalid receipt transition.');
@@ -184,7 +186,7 @@ async function transitionReceipt(request,env,actor,id){
    const inspection=state.qualityInspections.find(x=>x.id===inspectionId);if(!inspection)fail(409,'Inspection missing.');inspection.result=body.action==='qc_accept'?'ACCEPTED':'REJECTED';inspection.inspector=actor.user.username;inspection.notes=text(body.note||'',1000,body.action==='qc_hold');applyReceiptQcDecision(state,inspectionId,`MNCR-${id}`);
   }
   if(body.action==='approve'){const receipt=state.receipts.find(x=>x.id===receiptId);if(!receipt||receipt.status!=='PENDING_MANAGER')fail(409,'Receipt is not ready for approval.');receipt.mobileApprovedBy=actor.user.id;receipt.mobileApprovedAt=now;}
-  if(body.action==='post')applyManagerReceiptDecision(state,receiptId,true,'',meta);
+  if(body.action==='post'||(body.action==='approve'&&rolePolicyEnabled(env,actor)))applyManagerReceiptDecision(state,receiptId,true,'',meta);
  }catch(error){if(error.status)throw error;fail(422,error.message);}
  const core=JSON.stringify(state);if(encoder.encode(core).length>5*1024*1024)fail(413,'Workspace size limit reached.');
  const transitionId=crypto.randomUUID(),details=JSON.stringify({receiptId:id,deviceKeyHash:draft.device_key_hash,from:draft.status,to:rule.to,note:text(body.note||'',1000,body.action==='reject'),ip:request.headers.get('CF-Connecting-IP')||null});
