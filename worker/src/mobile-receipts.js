@@ -160,7 +160,7 @@ export async function handleReceiptConsole(request,env,url,actor){
  if(path==='/receipts'&&request.method==='GET'){
   const result=await env.DB.prepare('SELECT * FROM mrp_mobile_receipts WHERE workspace_id=? ORDER BY created_at DESC LIMIT 100').bind(actor.workspace.id).all();
   const grants=await env.DB.prepare('SELECT warehouse FROM mrp_mobile_warehouse_grants WHERE workspace_id=? AND user_id=?').bind(actor.workspace.id,actor.user.id).all();const allowed=new Set(grants.results.map(x=>x.warehouse));
-  return json({receipts:result.results.filter(x=>(actor.user.role==='CEO'||allowed.has(JSON.parse(x.payload_json).destinationWarehouse))&&(actor.user.role!=='OPERATOR'||x.submitted_by===actor.user.id)).map(publicReceipt)});
+  return json({receipts:result.results.filter(x=>(actor.user.role==='CEO'||allowed.has(JSON.parse(x.payload_json).destinationWarehouse))&&(rolePolicyEnabled(env,actor)||actor.user.role!=='OPERATOR'||x.submitted_by===actor.user.id)).map(publicReceipt)});
  }
  const match=/^\/receipts\/([0-9a-f-]{36})$/.exec(path);
  if(match&&request.method==='POST')return transitionReceipt(request,env,actor,match[1]);

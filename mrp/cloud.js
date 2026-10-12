@@ -59,9 +59,9 @@
     async save(state) {
       if(rolePolicy){
         if(!baseline)throw Error('Company state is not ready.');
-        const changes={};for(const key of editableFields)if(JSON.stringify(state[key]??null)!==JSON.stringify(baseline[key]??null))changes[key]=prepareEdit(actor.user.role,state[key]);
+        const snapshot=structuredClone(state),changes={};for(const key of editableFields)if(JSON.stringify(state[key]??null)!==JSON.stringify(baseline[key]??null))changes[key]=prepareEdit(actor.user.role,state[key]);
         if(!Object.keys(changes).length)return {ok:true,revision};
-        await this.operate('edit',{changes});baseline=structuredClone(state);updateCloudBadge('Cloud saved','ok');return {ok:true,revision};
+        await this.operate('edit',{changes});baseline=snapshot;updateCloudBadge('Cloud saved','ok');return {ok:true,revision};
       }
       let payload;
       try { payload = await request('/api/mrp/state', {

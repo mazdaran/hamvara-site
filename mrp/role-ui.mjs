@@ -64,7 +64,7 @@ export function installRoleUI({role,user,getState,action}){
   if(node.matches('[data-po-action]')&&node.textContent==='Receive to QA')return true;
   if(!ceo&&(node.matches('#backupBtn,#exportBtn,#addFinanceApproval,#addProjectFinance')||node.closest('#financeTable,#projectFinanceTable,#skuCostMethodTable')))return true;
   if(!ceo&&node.matches('[data-field],[data-project-field]')&&privateMoneyField(node.dataset.field||node.dataset.projectField))return true;
-  if(!ceo&&node.matches('#projectBudget,#bomLaborCost,#bomOverheadCost,#bomOtherCost,[data-post-variance],[data-settle-wip],[data-reopen-wip]'))return true;
+  if(!ceo&&node.matches('#createWhatIfSimulation,#createCashflowPlan,#projectBudget,#bomLaborCost,#bomOverheadCost,#bomOtherCost,[data-post-variance],[data-settle-wip],[data-reopen-wip]'))return true;
   if(!manager){
    if(node.matches(readControls))return false;
    if(node.closest('#stock')&&node.closest('article')?.querySelector('#inventoryTransactionType'))return node.matches('[data-inventory-action]')&&node.textContent!=='Submit';
@@ -79,7 +79,8 @@ export function installRoleUI({role,user,getState,action}){
   queued=false;for(const b of document.querySelectorAll('#nav [data-page]'))if(!pages[b.dataset.page]){b.disabled=true;b.title='Not available for your role';b.setAttribute('aria-disabled','true');}
   for(const node of document.querySelectorAll('button,input,select,textarea'))if(locked(node)){if(!node.disabled)node.disabled=true;if(node.title!=='Not available for your role')node.title='Not available for your role';}
   for(const id of ['inventoryTransactionRequester','inventoryTransactionApprover','inventoryTransactionPoster'])if($(id))$(id).value=user;
-  if(!ceo)for(const id of ['projectFinanceTable','productionVarianceTable','wipSettlementTable','financeTable','cashflowSource']){const article=$(id)?.closest('article');if(article&&!article.dataset.roleRestricted){article.dataset.roleRestricted='';article.style.display='none';}}
+  if(!ceo)for(const option of document.querySelectorAll('#reportType option'))if(/cost|financ|valuat|journal|profit|balance|cashflow|margin/i.test(option.value+' '+option.textContent))option.disabled=true;
+  if(!ceo)for(const id of ['projectFinanceTable','productionVarianceTable','wipSettlementTable','financeTable','cashflowSource','whatIfName']){const article=$(id)?.closest('article');if(article&&!article.dataset.roleRestricted){article.dataset.roleRestricted='';article.style.display='none';}}
  }
  const observer=new MutationObserver(()=>{if(!queued){queued=true;queueMicrotask(apply);}});observer.observe(document.querySelector('main'),{subtree:true,childList:true});
  for(const type of ['click','input','change','submit'])document.addEventListener(type,event=>{const n=event.target.closest?.('button,input,select,textarea,a');if(locked(n)){event.preventDefault();event.stopImmediatePropagation();}},true);

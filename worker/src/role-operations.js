@@ -1,9 +1,11 @@
 import {isManager,isWarehouseUser} from '../../mrp/access-policy.mjs';
+import {parseQuantity} from '../../mrp/numeric-input.mjs';
 import {rolePolicyEnabled,accessError as fail,requireWarehouse,projectRoleState,applyRolePatch} from './role-access.js';
 import {createInventoryTransaction,submitInventoryTransaction,approveInventoryTransaction,postInventoryTransaction,reverseInventoryTransaction} from '../../mrp/inventory-issue-transfer.js';
 import {createCycleCount,submitCycleCount,approveCycleCount} from '../../mrp/cycle-counting.js';
 import {createAccountingPeriod,closeAccountingPeriod,postJournalEntry,reverseJournalEntry,setAccountingProfile,normalizeFinancialState,trialBalance} from '../../mrp/financial-core.js';
-import {ensureInventoryCostCoverage,receiveInventoryCost,issueInventoryCost} from '../../mrp/inventory-costing.js';
+import {ensureInventoryCostCoverage,receiveInventoryCost,issueInventoryCost,setInventoryCostMethod} from '../../mrp/inventory-costing.js';
+import {createMrpAuditSeal} from './mrp.js';
 import {createProductionJob,releaseProductionJob,issueProductionJob,completeProductionJob,cancelProductionJob,applyProductionQualityDecision} from '../../mrp/production-workflow.js';
 import {updateBackflushQuantity,submitBackflush,approveBackflush} from '../../mrp/controlled-backflush.js';
 import {startOperation,pauseOperation,resumeOperation,completeOperation,raiseAndon,updateAndon} from '../../mrp/shop-floor-live.js';
@@ -15,7 +17,7 @@ import {reopenSettledWorkOrder} from '../../mrp/production-close-control.js';
 
 const json=value=>new Response(JSON.stringify(value),{headers:{'content-type':'application/json','cache-control':'no-store'}});
 const text=(v,max=500)=>{if(typeof v!=='string'||v.length>max||/[\u0000-\u001f]/.test(v))fail(422,'Invalid text.');return v.trim();};
-const number=v=>{const n=Number(v);if(!Number.isFinite(n)||n<0||n>1e9)fail(422,'Invalid quantity or amount.');return n;};
+const number=v=>{const n=parseQuantity(v);if(!Number.isFinite(n)||n<0||n>1e9)fail(422,'Invalid quantity or amount.');return n;};
 const manager=actor=>{if(!isManager(actor.user.role))fail(403,'Operations manager required.');};
 const ceo=actor=>{if(actor.user.role!=='CEO')fail(403,'CEO / Finance role required.');};
 const independent=(actor,item)=>{if([item.createdBy,item.requestedById,item.submittedById,item.counterId].includes(actor.user.id)||[item.createdByUsername,item.requestedBy,item.submittedBy,item.counter].includes(actor.user.username))fail(403,'An independent reviewer is required.');};
@@ -56,7 +58,7 @@ export async function handleRoleOperations(request,env,url,actor){
    if(action==='count.create'){await requireWarehouse(env,actor,state,input.warehouse);result=createCycleCount(state,{warehouse:input.warehouse,scope:input.scope==='DUE'?'DUE':'ALL',requestedBy:user});result.requestedById=actor.user.id;}
    else{
     const item=find(state,'cycleCounts',input.id);await requireWarehouse(env,actor,state,item.warehouse);
-    if(action==='count.submit'){for(const v of Object.values(input.counts||{}))number(v);result=submitCycleCount(state,item.id,{counter:user,counts:input.counts||{},allowRequesterCount:true});item.counterId=actor.user.id;}
+    if(action==='count.submit'){const counts=Object.fromEntries(Object.entries(input.counts||{}).map(([key,v])=>[key,number(v)]));result=submitCycleCount(state,item.id,{counter:user,counts,allowRequesterCount:true});item.counterId=actor.user.id;}
     else if(action==='count.review'){manager(actor);independent(actor,item);if(!['SUBMITTED','REVIEW_REQUIRED'].includes(item.status))fail(409,'Submitted count required.');item.status='REVIEWED';item.reviewedBy=user;item.reviewedById=actor.user.id;result=item;}
     else if(action==='count.approve'){
      ceo(actor);independent(actor,item);if(item.status!=='REVIEWED'||!item.reviewedById)fail(409,'Manager review required.');
@@ -106,6 +108,15 @@ export async function handleRoleOperations(request,env,url,actor){
     else if(action==='production.complete')result=completeProductionJob(state,job.id,{completedQty:number(input.completedQty),scrapQty:number(input.scrapQty||0),inspectionId:crypto.randomUUID(),inspectionNo:`FQC-${crypto.randomUUID().slice(0,8)}`,meta});
     else fail(400,'Unknown production action.');
    }
+  }else if(action.startsWith('floor.')){
+   manager(actor);await requireWarehouse(env,actor,state,'WH-SF');
+   if(action==='floor.start')result=startOperation(state,{operatorId:input.operatorId,jobId:input.jobId,workCenterId:input.workCenterId,stage:input.stage,inputQty:number(input.inputQty)},meta);
+   else if(action==='floor.pause')result=pauseOperation(state,input.id,{reason:text(input.reason||''),meta});
+   else if(action==='floor.resume')result=resumeOperation(state,input.id,{meta});
+   else if(action==='floor.complete')result=completeOperation(state,input.id,{goodQty:number(input.goodQty),scrapQty:number(input.scrapQty||0),reworkQty:number(input.reworkQty||0),notes:text(input.notes||'')},meta);
+   else if(action==='floor.andon')result=raiseAndon(state,{jobId:input.jobId,sessionId:input.sessionId,operatorId:input.operatorId,category:text(input.category||'OTHER'),severity:text(input.severity||'HIGH'),message:text(input.message||'')},meta);
+   else if(action==='floor.andon-update')result=updateAndon(state,input.id,input.status,meta);
+   else fail(400,'Unknown shop floor action.');
   }else if(action==='purchase.advance'){
    manager(actor);const po=find(state,'purchaseOrders',input.id);
    if(po.status==='DRAFT'){
@@ -137,7 +148,8 @@ export async function handleRoleOperations(request,env,url,actor){
     if(input.id){const draft=find(state,'journalEntries',input.id);if(draft.status!=='DRAFT')fail(409,'Draft journal required.');state.journalEntries=state.journalEntries.filter(x=>x.id!==draft.id);result=postJournalEntry(state,{...draft,date:date(input.date||draft.date)},meta);}
     else result=postJournalEntry(state,{date:date(input.date),description:text(input.description||''),reference:text(input.reference||''),lines:(input.lines||[]).map(x=>({accountCode:text(x.accountCode,30),debit:number(x.debit||0),credit:number(x.credit||0)}))},meta);
    }else if(action==='finance.journal-reverse')result=reverseJournalEntry(state,input.id,{reason:text(input.reason||''),date:date(input.date),meta});
-   else if(action==='finance.settings'){setAccountingProfile(state,input.profile,meta);if(!/^[A-Z]{3}$/.test(input.baseCurrency||''))fail(422,'Three-letter currency required.');if((state.journalEntries||[]).length&&input.baseCurrency!==state.accountingSettings.baseCurrency)fail(409,'Currency is locked after journal creation.');state.accountingSettings.baseCurrency=input.baseCurrency;state.accountingSettings.fiscalYearStart=text(input.fiscalYearStart||'01-01',5);}
+   else if(action==='finance.settings'){setAccountingProfile(state,input.profile,meta);if(!/^[A-Z]{3}$/.test(input.baseCurrency||''))fail(422,'Three-letter currency required.');if((state.journalEntries||[]).length&&input.baseCurrency!==state.accountingSettings.baseCurrency)fail(409,'Currency is locked after journal creation.');const fiscal=text(input.fiscalYearStart||'01-01',5);date('2024-'+fiscal);state.accountingSettings.baseCurrency=input.baseCurrency;state.accountingSettings.fiscalYearStart=fiscal;}
+   else if(action==='finance.cost-method')result=setInventoryCostMethod(state,text(input.sku),text(input.method),meta);
    else if(action==='finance.approval'){const item=find(state,'financeApprovals',input.id);item.status=item.documentMatch&&item.qcApproved&&(item.type==='PURCHASE_PAYMENT'||item.creditApproved)?'APPROVED':'BLOCKED';item.approvedBy=user;}
    else if(action==='finance.budget'){find(state,'purchaseRequests',input.id).budgetStatus=input.approved?'APPROVED':'REJECTED';}
    else if(action==='finance.settlement'){const order=find(state,'salesOrders',input.id);if(!['PENDING','PARTIAL','PAID','CREDIT'].includes(input.paymentStatus))fail(422,'Invalid settlement status.');order.paymentStatus=input.paymentStatus;order.creditApproved=!!input.creditApproved;}
@@ -149,12 +161,21 @@ export async function handleRoleOperations(request,env,url,actor){
  }catch(error){if(error.status)throw error;fail(422,error.message);}
  // Financial effects produced by an operational action remain drafts for CEO review.
  if(actor.user.role!=='CEO')for(const item of state.inventoryTransactions||[])if((state.journalEntries||[]).some(j=>j.id===item.journalEntryId&&j.status==='DRAFT'))item.accountingStatus='AWAITING_FINANCE';
+ const seals=[];
+ const released=new Set((before.mrpRuns||[]).filter(x=>['RELEASED','SUPERSEDED'].includes(x.status)).map(x=>`${x.id}|${x.resultFingerprint}`));
+ for(const run of (state.mrpRuns||[]).filter(x=>x.status==='RELEASED'&&!released.has(`${x.id}|${x.resultFingerprint}`))){
+  manager(actor);if(String(env.MRP_AUDIT_HMAC_SECRET||'').length<32)fail(503,'MRP audit sealing requires a configured server secret.');
+  const payload={workspaceId:actor.workspace.id,runId:String(run.id||''),runNo:String(run.runNo||''),resultFingerprint:String(run.resultFingerprint||''),checkpointHeadHash:String(run.timeBucketCheckpoints?.headHash||''),deltaHeadHash:String(run.deltaAnchor?.headHash||''),releasedAt:String(run.releasedAt||'')};
+  const signature=await createMrpAuditSeal(payload,env.MRP_AUDIT_HMAC_SECRET),id=`MRPSEAL-${signature}`;
+  run.serverAuditSeal={id,runId:run.id,signature,algorithm:'HMAC-SHA-256',sealedAt:meta.at};
+  seals.push(env.DB.prepare("INSERT OR IGNORE INTO mrp_audit_seals (id,workspace_id,run_id,payload_json,signature,algorithm,created_by,created_at) SELECT ?,?,?,?,?, 'HMAC-SHA-256',?,? WHERE EXISTS(SELECT 1 FROM mrp_state WHERE workspace_id=? AND revision=?)").bind(id,actor.workspace.id,run.id,JSON.stringify(payload),signature,actor.user.id,meta.at,actor.workspace.id,row.revision));
+ }
  const serialized=JSON.stringify(state);if(new TextEncoder().encode(serialized).length>5*1024*1024)fail(413,'Workspace size limit reached.');
- const stamp=new Date().toISOString(),details=JSON.stringify({action,id:input.id||result?.id||null,revision:row.revision+1});
+ const stamp=meta.at,details=JSON.stringify({action,id:input.id||result?.id||null,revision:row.revision+1});
  const changes=await env.DB.batch([
-  env.DB.prepare('UPDATE mrp_state SET state_json=?,revision=revision+1,updated_by=?,updated_at=? WHERE workspace_id=? AND revision=?').bind(serialized,actor.user.id,stamp,actor.workspace.id,row.revision),
+  ...seals,env.DB.prepare('UPDATE mrp_state SET state_json=?,revision=revision+1,updated_by=?,updated_at=? WHERE workspace_id=? AND revision=?').bind(serialized,actor.user.id,stamp,actor.workspace.id,row.revision),
   env.DB.prepare('INSERT INTO mrp_audit_log (workspace_id,user_id,action,details_json,created_at) SELECT ?,?,?,?,? WHERE changes()=1').bind(actor.workspace.id,actor.user.id,`role_operation.${action}`,details,stamp)
  ]);
- if(!changes[0].meta.changes)fail(409,'Data changed. Refresh and retry.');
+ if(!changes[seals.length].meta.changes)fail(409,'Data changed. Refresh and retry.');
  return json({ok:true,revision:row.revision+1,state:await projectRoleState(env,actor,state)});
 }

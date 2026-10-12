@@ -15,7 +15,7 @@ SELECT w.id,u.id,j.value->>'$.code' FROM mrp_workspaces w
 JOIN mrp_users u ON u.workspace_id=w.id AND u.active=1
 JOIN mrp_state s ON s.workspace_id=w.id
 JOIN json_each(s.state_json,'$.warehouses') j
-WHERE w.slug IN ('pilot-tr','pilot-us') AND w.id IN ('pilot-tr-workspace','pilot-us-workspace')
+WHERE w.active=1 AND w.slug IN ('pilot-tr','pilot-us') AND w.id IN ('pilot-tr-workspace','pilot-us-workspace')
 AND u.username IN ('operator','manager') AND u.role IN ('OPERATOR','PRODUCTION_MANAGER','FACTORY_MANAGER')
 AND j.value->>'$.code' IN ('WH-RM','WH-PK','WH-FG','WH-SF')
 AND COALESCE(j.value->>'$.active',1)!=0;

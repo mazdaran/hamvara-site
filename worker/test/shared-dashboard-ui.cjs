@@ -43,6 +43,18 @@ const {chromium}=require('playwright');
   await page.locator('#counts').getByRole('button',{name:'Create count',exact:true}).waitFor({state:'visible'});
   if(role==='CEO'){await page.locator('#nav [data-page="finance"]').click();await page.locator('#finance').getByRole('button',{name:'Create period',exact:true}).waitFor({state:'visible'});}
   assert.deepEqual(errors,[],role+' browser errors');assert.equal(writes.length,0,'Read-only navigation must not write company data');
+  if(role==='OPERATOR'){
+   await page.locator('#nav [data-page="stock"]').click();
+   await page.locator('#inventoryTransactionSku').fill('ITEM-1');await page.locator('#inventoryTransactionQty').fill('۲');await page.locator('#inventoryTransactionReason').fill('Workshop issue');
+   await page.locator('#createInventoryTransaction').click();await page.waitForFunction(()=>document.getElementById('toast').textContent==='Saved.');
+   assert.equal(writes.at(-1).action,'inventory.create');assert.equal(writes.at(-1).input.quantity,2);assert(!('requestedBy' in writes.at(-1).input));
+  }else if(role==='PRODUCTION_MANAGER'){
+   await page.locator('#nav [data-page="skus"]').click();
+   await page.locator('#skuTable [data-field="name"]').first().fill('Edited material');await page.locator('#skuTable [data-field="name"]').first().press('Tab');
+   await page.waitForResponse(r=>r.url().endsWith('/api/mrp/operations'));
+   assert.equal(writes.at(-1).action,'edit');assert.equal(writes.at(-1).input.changes.skus[0].name,'Edited material');assert(!('cost' in writes.at(-1).input.changes.skus[0]));
+  }
+  assert.deepEqual(errors,[],role+' mutation errors');
   await page.close();console.log('PASS shared dashboard '+role);
  }}finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1);});

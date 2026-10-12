@@ -31,6 +31,10 @@ export async function projectRoleState(env,actor,state){
  for(const key of ['receipts','inventoryLots','inventoryMovements','inventoryTransactions','cycleCounts'])result[key]=(result[key]||[]).filter(x=>[x.targetWarehouse||x.sourceWarehouse||x.warehouse,x.destinationWarehouse].filter(Boolean).every(has));
  const receiptIds=new Set(result.receipts.map(x=>x.id));
  result.qualityInspections=(result.qualityInspections||[]).filter(x=>x.receiptId?receiptIds.has(x.receiptId):manager);
+ if(!manager){
+  if(!has('WH-FG')){result.shipments=[];result.salesOrders=[];}
+  result.purchaseOrders=(result.purchaseOrders||[]).filter(po=>has(po.destinationWarehouse||(state.skus||[]).find(x=>x.code===po.sku)?.warehouse||'WH-RM'));
+ }
  for(const count of result.cycleCounts)if(count.status==='OPEN')for(const line of count.lines||[]){delete line.expectedQty;delete line.varianceQty;}
  // Read-only settlement status is useful to purchasing/sales; no financial documents.
  if(manager)for(const key of ['salesOrders','purchaseRequests'])for(const row of result[key]||[]){const original=(state[key]||[]).find(x=>x.id===row.id);if(original?.paymentStatus)row.paymentStatus=original.paymentStatus;if(original?.budgetStatus)row.budgetStatus=original.budgetStatus;}
@@ -52,14 +56,21 @@ export function applyRolePatch(actor,state,changes){
  for(const [key,value] of Object.entries(changes)){
   if(!allowed.has(key))accessError(403,`Your role cannot edit ${key}.`);
   if(key==='company'||key==='settings'){next[key]=copy(value);continue;}
+  if(!['boms','bomProfiles','bomHistory','capacityCalendar','planningTimeFences','mrpPlanningSettings'].includes(key)&&!Array.isArray(value))accessError(422,'A list of records is required.');
   if(Array.isArray(value)){
    const prior=state[key]||[],ids=new Set();
    next[key]=value.map(row=>{
     if(!row||typeof row!=='object'||Array.isArray(row))accessError(422,'Invalid record.');
-    const id=row.id||row.code;if(!id||ids.has(id))accessError(422,'Records need unique identifiers.');ids.add(id);
+    const id=row.id||row.code;if(typeof id!=='string'||!id||id.length>256||ids.has(id))accessError(422,'Records need unique identifiers.');ids.add(id);
     const old=prior.find(x=>(x.id||x.code)===id);
+    if(key==='purchaseRequests'&&row.status==='APPROVED'&&old?.status!=='APPROVED'){
+     if(!old||old.createdBy===actor.user.id)accessError(403,'An independent purchase-request approver is required.');
+    }
+    if(!ceo&&!equal(prepareRoleEdit(actor.user.role,row),row))accessError(403,'Financial fields are restricted to the CEO.');
+    if(key==='purchaseOrders'&&old&&old.status!=='DRAFT')for(const field of ['sku','qty','unitPrice','supplierCode','prNo','poNo'])if(!equal(row[field],old[field]))accessError(403,'Approved purchase lines cannot be rewritten.');
+    if(key==='salesOrders'&&old&&Number(old.reservedQty)>0)for(const field of ['sku','qty','unitPrice','customer','orderNo'])if(!equal(row[field],old[field]))accessError(403,'Reserved sales lines cannot be rewritten.');
     if(old&&['POSTED','SHIPPED','MATCHED','CLOSED','REVERSED'].includes(old.status)&&!equal(stripMoney(old,{prices:true}),stripMoney(row,{prices:true})))accessError(403,'Final documents require a controlled correction.');
-    const merged={...old,...copy(row)};
+    const merged=ceo?{...old,...copy(row)}:{...old,...mergeHidden(old,row)};
     for(const field of controlled[key]||[]){
      const defaultValue=field==='status'?(key==='financeApprovals'?'PENDING':'DRAFT'):field==='paymentStatus'||field==='budgetStatus'||field==='qcStatus'||field==='oqcStatus'?'PENDING':field==='shippingRelease'?'BLOCKED':field==='costMethod'?'STANDARD':field==='received'||field==='creditApproved'?false:field.endsWith('At')||field==='journalEntryId'?'':0;
      const expected=old?.[field]??defaultValue;
