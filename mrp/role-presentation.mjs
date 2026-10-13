@@ -73,6 +73,22 @@ export function renderReceiptSummaryControls() {
   void refreshReceiptSummary();
 }
 
+// A denied metric keeps its title, but never a value or a visible placeholder.
+// Accessible state is explicit; authorization still belongs to the existing policy/server.
+export function muteRoleMetric(card, label) {
+  if (!card) return;
+  if (!card.classList.contains('role-kpi-disabled')) card.classList.add('role-kpi-disabled');
+  if (card.getAttribute('aria-disabled') !== 'true') card.setAttribute('aria-disabled', 'true');
+  if (card.getAttribute('role') !== 'group') card.setAttribute('role', 'group');
+  const accessibleLabel = `${label}: not available for this role`;
+  if (card.getAttribute('aria-label') !== accessibleLabel) card.setAttribute('aria-label', accessibleLabel);
+  const value = card.querySelector('b');
+  if (value) {
+    setText(value, '');
+    if (!value.hidden) value.hidden = true;
+  }
+}
+
 export function syncRolePresentation(role) {
   // Native disabled stays authoritative. Reflect it on the visible file label.
   for (const label of document.querySelectorAll('label.button')) {
@@ -93,13 +109,7 @@ export function syncRolePresentation(role) {
   if (role !== 'CEO') {
     // The server omits costs for these roles. Never present the fallback 0 as a valuation.
     const card = document.querySelector('#warehouseKpis .kpi:nth-child(4)');
-    const value = card?.querySelector('b');
-    if (value) {
-      setText(value, 'Restricted');
-      if (card.title !== 'Inventory valuation is restricted to CEO / Finance.') {
-        card.title = 'Inventory valuation is restricted to CEO / Finance.';
-      }
-    }
+    muteRoleMetric(card, 'Inventory value');
   }
 }
 
