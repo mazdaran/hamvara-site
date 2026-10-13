@@ -1,13 +1,13 @@
-import {installRolePresentation,syncRolePresentation,renderReceiptSummaryControls} from './role-presentation.mjs';
+import {installRolePresentation,syncRolePresentation,renderReceiptSummaryControls,muteRoleMetric} from './role-presentation.mjs';
 import {pageAccess,isManager,isWarehouseUser,roleLabel,privateMoneyField} from './access-policy.mjs';
 const $=id=>document.getElementById(id);
 const el=(tag,text,parent)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;if(parent)parent.append(n);return n;};
 export function renderAccessDashboard(state,role){
  const permitted=state.warehouses.filter(x=>x.code!=='WH-QA');
- const cards=[['Accessible warehouses',permitted.length],['Items & SKU',state.skus.length],['Pending receipts','Loading…'],['Open stock documents',(state.inventoryTransactions||[]).filter(x=>!['POSTED','REVERSED'].includes(x.status)).length],['Open counts',(state.cycleCounts||[]).filter(x=>x.status!=='APPROVED').length],['Quality pending',isManager(role)?(state.qualityInspections||[]).filter(x=>x.result==='PENDING').length:'Restricted']];
+ const cards=[['Accessible warehouses',permitted.length],['Items & SKU',state.skus.length],['Pending receipts','Loading…'],['Open stock documents',(state.inventoryTransactions||[]).filter(x=>!['POSTED','REVERSED'].includes(x.status)).length],['Open counts',(state.cycleCounts||[]).filter(x=>x.status!=='APPROVED').length],['Quality pending',isManager(role)?(state.qualityInspections||[]).filter(x=>x.result==='PENDING').length:null]];
  for(const id of ['kpis','productionManagementKpis','productionManagementAlerts','alerts'])$(id)?.replaceChildren();
- for(const [label,value] of cards){const card=el('div',label,$('kpis'));card.className='kpi';const metric=el('b',String(value),card);if(label==='Pending receipts')metric.id='rolePendingReceiptCount';}
- const finance=el('div','Financial documents',$('productionManagementKpis'));finance.className='kpi';el('b',role==='CEO'?String((state.journalEntries||[]).length):'Restricted',finance);
+ for(const [label,value] of cards){const card=el('div',label,$('kpis'));card.className='kpi';const metric=el('b',String(value??''),card);if(value===null)muteRoleMetric(card,label);if(label==='Pending receipts')metric.id='rolePendingReceiptCount';}
+ const finance=el('div','Financial documents',$('productionManagementKpis'));finance.className='kpi';el('b',role==='CEO'?String((state.journalEntries||[]).length):'',finance);if(role!=='CEO')muteRoleMetric(finance,'Financial documents');
  el('p',`${roleLabel(role)} · ${permitted.map(x=>x.name||x.code).join(' · ')}`,$('productionManagementAlerts'));
  el('p','Select a section from the left menu. Changes and approvals follow your assigned role.',$('alerts'));
  renderReceiptSummaryControls();

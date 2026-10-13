@@ -32,6 +32,27 @@ const {chromium}=require('playwright');
   assert.equal(await page.locator('#nav [data-page="quality"]').isDisabled(),role==='OPERATOR');
   assert.equal(await page.locator('#nav [data-page="procurement"]').isDisabled(),role==='OPERATOR');
   assert.equal(await page.locator('#nav [data-page="settings"]').isDisabled(),role!=='CEO');
+  async function assertMetric(selector, denied, expected) {
+   const card=page.locator(selector),metric=card.locator('b');
+   assert.equal(await card.getAttribute('aria-disabled'),denied?'true':null,role+' metric access presentation');
+   assert.equal(await card.evaluate(x=>x.classList.contains('role-kpi-disabled')),denied);
+   assert.equal(await metric.evaluate(x=>x.hidden),denied);
+   if(denied){
+    assert.equal(await metric.textContent(),'','Denied card has no value, not even zero');
+    assert.equal(await metric.isVisible(),false,'Denied value is hidden');
+    assert.match(await card.getAttribute('aria-label'),/not available for this role/);
+    assert(!/Restricted/i.test(await card.innerText()),'No visible restriction placeholder');
+   }else{
+    assert.equal(await metric.isVisible(),true);
+    if(expected!==undefined)assert.equal(await metric.textContent(),expected);
+   }
+  }
+  async function assertDashboardMetrics() {
+   await assertMetric('#kpis .kpi:last-child',role==='OPERATOR','0');
+   await assertMetric('#productionManagementKpis .kpi',role!=='CEO','0');
+   assert.equal(await page.locator('#rolePendingReceiptCount').isVisible(),true);
+   assert.equal(await page.locator('#rolePendingReceiptCount').evaluate(x=>x.closest('.kpi').hasAttribute('aria-disabled')),false);
+  }
   // CSS viewports equivalent to 100%, 110%, 125% zoom on 1920px and 1366px desktops.
   for(const desktop of [1920,1366])for(const zoom of [1,1.1,1.25]){
    await page.setViewportSize({width:Math.round(desktop/zoom),height:Math.round(900/zoom)});
@@ -47,6 +68,7 @@ const {chromium}=require('playwright');
    assert.equal(layout.overflow,false,role+' header overflow '+desktop+'/'+zoom);
    assert.equal(layout.overlapping,false,role+' header tools overlap');assert.equal(layout.inside,true);assert.equal(layout.singleLine,true);
    assert(Math.abs(layout.offset-layout.height)<=1,'sidebar offset follows header height');
+   await assertDashboardMetrics();
   }
   await page.setViewportSize({width:1366,height:900});
   assert.equal(await page.locator('.topbar #cloudAccount').count(),1);
@@ -57,12 +79,25 @@ const {chromium}=require('playwright');
   await page.waitForTimeout(100);const callsBeforeIdle=summaryCalls;await page.waitForTimeout(1200);assert.equal(summaryCalls,callsBeforeIdle);
   summaryFails=true;await page.locator('#roleReceiptSummaryRefresh').click();
   await page.waitForFunction(()=>document.getElementById('rolePendingReceiptCount').textContent==='Unavailable');
+  await assertDashboardMetrics();
+  assert.match(await page.locator('#roleReceiptSummaryStatus').textContent(),/could not be refreshed/);
+  for(const width of [1920,1745,1536,1366,1242,1093]){
+   await page.setViewportSize({width,height:800});
+   assert.equal(await page.locator('#rolePendingReceiptCount').evaluate(x=>x.scrollWidth<=x.clientWidth+1),true,'Failure message stays within card');
+  }
+  await page.setViewportSize({width:1366,height:900});
   summaryFails=false;summaryCount=0;await page.locator('#roleReceiptSummaryRefresh').click();
   await page.waitForFunction(()=>document.getElementById('rolePendingReceiptCount').textContent==='0');
   await page.locator('#nav [data-page="stock"]').click();
   assert.equal(await page.locator('#stock').evaluate(x=>x.classList.contains('active')),true);
-  if(role!=='CEO')assert.equal(await page.locator('#warehouseKpis .kpi:nth-child(4) b').textContent(),'Restricted');
-  else assert.notEqual(await page.locator('#warehouseKpis .kpi:nth-child(4) b').textContent(),'Restricted');
+  await assertMetric('#warehouseKpis .kpi:nth-child(4)',role!=='CEO');
+  // A stock rerender must not restore the redacted-cost fallback or its placeholder.
+  await page.locator('#warehouseBranches button').first().click();
+  await assertMetric('#warehouseKpis .kpi:nth-child(4)',role!=='CEO');
+  await page.locator('#nav [data-page="dashboard"]').click();
+  await page.waitForFunction(()=>document.getElementById('rolePendingReceiptCount').textContent==='0');
+  await assertDashboardMetrics();
+  await page.locator('#nav [data-page="stock"]').click();
   assert.equal(await page.locator('#createInventoryTransaction').isDisabled(),false);
   assert.equal(await page.locator('#inventoryTransactionRequester').inputValue(),'test');
   assert.equal(await page.locator('#inventoryTransactionRequester').isDisabled(),true);
