@@ -87,7 +87,23 @@
 
   function saveHistory(report){const items=readHistory();items.unshift({url:report.url,strategy:report.strategy,fetchedAt:report.fetchedAt,scores:report.scores});localStorage.setItem(HISTORY_KEY,JSON.stringify(items.slice(0,5)));}
   function readHistory(){try{return JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]')}catch(e){return[]}}
-  function renderHistory(){const items=readHistory();$('#historyList').innerHTML=items.length?items.map(x=>`<article class="history-item"><b>${escapeHtml(new URL(x.url).hostname)} <small>· ${x.strategy}</small></b><span>P ${x.scores.performance}</span><span>A ${x.scores.accessibility}</span><span>BP ${x.scores['best-practices']}</span><span>SEO ${x.scores.seo}</span></article>`).join(''):'<div class="empty">هنوز تحلیلی ثبت نشده است.</div>';}
+  function renderHistory(){
+    const items=readHistory(),list=$('#historyList');
+    list.replaceChildren();
+    if(!items.length){const empty=document.createElement('div');empty.className='empty';empty.textContent='هنوز تحلیلی ثبت نشده است.';list.append(empty);return;}
+    for(const item of items){
+      const article=document.createElement('article');article.className='history-item';
+      const title=document.createElement('b');let hostname='Unknown site';
+      try{hostname=new URL(item.url).hostname;}catch{}
+      title.append(document.createTextNode(hostname+' '));
+      const strategy=document.createElement('small');strategy.textContent='· '+String(item.strategy??'');
+      title.append(strategy);article.append(title);
+      for(const [label,value] of [['P',item.scores?.performance],['A',item.scores?.accessibility],['BP',item.scores?.['best-practices']],['SEO',item.scores?.seo]]){
+        const metric=document.createElement('span');metric.textContent=label+' '+String(value??'—');article.append(metric);
+      }
+      list.append(article);
+    }
+  }
 
   async function loadIntegrations(){
     let statuses={};
