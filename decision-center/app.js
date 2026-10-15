@@ -50,19 +50,30 @@ function openProposalSummary(){
  overlay.innerHTML=`<section class="proposal-dialog" role="dialog" aria-modal="true" aria-labelledby="proposal-title">
   <button class="proposal-close" type="button" aria-label="Close proposal summary">×</button>
   <p class="proposal-kicker">HAMVARA PROPOSAL</p>
-  <h2 id="proposal-title">${planName.textContent} plan summary</h2>
+  <h2 id="proposal-title"></h2>
   <div class="proposal-grid">
-   <span>Number of SKUs<strong>${Number(sku.value).toLocaleString("en-US")}</strong></span>
-   <span>Warehouses<strong>${warehouse.value}</strong></span>
-   <span>Estimated price<strong>${priceValue.textContent.trim()}</strong></span>
+   <span>Number of SKUs<strong data-proposal-field="sku"></strong></span>
+   <span>Warehouses<strong data-proposal-field="warehouses"></strong></span>
+   <span>Estimated price<strong data-proposal-field="price"></strong></span>
   </div>
-  <div class="proposal-needs"><b>Selected needs</b><ul>${(selected.length?selected:["Core inventory management"]).map(item=>`<li>${item}</li>`).join("")}</ul></div>
+  <div class="proposal-needs"><b>Selected needs</b><ul></ul></div>
   <p class="proposal-note">The final price is confirmed after reviewing the installation scope.</p>
   <div class="proposal-actions">
-   <a class="primary" href="mailto:info@hamvara.com?subject=${encodeURIComponent(proposalSubject)}&body=${encodeURIComponent(proposalBody)}">Request by email <span>→</span></a>
-   <a class="proposal-secondary" href="https://wa.me/18322398510?text=${encodeURIComponent(proposalBody)}" target="_blank" rel="noopener">Continue on WhatsApp</a>
+   <a class="primary">Request by email <span>→</span></a>
+   <a class="proposal-secondary" target="_blank" rel="noopener">Continue on WhatsApp</a>
   </div>
  </section>`;
+ // Populate the template through text nodes rather than interpreting visible text as HTML.
+ overlay.querySelector('#proposal-title').textContent=planName.textContent+' plan summary';
+ overlay.querySelector('[data-proposal-field="sku"]').textContent=Number(sku.value).toLocaleString('en-US');
+ overlay.querySelector('[data-proposal-field="warehouses"]').textContent=warehouse.value;
+ overlay.querySelector('[data-proposal-field="price"]').textContent=priceValue.textContent.trim();
+ const needs=overlay.querySelector('.proposal-needs ul');
+ for(const item of selected.length?selected:['Core inventory management']){
+  const li=document.createElement('li');li.textContent=item;needs.append(li);
+ }
+ overlay.querySelector('.proposal-actions .primary').href='mailto:info@hamvara.com?subject='+encodeURIComponent(proposalSubject)+'&body='+encodeURIComponent(proposalBody);
+ overlay.querySelector('.proposal-actions .proposal-secondary').href='https://wa.me/18322398510?text='+encodeURIComponent(proposalBody);
  const close=()=>{overlay.remove();document.body.classList.remove("proposal-open");quoteBtn.focus()};
  overlay.addEventListener("click",event=>{if(event.target===overlay)close()});
  overlay.querySelector(".proposal-close").addEventListener("click",close);

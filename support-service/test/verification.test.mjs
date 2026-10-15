@@ -35,3 +35,34 @@ test('start errors distinguish quota, verification and connection without leakin
   assert.ok(!startError({status:500,message:'private-detail'},lang).includes('private-detail'));
  }
 });
+
+
+test('chat guide links only use whitelisted language URLs',async()=>{
+ const elements=new Map();
+ const node=id=>{if(!elements.has(id))elements.set(id,{dataset:{},classList:{add(){}},value:'',disabled:false});return elements.get(id);};
+ class Verification {constructor(){this.token='';}paint(){}mount(){}}
+ const context=vm.createContext({
+  URLSearchParams,
+  location:{search:'?lang=en'},
+  sessionStorage:{getItem(){return null;}},
+  window:{addEventListener(){},HAMVARA_SUPPORT_CONFIG:{apiBase:'https://api.test',turnstileSiteKey:'public'},HAMVARA_SUPPORT_COPY:{en:{},fa:{},tr:{}}},
+  document:{documentElement:{},getElementById:node,querySelectorAll(){return [];},addEventListener(){},body:{classList:{add(){}}}},
+  Verification,startError,startingText,renderMessages(){},
+  request:async()=>({ready:false,verificationRequired:false,ai:false}),
+  setTimeout,clearTimeout,crypto
+ });
+ const src=readFileSync(new URL('../../support/chat.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'');
+ vm.runInContext(src,context);
+ const cases=[
+  ['en','en','/guides/'],['fa','fa','/guides/fa/'],['tr','tr','/guides/tr/'],
+  ['../admin','en','/guides/'],['javascript:alert(1)','en','/guides/'],
+  ['<img src=x onerror=alert(1)>','en','/guides/'],['/guides/fa/','en','/guides/']
+ ];
+ for(const [input,expectedLang,expectedUrl] of cases){
+  node('language').value=input;
+  node('language').onchange();
+  assert.equal(node('language').value,expectedLang);
+  assert.equal(node('guide-link').href,expectedUrl);
+  assert.equal(context.document.documentElement.lang,expectedLang);
+ }
+});

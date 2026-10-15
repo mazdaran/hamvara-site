@@ -16,7 +16,62 @@ function money(value){return $('currency').value+' '+format(value,2)}
 function usedItems(){return state.items.filter(item=>item.sku||item.description||num(item.qty)||num(item.packages)||num(item.net)||num(item.gross))}
 function invalidate(){state.reviewed=false;state.revisions++;$('factsConfirmed').checked=false;render();save()}
 function renderRows(){
-  $('itemRows').innerHTML=state.items.map((item,index)=>`<tr data-index="${index}"><td class="row-number">${String(index+1).padStart(2,'0')}</td><td><input class="medium" data-key="sku" value="${esc(item.sku)}" placeholder="Required"></td><td><input class="wide" data-key="description" value="${esc(item.description)}" placeholder="Commercial description"></td><td><input data-key="hs" value="${esc(item.hs)}" placeholder="Optional"></td><td><input class="medium" data-key="coo" value="${esc(item.coo)}" placeholder="Country"></td><td><input data-key="qty" type="number" min="0" step="any" value="${item.qty||''}"></td><td><select data-key="uom">${units.map(x=>`<option ${x===item.uom?'selected':''}>${x}</option>`).join('')}</select></td><td><input data-key="unitPrice" type="number" min="0" step="any" value="${item.unitPrice||''}"></td><td><input data-key="packages" type="number" min="0" step="1" value="${item.packages||''}"></td><td><select class="medium" data-key="packageType">${packageTypes.map(x=>`<option ${x===item.packageType?'selected':''}>${x}</option>`).join('')}</select></td><td><input data-key="net" type="number" min="0" step="any" value="${item.net||''}"></td><td><input data-key="gross" type="number" min="0" step="any" value="${item.gross||''}"></td><td><input class="medium" data-key="dimensions" value="${esc(item.dimensions)}" placeholder="L × W × H"></td><td><button class="remove" type="button" aria-label="Remove row ${index+1}">×</button></td></tr>`).join('');
+  // Build editable rows as DOM nodes; never parse saved shipment fields as HTML.
+  const body=$('itemRows');
+  body.replaceChildren();
+  const specs=[
+    {key:'sku',className:'medium',placeholder:'Required'},
+    {key:'description',className:'wide',placeholder:'Commercial description'},
+    {key:'hs',placeholder:'Optional'},
+    {key:'coo',className:'medium',placeholder:'Country'},
+    {key:'qty',type:'number',step:'any'},
+    {key:'uom',options:units},
+    {key:'unitPrice',type:'number',step:'any'},
+    {key:'packages',type:'number',step:'1'},
+    {key:'packageType',className:'medium',options:packageTypes},
+    {key:'net',type:'number',step:'any'},
+    {key:'gross',type:'number',step:'any'},
+    {key:'dimensions',className:'medium',placeholder:'L × W × H'}
+  ];
+  state.items.forEach((item,index)=>{
+    const tr=document.createElement('tr');
+    tr.dataset.index=String(index);
+    const numberCell=document.createElement('td');
+    numberCell.className='row-number';
+    numberCell.textContent=String(index+1).padStart(2,'0');
+    tr.append(numberCell);
+    for(const spec of specs){
+      const td=document.createElement('td');
+      const control=document.createElement(spec.options?'select':'input');
+      if(spec.className)control.className=spec.className;
+      control.dataset.key=spec.key;
+      if(spec.options){
+        for(const label of spec.options){
+          const option=document.createElement('option');
+          option.value=label;
+          option.textContent=label;
+          if(item[spec.key]===label)option.selected=true;
+          control.append(option);
+        }
+      }else{
+        control.type=spec.type||'text';
+        if(spec.type==='number'){control.min='0';control.step=spec.step||'any';}
+        if(spec.placeholder)control.placeholder=spec.placeholder;
+        control.value=String(item[spec.key]||'');
+      }
+      td.append(control);
+      tr.append(td);
+    }
+    const actionCell=document.createElement('td');
+    const remove=document.createElement('button');
+    remove.className='remove';
+    remove.type='button';
+    remove.setAttribute('aria-label','Remove row '+(index+1));
+    remove.textContent='×';
+    actionCell.append(remove);
+    tr.append(actionCell);
+    body.append(tr);
+  });
   document.querySelectorAll('#itemRows input,#itemRows select').forEach(control=>control.addEventListener('change',event=>{const row=event.target.closest('tr'),index=Number(row.dataset.index),key=event.target.dataset.key;state.items[index][key]=['qty','unitPrice','packages','net','gross'].includes(key)?num(event.target.value):event.target.value.trim();invalidate()}));
   document.querySelectorAll('#itemRows .remove').forEach(button=>button.addEventListener('click',event=>{const index=Number(event.target.closest('tr').dataset.index);state.items.splice(index,1);if(!state.items.length)state.items.push(blankItem());renderRows();invalidate()}));
 }
@@ -68,7 +123,9 @@ function render(){
   $('docSeller').textContent=$('seller').value||'—';$('docBuyer').textContent=$('buyer').value||'—';$('docConsignee').textContent=$('consignee').value||'—';
   $('docFacts').innerHTML=fact('SHIPMENT REFERENCE',$('reference').value)+fact('INVOICE / ORDER',$('invoiceRef').value)+fact('DATE',$('shipmentDate').value)+fact('INCOTERM® RULE',$('incoterm').value)+fact('ORIGIN',$('origin').value)+fact('DESTINATION',$('destination').value)+fact('PLACE OF LOADING',$('loadingPlace').value)+fact('PLACE OF DELIVERY',$('deliveryPlace').value)+fact('TRANSPORT MODE',$('transportMode').value)+fact('CURRENCY',$('currency').value)+fact('TOTAL PACKAGES',format(sum.packages,0))+fact('GROSS WEIGHT',format(sum.gross)+' kg');
   $('docRows').innerHTML=items.length?items.map((item,index)=>`<tr><td>${index+1}</td><td>${esc(item.sku||'—')}</td><td>${esc(item.description||'—')}</td><td>${esc(item.hs||'—')}</td><td>${esc(item.coo||'—')}</td><td>${format(num(item.qty))} ${esc(item.uom)}</td><td>${format(num(item.packages),0)} ${esc(item.packageType)}</td><td>${format(num(item.net))}</td><td>${format(num(item.gross))}</td><td>${esc(item.dimensions||'—')}</td></tr>`).join(''):'<tr><td colspan="10">No shipment items entered.</td></tr>';
-  $('docTotals').innerHTML=`<tr><td colspan="5">TOTAL</td><td>${format(sum.qty)}</td><td>${format(sum.packages,0)}</td><td>${format(sum.net)}</td><td>${format(sum.gross)}</td><td>Value: ${money(sum.value)}</td></tr>`;
+  const totalRow=document.createElement('tr');
+  [['TOTAL',5],[format(sum.qty)],[format(sum.packages,0)],[format(sum.net)],[format(sum.gross)],['Value: '+money(sum.value)]].forEach(([value,colSpan])=>{const cell=document.createElement('td');if(colSpan)cell.colSpan=colSpan;cell.textContent=String(value);totalRow.append(cell);});
+  $('docTotals').replaceChildren(totalRow);
   $('docNotes').textContent=[$('marks').value,$('notes').value].filter(Boolean).join('\n')||'—';
   if(!state.generatedAt&&$('generatedBy').value.trim())state.generatedAt=new Date().toISOString();
   const reportId=state.generatedAt?`SD-${state.generatedAt.slice(0,10).replaceAll('-','')}-${state.generatedAt.slice(11,19).replaceAll(':','')}`:'Pending';

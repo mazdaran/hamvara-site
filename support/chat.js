@@ -3,14 +3,16 @@ import {LiveConnection} from './live.js?v=events-1';
 import {Verification} from './verification.js';
 import {startError,startingText} from './start-errors.js?v=session-quota-2';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search),api=window.HAMVARA_SUPPORT_CONFIG.apiBase;
-let lang=['en','fa','tr'].includes(params.get('lang'))?params.get('lang'):'en',session=null,busy=false,retry=null,view=null;
+// Only the three published language codes are allowed to influence UI navigation.
+const safeLanguage=value=>value==='fa'?'fa':value==='tr'?'tr':'en';
+let lang=safeLanguage(params.get('lang')),session=null,busy=false,retry=null,view=null;
 let live=null,generation=0,flight=null,dirty=false,suspended=false,retryAt=0,connectionState='stopped',mutationEpoch=0,snapshotError=false;
-try{session=JSON.parse(sessionStorage.getItem('hamvara-support-session')||'null');if(session&&(!session.id||!session.token))session=null;if(session&&['en','fa','tr'].includes(session.lang))lang=session.lang;}catch{}
+try{session=JSON.parse(sessionStorage.getItem('hamvara-support-session')||'null');if(session&&(!session.id||!session.token))session=null;if(session)lang=safeLanguage(session.lang);}catch{}
 if(params.get('embed')==='1')document.body.classList.add('embed');
 let serviceReady=false,starting=false;
 const verification=new Verification(window.HAMVARA_SUPPORT_CONFIG.turnstileSiteKey,()=>lang,()=>{$('begin').disabled=!serviceReady||starting||!verification.token;});
 const copy=()=>window.HAMVARA_SUPPORT_COPY[lang];
-function translate(){document.documentElement.lang=lang;document.documentElement.dir=lang==='fa'?'rtl':'ltr';$('language').value=lang;document.querySelectorAll('[data-copy]').forEach(n=>n.textContent=copy()[n.dataset.copy]);$('guide-link').href='/guides/'+(lang==='en'?'':lang+'/');$('text').placeholder=copy().placeholder;verification.paint();paintConnection();}
+function translate(){document.documentElement.lang=lang;document.documentElement.dir=lang==='fa'?'rtl':'ltr';$('language').value=lang;document.querySelectorAll('[data-copy]').forEach(n=>n.textContent=copy()[n.dataset.copy]);$('guide-link').href=lang==='fa'?'/guides/fa/':lang==='tr'?'/guides/tr/':'/guides/';$('text').placeholder=copy().placeholder;verification.paint();paintConnection();}
 function paintConnection(){const labels={connected:'liveConnected',connecting:'liveConnecting',reconnecting:'liveReconnecting',paused:'livePaused',offline:'liveOffline',stopped:'liveStopped'};$('connection').textContent=session?(copy()[labels[connectionState]]||''):'';$('reconnect').hidden=!session||connectionState==='connected'||connectionState==='stopped';}
 function error(message){$('error').hidden=!message;$('error').textContent=message||'';}
 function save(){try{if(session)sessionStorage.setItem('hamvara-support-session',JSON.stringify(session));else sessionStorage.removeItem('hamvara-support-session');}catch{}}
@@ -37,7 +39,7 @@ function connect(){
   }
  });live.setActive(!suspended);
 }
-$('language').onchange=()=>{lang=$('language').value;translate();status();};
+$('language').onchange=()=>{lang=safeLanguage($('language').value);translate();status();};
 $('begin').onclick=async()=>{
  error('');if(starting||!serviceReady||!verification.token)return;
  if(!$('consent').checked){error(copy().consentRequired);return;}

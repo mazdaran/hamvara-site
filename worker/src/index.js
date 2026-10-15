@@ -1,5 +1,6 @@
 import { handleMrpRequest, runScheduledMrpBackups } from './mrp.js';
 import { handleTariffRequest } from './tariff.js';
+import { hasProductionOrigin, isHamvaraSearchConsoleProperty } from './security.js';
 
 const PROVIDERS = {
   google: {
@@ -64,7 +65,7 @@ export default {
 };
 
 function isProductionConfig(env) {
-  return allowedOrigins(env).includes('https://www.hamvara.com');
+  return hasProductionOrigin(allowedOrigins(env));
 }
 
 async function enforceAiRateLimit(env, route) {
@@ -645,7 +646,7 @@ async function googleOverview(url,env){
   const sites=(sitesResult.siteEntry||[]).map(x=>({siteUrl:x.siteUrl,permissionLevel:x.permissionLevel}));
   const properties=(accountsResult.accountSummaries||[]).flatMap(account=>(account.propertySummaries||[]).map(property=>({name:property.property,displayName:property.displayName,account:account.displayName})));
   const requestedSite=url.searchParams.get('site'),requestedProperty=url.searchParams.get('property');
-  const selectedSite=sites.find(x=>x.siteUrl===requestedSite)||sites.find(x=>x.siteUrl.toLowerCase().includes('hamvara.com'))||sites[0]||null;
+  const selectedSite=sites.find(x=>x.siteUrl===requestedSite)||sites.find(x=>isHamvaraSearchConsoleProperty(x.siteUrl))||sites[0]||null;
   const selectedProperty=properties.find(x=>x.name===requestedProperty)||properties.find(x=>String(x.displayName||'').toLowerCase().includes('hamvara'))||properties[0]||null;
   const endDate=isoDate(-1),startDate=isoDate(-28);
   let searchConsole={sites,selectedSite,totals:null,error:siteListError};
