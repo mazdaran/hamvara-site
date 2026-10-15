@@ -1,0 +1,30 @@
+name: Isolated pilot public smoke (GET-only)
+
+on:
+  pull_request:
+    branches:
+      - codex/pilot-staging-integration
+    paths:
+      - 'worker/scripts/pilot-public-health-smoke.mjs'
+      - '.github/workflows/pilot-public-health-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-public-staging:
+    name: Verify isolated staging health and published MRP assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed-origin read-only GET acceptance
+        run: node worker/scripts/pilot-public-health-smoke.mjs
+
+# This workflow sends exactly five unauthenticated GET requests to the
+# separately configured staging worker. It cannot create/change production
+# deployments, D1 databases, user/tenant records, stock or subscriptions.
