@@ -1,0 +1,44 @@
+name: Pilot release fingerprint (no deployment)
+
+on:
+  push:
+    branches:
+      - codex/pilot-release-proof-20261015
+  pull_request:
+    branches:
+      - codex/pilot-staging-integration
+    paths:
+      - 'mrp/**'
+      - 'worker/src/**'
+      - 'worker/migrations/**'
+      - 'worker/package*.json'
+      - 'worker/scripts/pilot-release-manifest.mjs'
+      - 'docs/pilot-release-0.47.0-checklist.md'
+      - '.github/workflows/pilot-release-fingerprint.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-fingerprint:
+    name: Audit 0.47.0 source fingerprint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Create deterministic source manifest (no credentials)
+        run: node worker/scripts/pilot-release-manifest.mjs --write artifacts/pilot-release/manifest.json
+      - name: Reverify every tracked source file
+        run: node worker/scripts/pilot-release-manifest.mjs --verify artifacts/pilot-release/manifest.json
+      - name: Publish proof artifact only
+        uses: actions/upload-artifact@v4
+        with:
+          name: hamvara-mrp-0.47.0-source-manifest
+          path: artifacts/pilot-release/manifest.json
+          retention-days: 30
+
+# This workflow never deploys, migrates, modifies D1, contacts Cloudflare,
+# rotates credentials, or activates trial or payment entitlements.
