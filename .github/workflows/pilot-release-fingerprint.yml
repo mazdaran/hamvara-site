@@ -1,9 +1,6 @@
 name: Pilot release fingerprint (no deployment)
 
 on:
-  push:
-    branches:
-      - codex/pilot-release-proof-20261015
   pull_request:
     branches:
       - codex/pilot-staging-integration
