@@ -4,6 +4,10 @@ import {mkdtemp,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {inspectPilots,exportReadiness,PILOT_ORIGIN} from '../scripts/export-pilot-readiness.mjs';
+
+test('read-only pilot audits use only the reviewed custom domain',()=>{
+ assert.equal(PILOT_ORIGIN,'https://pilot.hamvara.com');
+});
 const credentials=()=>({databaseId:'873e4f9d-df81-4a3a-bfda-86491e729ae8',adminToken:'NEVER_EXPORT_ADMIN',companies:['pilot-tr','pilot-us'].map((workspace,i)=>({workspace,users:['owner','operator','manager'].map((username,j)=>({username,role:['CEO','OPERATOR','PRODUCTION_MANAGER'][j],accessKey:String(i*3+j+1).repeat(43)}))}))});
 function fake(c,{badHealth=false,badIdentity=false,allowForeign=false}={}){
  const calls=[];

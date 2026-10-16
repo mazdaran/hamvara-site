@@ -2,7 +2,9 @@ import {readFile,mkdir,writeFile,mkdtemp} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 
-export const PILOT_ORIGIN='https://hamvara-pilot-staging.yahya-mazdarani.workers.dev';
+// This exact allowlisted origin hosts the same existing internal pilot Worker and D1.
+// Never accept a URL from CLI input or environment when sending private access keys.
+export const PILOT_ORIGIN='https://pilot.hamvara.com';
 const EXPECTED_DATABASE='873e4f9d-df81-4a3a-bfda-86491e729ae8';
 const roles={owner:'CEO',operator:'OPERATOR',manager:'PRODUCTION_MANAGER'};
 const label=value=>String(value??'').replace(/[\r\n\t]/g,' ');
