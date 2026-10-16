@@ -1,0 +1,44 @@
+name: Paddle sandbox release gates (no deployment)
+
+on:
+  pull_request:
+    branches: [codex/billing-cloud-sandbox]
+    paths:
+      - 'billing-cloud/**'
+      - 'paddle-sandbox/fulfillment/**'
+      - '.github/workflows/paddle-sandbox-release-gates.yml'
+  push:
+    branches: [codex/billing-cloud-sandbox]
+    paths:
+      - 'billing-cloud/**'
+      - 'paddle-sandbox/fulfillment/**'
+      - '.github/workflows/paddle-sandbox-release-gates.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  billing-sandbox-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate syntax of isolated billing Cloud Worker
+        run: |
+          node --check billing-cloud/worker.mjs
+          node --check billing-cloud/commerce.mjs
+          node --check billing-cloud/projection.mjs
+          node --check billing-cloud/service.mjs
+      - name: Verify cloud signature, ownership and lifecycle tests
+        run: node --test billing-cloud/*.test.mjs
+      - name: Verify local sandbox fulfillment and replay tests
+        run: node --test paddle-sandbox/fulfillment/*.test.mjs
+      - name: Explain release boundary
+        run: echo 'CI PASS confirms sandbox unit/integration tests only; no Paddle LIVE account, checkout, webhook, deployment, production tenant or real payment was touched.'
+
+# This workflow uses no Paddle or Cloudflare secrets, deploy credentials, real
+# customer data, browser payment instructions, or key provisioning.
