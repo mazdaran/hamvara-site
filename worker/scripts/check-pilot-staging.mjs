@@ -1,6 +1,12 @@
 import {readFile} from 'node:fs/promises';
 const [base,flag]=process.argv.slice(2),url=new URL(base);
-if(url.protocol!=='https:'||!/^hamvara-pilot-staging\.[a-z0-9-]+\.workers\.dev$/.test(url.hostname)||url.username||url.password||url.pathname!=='/'||url.search||url.hash)throw Error('Use the exact hamvara-pilot-staging workers.dev origin.');
+// Never send administrator or user credentials to a lookalike workers.dev
+// hostname, untrusted domain, redirected URL or non-root path.
+const TRUSTED_ORIGINS=new Set([
+ 'https://pilot.hamvara.com',
+ 'https://hamvara-pilot-staging.yahya-mazdarani.workers.dev'
+]);
+if(!TRUSTED_ORIGINS.has(url.origin)||url.username||url.password||url.pathname!=='/'||url.search||url.hash)throw Error('Use the exact approved pilot.hamvara.com (or original Hamvara workers.dev) origin.');
 const health=await fetch(new URL('/health',url),{redirect:'error'}).then(r=>r.json());
 if(health.environment!=='pilot-staging'||!health.databaseConfigured)throw Error('Expected isolated pilot staging, refusing credentials.');
 const credentials=JSON.parse(await readFile(new URL('../../.pilot-staging/credentials.json',import.meta.url),'utf8'));
