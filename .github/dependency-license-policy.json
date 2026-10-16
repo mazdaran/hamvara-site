@@ -2,19 +2,25 @@
   "reviewedRestrictedNpmPackages": [
     {
       "pattern": "@img/sharp-libvips-*",
-      "versions": ["1.3.3"],
+      "versions": [
+        "1.3.3"
+      ],
       "devOnly": true,
       "reason": "LGPL libvips platform binaries are pulled only through Wrangler/Miniflare development tooling and are not included in the deployed Worker bundle."
     },
     {
       "pattern": "@img/sharp-wasm32",
-      "versions": ["0.35.4"],
+      "versions": [
+        "0.35.4"
+      ],
       "devOnly": true,
       "reason": "The optional Sharp WASM package is part of Wrangler/Miniflare development tooling and is not included in the deployed Worker bundle."
     },
     {
       "pattern": "@img/sharp-win32-*",
-      "versions": ["0.35.4"],
+      "versions": [
+        "0.35.4"
+      ],
       "devOnly": true,
       "reason": "Sharp Windows platform binaries are part of Wrangler/Miniflare development tooling and are not included in the deployed Worker bundle."
     }
@@ -29,10 +35,10 @@
     },
     {
       "name": "SheetJS xlsx",
-      "version": "0.18.5",
+      "version": "0.20.3",
       "license": "Apache-2.0",
-      "path": "sku-bridge/index.html",
-      "source": "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
+      "path": "sku-bridge/app.mjs",
+      "source": "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"
     },
     {
       "name": "SheetJS xlsx",
