@@ -12,6 +12,8 @@ From the pilot checkout root run:
 
     node worker/scripts/export-pilot-readiness.mjs
 
+**Connectivity update (16 October 2026):** The verified internal pilot has a custom-domain entrypoint `https://pilot.hamvara.com` bound to the **same** `hamvara-pilot-staging` Worker and existing staging D1. The report script now uses that exact HTTPS origin, with no arbitrary hostname override, so read-only reporting works from the primary Türk Telekom connection. The original workers.dev address is retained as a fallback for operator diagnostics only. A successful `/health` check does not by itself prove that browser sessions or mobile QR pairing remain valid after switching origins; perform those checks separately. Do not rerun staging setup/seed, rotate keys, migrate D1, or activate clocks as part of this hostname change.
+
 This uses the existing `.pilot-staging/credentials.json`. It refuses other database IDs, uses only the fixed pilot origin and read-only GET requests, verifies staging health before sending any key, then checks all six identities and cross-company credential denial. It reads receipt warehouse access, profiles, member limits and trial/subscription status. A missing MRP subscription is reported as a blocker, not silently activated or bypassed. Identity or isolation failures abort export.
 
 A new private directory `.pilot-staging/readiness-<random>/` contains:
