@@ -1,0 +1,18 @@
+name: Pilot readiness export checks
+on:
+  pull_request:
+    paths:
+      - 'worker/scripts/export-pilot-readiness.mjs'
+      - 'worker/test/pilot-readiness-export.test.mjs'
+      - '.github/workflows/pilot-readiness.yml'
+permissions:
+  contents: read
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test worker/test/pilot-readiness-export.test.mjs

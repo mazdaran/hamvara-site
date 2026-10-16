@@ -26,3 +26,8 @@ jobs:
         run: NODE_PATH="$RUNNER_TEMP/tenant-browser/node_modules" node worker/scripts/check-workspace-ui.cjs
       - name: Check trial read-only and expiry UI
         run: NODE_PATH="$RUNNER_TEMP/tenant-browser/node_modules" node worker/scripts/check-trial-ui.cjs
+      - name: Validate integrated pilot staging bundle
+        run: |
+          npm ci --prefix worker
+          node worker/scripts/prepare-pilot-staging.mjs aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+          node worker/node_modules/wrangler/bin/wrangler.js deploy --dry-run --config .pilot-staging/wrangler.json
