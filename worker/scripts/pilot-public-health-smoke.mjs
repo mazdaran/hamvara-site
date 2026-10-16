@@ -2,7 +2,7 @@
 // Five unauthenticated read-only route checks on the fixed staging host.
 // At most one same-origin canonical-HTML redirect per route. No credentials,
 // writes, timers or background polling.
-const ORIGIN='https://hamvara-pilot-staging.yahya-mazdarani.workers.dev';
+const ORIGIN='https://pilot.hamvara.com';
 async function get(path){
  let url=new URL(path,ORIGIN);
  if(url.origin!==ORIGIN)throw Error('Refusing an unexpected origin.');
