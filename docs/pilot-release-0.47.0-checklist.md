@@ -16,6 +16,8 @@ Both commands refuse a dirty tracked tree, a mismatch from displayed MRP version
 Do not edit tracked release files after generating the manifest; verify it again before tagging. The GitHub Actions workflow `Pilot release fingerprint (no deployment)` creates and re-verifies the same artifact without Cloudflare credentials.
 
 ## Remote acceptance (separate from this artifact)
+**Hostname check (16 October):** `pilot.hamvara.com/health` returned `HTTP 200` using Edge, curl and Node.js over Türk Telekom, reporting `pilot-staging` and D1 bound. The new hostname is the preferred exact allowlisted read-only reporting origin; the legacy `workers.dev` endpoint remains available. Re-test actual browser login, QR links and device pairing under the new host, without changing the existing D1 or accounts.
+
 
 1. Inspect **Cloudflare staging only**: Worker `hamvara-pilot-staging`, D1 `hamvara-pilot-staging` (the existing internal D1 ends `...29ae8`), active deployment ID, traffic allocation and `/health`. A Cloudflare Worker deployment version UUID is not a Git commit hash; record both and confirm the deployed assets by an independent smoke test. Never substitute the billing sandbox or production D1.
 2. Preserve the current `.pilot-staging/` credentials, billing service binding, roles, keys, trial start times and all existing posted receipts. **Do not rerun `prepare-pilot-staging.mjs`, reseed the database or rotate credentials** on the running pilot just to update assets. Any newly approved staging deployment must follow the existing reviewed `configure-pilot-roles.mjs` procedure and a manual rollback plan.
